@@ -325,6 +325,18 @@ export class Audio {
         if (!(d = O(0.6, 0.4))) return;
         [7, 4, 0].forEach((n, i) => this.osc('triangle', NOTE(64 + n), null, t + i * 0.12, 0.3, d, 0.14));
         break;
+      case 'chirp': {
+        // a droid talking: a few quick beeps
+        if (!(d = O(0.28, 0.15))) return;
+        const n = 2 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < n; i++) this.osc('square', (500 + Math.random() * 700) * p, null, t + i * 0.055, 0.04, d, 0.07);
+        break;
+      }
+      case 'squeak':
+        if (!(d = O(0.4, 0.15))) return;
+        this.osc('sine', 1600, 2600, t, 0.08, d, 0.18);
+        this.osc('sine', 2200, 3200, t + 0.09, 0.07, d, 0.14);
+        break;
       case 'pickup':
         if (!(d = O(0.6, 0.4))) return;
         [0, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(76 + n), null, t + i * 0.05, 0.25, d, 0.18));

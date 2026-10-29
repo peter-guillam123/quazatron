@@ -493,9 +493,12 @@ export class World {
   onDamaged(d, amount, src) {
     if (d.isPlayer) {
       this.game.onPlayerHurt(amount, src);
-    } else if (src.by && src.by.isPlayer && this.game.hasPerk('leech') && src.kind === 'bolt') {
+      return;
+    }
+    if (src.by && src.by.isPlayer && this.game.hasPerk('leech') && src.kind === 'bolt') {
       this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + 3);
     }
+    if (amount > 0.5) this.game.onDroidHurt?.(d, src);
   }
 
   onDestroyed(d, src) {
@@ -509,6 +512,7 @@ export class World {
     }
     this.explode(d.pos.clone().setY(d.pos.y + 0.4), this.deck.ink, 1 + d.scale * 0.4);
     this.scrap.burst(d.pos, scrapFor(d.cls));
+    if (src && src.by && src.by.team === 'k' && !src.by.isPlayer && Math.random() < 0.6) this.game.say?.(src.by, 'allyKill');
     this.removeDroid(d);
     this.claimEvent('droid', d);
     this.game.stat('destroyed');

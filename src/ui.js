@@ -15,6 +15,7 @@ export class UI {
     this.screen = null;
     this.stack = [];
     this.labels = [];
+    this.bubbles = [];
     this.toastEls = [];
     this.hintT = 0;
     this.el = {
@@ -297,7 +298,43 @@ export class UI {
     }
     for (let i = n; i < this.labels.length; i++) this.labels[i].hidden = true;
   }
-  clearLabels() { for (const l of this.labels) l.hidden = true; }
+  clearLabels() {
+    for (const l of this.labels) l.hidden = true;
+    for (const b of this.bubbles) b.el.remove();
+    this.bubbles = [];
+  }
+
+  // A droid says something, in a bubble over its head.
+  say(d, text, force = false) {
+    if (!text || !d.model) return false;
+    const now = performance.now();
+    if (!force && (now - (d.saidAt || -1e9) < 7000 || this.bubbles.length >= 3)) return false;
+    d.saidAt = now;
+    const old = this.bubbles.find((b) => b.d === d);
+    if (old) { old.el.remove(); this.bubbles.splice(this.bubbles.indexOf(old), 1); }
+    const el = document.createElement('div');
+    el.className = `bubble${d.team === 'k' ? ' ally' : ''}`;
+    el.textContent = text;
+    this.el.labels.appendChild(el);
+    this.bubbles.push({ d, el, until: now + 1800 + text.length * 45, y: d.model.height + 0.62 });
+    return true;
+  }
+
+  updateBubbles(renderer) {
+    const now = performance.now();
+    const out = { x: 0, y: 0, visible: false };
+    for (let i = this.bubbles.length - 1; i >= 0; i--) {
+      const b = this.bubbles[i];
+      if (now > b.until) { b.el.remove(); this.bubbles.splice(i, 1); continue; }
+      const v = b.d.pos.clone();
+      v.y += b.y;
+      renderer.project(v, out);
+      b.el.style.left = `${out.x}px`;
+      b.el.style.top = `${out.y}px`;
+      b.el.style.visibility = out.visible ? 'visible' : 'hidden';
+      b.el.classList.toggle('fading', now > b.until - 350);
+    }
+  }
 
   drawMinimap(world) {
     const ctx = this.mm;

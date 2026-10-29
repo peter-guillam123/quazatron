@@ -24,6 +24,7 @@ import { Pickup } from './world/devices.js';
 import { Brain } from './world/ai.js';
 import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
+import { line } from './lines.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
 const GANG_MAX = 3;
@@ -152,6 +153,8 @@ export class Game {
         if (this.state === 'play') {
           this.ui.updateHud(w, dt);
           this.ui.updateLabels(w, r);
+          this.ui.updateBubbles(r);
+          this.chatter(dt);
           this.updatePrompt();
           this.musicIntensity(dt);
           this.minimapT = (this.minimapT || 0) - dt;
@@ -666,6 +669,7 @@ export class Game {
         t.graceT = 2.5;
         if (t.brain) t.brain.provoke();
         this.toast('Rejected. Feedback surge.');
+        setTimeout(() => this.say(t, 'rejected', true), 250);
       } else {
         t.onHackLose();
         p.knock(0, 0, 0.4);
@@ -726,6 +730,7 @@ export class Game {
     this.audio.play('turn', { at: d.pos });
     this.run.stats.turned = (this.run.stats.turned || 0) + 1;
     this.toast(`${FAMILIES[d.family].name} ${d.cls} joins your gang.`);
+    setTimeout(() => this.say(d, d.family === 'mite' ? 'turnedMite' : 'turned', true), 600);
     this.hintOnce('gang', 'Your gang follows you, fights for you and rides the lift with you. Up to three at a time.', 7);
   }
 
@@ -876,6 +881,7 @@ export class Game {
     const title = this.koStreak > 1 ? `${word} ring out` : 'Ring out';
     const who = by.isPlayer ? '' : ` · ${FAMILIES[by.family].name} did it`;
     this.ui.banner(title, `+${n} scrap${who}`);
+    this.say(d, 'fall', true);
     this.slowT = this.reducedMotion ? 0.3 : 0.75;
     this.audio.play('ringout');
     this.input.rumble(0.6, 220);
@@ -951,6 +957,35 @@ export class Game {
       return;
     }
     this.showFab(id);
+  }
+
+  // ------------------------------------------------------------------ chatter
+  say(d, kind, force = false) {
+    if (!d || !d.alive && kind !== 'fall') return;
+    if (this.ui.say(d, line(kind), force)) this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1) });
+  }
+
+  onSpotted(d) {
+    if (d.family === 'mite') { this.audio.play('squeak', { at: d.pos }); this.say(d, 'spotMite', true); return; }
+    if (d.command) { this.say(d, 'command'); return; }
+    if (Math.random() < 0.5) this.say(d, 'spot');
+  }
+
+  onDroidHurt(d, src) {
+    if (d.team === 'k') { if (Math.random() < 0.2) this.say(d, 'allyHit'); return; }
+    if (d.family === 'mite') this.audio.play('squeak', { at: d.pos });
+    if (!d.saidLow && d.integrity > 0 && d.integrity < d.maxIntegrity * 0.3) { d.saidLow = true; this.say(d, 'low', true); return; }
+    if (src.by && src.by.team === 'k' && Math.random() < 0.3) this.say(d, 'hit');
+  }
+
+  // now and then, one of the gang passes a remark
+  chatter(dt) {
+    const w = this.world;
+    this.chatT = (this.chatT ?? 20) - dt;
+    if (this.chatT > 0) return;
+    this.chatT = 18 + Math.random() * 16;
+    const gang = w.allies().filter((d) => d.brain && d.brain.state === 'follow');
+    if (gang.length && !w.droids.some((d) => d.team === 'h' && d.brain && d.brain.state === 'chase')) this.say(gang[Math.floor(Math.random() * gang.length)], 'idle');
   }
 
   // ------------------------------------------------------------------ world callbacks
