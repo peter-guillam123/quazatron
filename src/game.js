@@ -1087,7 +1087,10 @@ export class Game {
     if (room.signs) {
       // read the floor signs out, with the right keys in
       const keys = (t) => t.replace(/\{(\w+)\}/g, (m, k) => (k === 'move' ? (this.input.lastDevice === 'pad' ? 'Left stick' : 'WASD or the arrow keys') : this.input.label(k)));
-      this.ui.announce(room.signs.map((sg) => `${keys(sg.text)}${sg.sub ? `${/^[a-z]/.test(sg.sub) ? ' ' : '. '}${keys(sg.sub)}` : ''}.`).join(' '));
+      const said = room.signs.map((sg) => `${keys(sg.text)}${sg.sub ? `${/^[a-z]/.test(sg.sub) ? ' ' : '. '}${keys(sg.sub)}` : ''}.`).join(' ');
+      // in 1986 mode the floor is too coarse to read, so put the words on screen too
+      if (this.renderer.retro) this.ui.hint(said.replace(/[&<>"]/g, ''), 7);
+      else this.ui.announce(said);
       return;
     }
     if (room.role === 'vault' && room.hint) this.hint(`A sealed vault. ${room.hint}`, 6);
