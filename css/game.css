@@ -208,6 +208,12 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .stats dt { color: var(--muted); font-size: 12px; }
 .stats dd { margin: 0; font-family: var(--display); font-weight: 700; font-size: 22px; }
 .unlocks { color: var(--you); min-height: 1em; }
+.share { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.share pre { margin: 0 0 10px; font-family: var(--mono); font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: var(--text); }
+.share-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.share-row span { color: var(--muted); font-size: 12.5px; }
+.menu button.daily { justify-content: space-between; gap: 12px; }
+.menu button.daily small { font-family: var(--mono); font-weight: 400; font-size: 12px; color: var(--muted); letter-spacing: 0; }
 
 /* deck intro card */
 .deck-card { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); text-align: center; z-index: 6; pointer-events: none; animation: deck-in 3.4s ease-out forwards; width: min(560px, calc(100vw - 32px)); }

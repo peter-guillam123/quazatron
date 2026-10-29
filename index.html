@@ -49,6 +49,7 @@
     <p class="strap">A roguelite after <i>Quazatron</i> (1986). Grapple droids, out-wire them, steal their parts.</p>
     <nav class="menu" aria-label="Main menu">
       <button data-act="new">New run</button>
+      <button data-act="daily" class="daily">Today's tower <small id="daily-note"></small></button>
       <button data-act="induction" id="btn-induction" hidden>Replay the induction</button>
       <button data-act="archive">Droid archive</button>
       <button data-act="howto">How to play</button>
@@ -152,6 +153,11 @@
     <p class="lede" id="end-lede"></p>
     <dl class="stats" id="end-stats"></dl>
     <p class="unlocks" id="end-unlocks"></p>
+    <div class="share" id="end-share" hidden>
+      <pre id="share-text" aria-hidden="true"></pre>
+      <p class="sr-only" id="share-summary"></p>
+      <div class="share-row"><button data-act="copy" id="share-copy">Copy result</button><span id="share-note"></span></div>
+    </div>
     <nav class="menu row" aria-label="After the run">
       <button data-act="again">Another run</button>
       <button data-act="title">Title screen</button>

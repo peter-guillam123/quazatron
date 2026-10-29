@@ -166,8 +166,8 @@ export class UI {
 
   showHud(on) { this.el.hud.hidden = !on; if (!on) this.clearLabels(); }
 
-  setDeck(deck, n) {
-    this.el.deck.textContent = `Deck ${n} · ${deck.name}`;
+  setDeck(deck, n, daily = false) {
+    this.el.deck.textContent = `${daily ? 'Today’s tower · ' : ''}Deck ${n} · ${deck.name}`;
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 

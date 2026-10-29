@@ -25,6 +25,7 @@ import { Brain } from './world/ai.js';
 import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
 import { line } from './lines.js';
+import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
 const GANG_MAX = 3;
@@ -201,6 +202,10 @@ export class Game {
     if (m.bestDeck) rec.push(`deepest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
     document.getElementById('title-records').textContent = rec.join(' · ');
     document.getElementById('btn-induction').hidden = !m.inductionDone;
+    const done = m.daily && m.daily[today()];
+    document.getElementById('daily-note').textContent = done
+      ? (done.won ? 'claimed today' : `today: deck ${done.deck}`)
+      : prettyDate(today()).replace(/ \d{4}$/, '');
     this.ui.show('title');
     this.audio.startMusic(6);
   }
@@ -276,6 +281,7 @@ export class Game {
       case 'title':
         if (act === 'new') { if (this.meta.inductionDone) this.newRun(); else this.ui.show('first'); }
         else if (act === 'induction') this.startRun(null, { induction: true });
+        else if (act === 'daily') this.startRun(null, { daily: today() });
         else if (act === 'archive') this.ui.archive(this.meta);
         else if (act === 'howto') this.showHowto();
         else if (act === 'settings') this.showSettings();
@@ -313,7 +319,8 @@ export class Game {
         else if (act === 'back') { this.fab = null; this.resume(); }
         break;
       case 'end':
-        if (act === 'again') this.newRun();
+        if (act === 'copy') this.copyShare();
+        else if (act === 'again') this.newRun();
         else if (act === 'title' || act === 'back') this.toTitle();
         break;
       default: break;
@@ -403,7 +410,8 @@ export class Game {
         <p>Three sockets: drive, arm and core. Taking a part drops the old one at your feet, so you can swap back. A part's grade comes from the class of the droid you took it from.</p>
         <p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p></div>
       <div><h3>Between runs</h3>
-        <p>When KLP-2 is destroyed the run ends. You keep the droid archive, and any part you've ever stolen can come with you, at grade I, on the next run.</p></div>`;
+        <p>When KLP-2 is destroyed the run ends. You keep the droid archive, and any part you've ever stolen can come with you, at grade I, on the next run.</p>
+        <p><b>Today's tower</b> is the same five decks for everyone, all day. Only your first go counts, and you get a line of squares to share.</p></div>`;
     this.ui.show('howto', { push: true });
   }
 
@@ -423,7 +431,7 @@ export class Game {
     const mods = { drive: { id: 'wheels', grade: 1 }, arm: null, core: null };
     if (kit) mods[MODULES[kit].slot] = { id: kit, grade: 1 };
     this.run = {
-      seed: randomSeed(), deck: 1, mods,
+      seed: opts.daily ? dailySeed(opts.daily) : randomSeed(), daily: opts.daily || null, deck: 1, mods,
       integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
       perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0, gang: [],
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0 },
@@ -445,14 +453,15 @@ export class Game {
     const seed = this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
     this.forceSeed = null;
     const induction = this.run.induction && n === 1;
-    const build = generateDeck(n, makeRng(seed), { induction, playerMods: this.run.mods });
+    // today's tower must come out the same for everyone, whatever they carry
+    const build = generateDeck(n, makeRng(seed), { induction, playerMods: this.run.daily ? null : this.run.mods });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
     this.env.setDeck(w.deck, centre);
     this.renderer.zoomTarget = 1; this.renderer.zoom = 1;
     this.renderer.follow(w.player.pos, 0, true);
-    this.ui.setDeck(w.deck, n);
+    this.ui.setDeck(w.deck, n, !!this.run.daily);
     this.ui.buildSockets(w.player);
     this.ui.setScrap(this.run.scrap);
     this.ui.showHud(true);
@@ -462,7 +471,7 @@ export class Game {
     saveMeta(this.meta);
     fade.classList.remove('on');
     if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
-    else this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '');
+    else this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '', this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE TOP' : `DECK ${n} OF 5`}` : '');
     this.state = 'play';
     this.input.clear();
     if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 3400);
@@ -1175,6 +1184,22 @@ export class Game {
     setTimeout(() => this.endRun(true, 'won'), 3600);
   }
 
+  async copyShare() {
+    const note = document.getElementById('share-note');
+    try {
+      await navigator.clipboard.writeText(this.shareText);
+      document.getElementById('share-copy').textContent = 'Copied';
+      this.ui.announce('Result copied.');
+    } catch {
+      // no clipboard: select the text so it can be copied by hand
+      const pre = document.getElementById('share-text');
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      note.textContent = 'Copying isn’t allowed here. The text is selected: press Ctrl+C or Cmd+C.';
+    }
+  }
+
   endRun(won, how) {
     const r = this.run;
     if (this.state === 'end') return;    // a second call (death timer after a win) changes nothing
@@ -1199,6 +1224,21 @@ export class Game {
     document.getElementById('end-unlocks').textContent = r.newStolen.length
       ? `New starting parts: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.`
       : '';
+    // today's tower: the first go counts, and you get a line to share
+    const share = document.getElementById('end-share');
+    share.hidden = !r.daily;
+    if (r.daily) {
+      const result = { date: r.daily, deck: r.deck, won, how, hacked: st.hacked, ringouts: st.ringouts, time: st.time };
+      this.meta.daily = this.meta.daily || {};
+      const first = !this.meta.daily[r.daily];
+      if (first) { this.meta.daily[r.daily] = result; saveMeta(this.meta); }
+      const shown = this.meta.daily[r.daily];
+      this.shareText = shareText(shown);
+      document.getElementById('share-text').textContent = this.shareText;
+      document.getElementById('share-summary').textContent = `Today's tower: ${shareSummary(shown, DECKS.map((d) => d.name))}`;
+      document.getElementById('share-note').textContent = first ? '' : 'Only your first go counts, so this is the one you share.';
+      document.getElementById('share-copy').textContent = 'Copy result';
+    }
     this.ui.show('end');
     this.run = null;
   }
