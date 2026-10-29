@@ -396,7 +396,7 @@ export class Game {
         <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
         <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>
-        <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
+        <li>Ram a droid before you grapple it. Dent it by a third and it hacks back with one pulser fewer, by two thirds and it's two. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
         <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
       <div><h3>Bounties</h3>
@@ -559,7 +559,7 @@ export class Game {
       const p = this.world.player;
       if (t.shielding && t.inFront({ x: t.pos.x - p.pos.x, z: t.pos.z - p.pos.z }, t.stats.core.arc)) sub = 'its shield is up';
       else if (t.stunned) sub = 'stunned: it will start late';
-      else if (t.integrity < t.maxIntegrity * 0.66) sub = 'damaged: fewer pulsers';
+      else if (t.integrity < t.maxIntegrity * 0.66) sub = 'dented: it hacks back weaker';
       if (p.cloaked) sub = 'ambush from cloak';
     } else if (t.kind === 'mainframe') {
       name = 'the Mainframe';

@@ -46,7 +46,7 @@ export const INDUCTION_ROOMS = {
       '   .......   ',
       '  .........  ',
       ' ........... ',
-      '....#...#....',
+      '....#........',
       '.............',
       '.....d.......',
       '.............',
@@ -56,7 +56,10 @@ export const INDUCTION_ROOMS = {
       '   .......   ',
     ],
     droids: [{ family: 'spark', cls: 126, dozy: true }],
-    signs: [{ x: 9, z: 6, text: 'Win a hack, take a part', sub: 'This one carries a laser' }],
+    signs: [
+      { x: 9, z: 6, text: 'Ram it, then hack it', sub: 'A dented droid hacks back weaker' },
+      { x: 6, z: 1, text: 'Take its laser', sub: 'for the target to the north', wide: 3.8 },
+    ],
   },
   target: {
     id: 'ind-target', role: 'vault', exits: [2], hint: 'A target over the gap. A laser could reach it.', solves: ['laser'], map: [

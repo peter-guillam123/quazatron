@@ -23,6 +23,16 @@ export class HackSession {
     this.opts = opts;
     // a lesson board, while you're still learning the parts
     this.lesson = spec.boss ? null : opts.lesson || null;
+    // what your fighting has done to it: pulsers knocked out, a late start
+    const L = this.lesson;
+    // a lesson caps the opponent, and a dent still counts below the cap
+    const full = spec.fullPulsers ?? spec.pulsers;
+    const base = L ? Math.min(full, L.enemy) : full;
+    this.enemyPulsers = Math.max(1, base - (spec.dent || 0));
+    this.dented = base - this.enemyPulsers;
+    this.late = spec.stunned ? 'stunned' : opts.ambush ? 'ambushed' : null;
+    // arrows coloured by where each wire lands: while learning, or by choice
+    this.hints = !!L || !!game.settings.wireHints;
     this.done = false;
     this.lastTick = 99;
     this.updateKeys();
@@ -66,7 +76,9 @@ export class HackSession {
     this.round = new HackRound(this.board, { timer: s.timer, pulsers: [0, 0] });
     this.startPulsers = [0, 0];
     this.preview = null;
-    const how = this.canSwap ? 'Choose a side with left and right, then press Space.' : 'Press Space to start.';
+    let how = this.canSwap ? 'Choose a side with left and right, then press Space.' : 'Press Space to start.';
+    if (this.dented) how = `It's dented: ${this.dented === 1 ? 'one pulser' : `${this.dented} pulsers`} short. ${how}`;
+    if (this.late) how = `It's ${this.late}, so it starts late. ${how}`;
     if (this.callout) this.game.announce(`${this.title}. ${this.callout.title}. ${this.callout.line} ${how}`);
     else this.game.announce(this.roundIndex === 0 ? `${this.title}. ${how}` : `Round ${this.roundIndex + 1}. ${how}`);
   }
@@ -78,7 +90,7 @@ export class HackSession {
     const pulsers = [];
     pulsers[ps] = g.playerPulsers();
     const L = this.lesson;
-    pulsers[es] = L ? Math.min(s.pulsers, L.enemy) : s.pulsers;
+    pulsers[es] = this.enemyPulsers;
     const duration = [], travel = [], freeFirst = [];
     duration[ps] = DURATION * (g.hasPerk('longpulse') ? 1.4 : 1);
     duration[es] = DURATION;

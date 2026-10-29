@@ -87,6 +87,14 @@ export class HackView {
     const sub = s.roundsTotal > 1 ? `ROUND ${s.roundIndex + 1} OF ${s.roundsTotal}  ·  YOU ${s.wins[0]} – ${s.wins[1]} THEM` : s.subtitle;
     ctx.textAlign = 'right';
     ctx.fillText(sub, L.x + L.W - 22, L.y + 24);
+    // what you did to it before the hack, in the header where it's read
+    const notes = [];
+    if (s.dented) notes.push(`DENTED: ${s.dented} PULSER${s.dented > 1 ? 'S' : ''} DOWN`);
+    if (s.late) notes.push(`${s.late.toUpperCase()}: STARTS LATE`);
+    if (notes.length) {
+      ctx.fillStyle = '#ff8a7a';
+      ctx.fillText(`${notes.join('  ·  ')}  ·  `, L.x + L.W - 22 - ctx.measureText(sub).width, L.y + 24);
+    }
     ctx.textAlign = 'left';
     // timer bar
     const tf = s.phase === 'choose' ? 1 : Math.max(0, 1 - R.time / R.timer);
@@ -255,6 +263,14 @@ export class HackView {
       const px = side === 0 ? lx + 44 + i * 13 : lx - 44 - i * 13;
       ctx.beginPath(); ctx.arc(px, L.y + 64, 4.2, 0, Math.PI * 2);
       if (i < pips) { ctx.fillStyle = colour(side); ctx.fill(); } else { ctx.strokeStyle = DIM2; ctx.lineWidth = 1.2; ctx.stroke(); }
+    }
+    // pulsers knocked out by dents, crossed through
+    const broken = !you && s.phase !== 'choose' ? s.dented || 0 : 0;
+    for (let i = total; i < total + broken; i++) {
+      const px = side === 0 ? lx + 44 + i * 13 : lx - 44 - i * 13;
+      ctx.strokeStyle = '#ff8a7a'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(px, L.y + 64, 4.2, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px - 3.5, L.y + 60.5); ctx.lineTo(px + 3.5, L.y + 67.5); ctx.stroke();
     }
     if (R.freeFirst[side]) {
       ctx.fillStyle = colour(side);
