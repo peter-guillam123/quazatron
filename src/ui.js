@@ -19,7 +19,9 @@ export class UI {
     this.toastEls = [];
     this.hintT = 0;
     this.el = {
-      hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'),
+      hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'), pips: $('#hud-pips'),
+      valIntegrity: $('#val-integrity'), valEnergy: $('#val-energy'), statIntegrity: $('#stat-integrity'),
+      claimPc: $('#hud-claim-pc'), gangRow: $('#hud-gang-row'),
       deck: $('#hud-deck'), gang: $('#hud-gang'), bounty: $('#hud-bounty'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
@@ -151,15 +153,17 @@ export class UI {
   }
 
   // A big word across the screen, for ring-outs and the like.
-  banner(title, sub = '') {
+  banner(title, sub = '', tone = '') {
     const b = this.el.banner;
+    b.classList.toggle('gold', tone === 'gold');
     b.firstElementChild.textContent = title;
     b.lastElementChild.textContent = sub;
     b.hidden = true;
     void b.offsetWidth;
     b.hidden = false;
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.hidden = true; }, 1900);
+    // gold news (a bounty) stays up long enough to read the line under it
+    this.bannerT = setTimeout(() => { b.hidden = true; }, tone === 'gold' ? 3200 : 1900);
   }
 
   // ------------------------------------------------------------------ HUD
@@ -214,7 +218,10 @@ export class UI {
       d.className = `socket${empty ? ' empty' : ''}`;
       d.innerHTML = `<div class="slot">${SLOT_NAMES[slot]} <kbd>${input.label(slot)}</kbd></div><div class="mod">${iconSvg(id || 'empty', 20)}<span>${esc(name)}</span></div><div class="cool"></div>`;
     }
-    this.el.rating.textContent = `· ${this.game.playerPulsers()} pulsers`;
+    // the pulsers you take into each hack, drawn like the dots on the board
+    const n = this.game.playerPulsers();
+    this.el.pips.innerHTML = '<i></i>'.repeat(n);
+    this.el.rating.textContent = `${n} pulsers`;
   }
 
   updateHud(world, dt) {
@@ -225,10 +232,16 @@ export class UI {
     this.el.integrity.firstElementChild.style.width = `${ip * 100}%`;
     this.el.integrity.lastElementChild.style.width = `${ip * 100}%`;
     this.el.integrity.classList.toggle('low', ip < 0.3);
-    this.el.integrity.setAttribute('aria-label', `Integrity ${Math.round(p.integrity)} of ${Math.round(p.maxIntegrity)}`);
+    this.el.statIntegrity.classList.toggle('low', ip < 0.3);
+    // numbers beside the bars, only touched when they change
+    const iv = `${Math.max(0, Math.ceil(p.integrity))}<small>/${Math.round(p.maxIntegrity)}</small>`;
+    if (iv !== this.lastIv) { this.lastIv = iv; this.el.valIntegrity.innerHTML = iv; this.el.integrity.setAttribute('aria-label', `Integrity ${Math.ceil(p.integrity)} of ${Math.round(p.maxIntegrity)}`); }
+    const ev = String(Math.max(0, Math.floor(p.energy)));
+    if (ev !== this.lastEv) { this.lastEv = ev; this.el.valEnergy.textContent = ev; this.el.energy.setAttribute('aria-label', `Energy ${ev}`); }
     this.el.energy.firstElementChild.style.width = `${ep * 100}%`;
-    this.el.energy.setAttribute('aria-label', `Energy ${Math.round(p.energy)}`);
     this.el.claim.style.width = `${world.claimShown * 100}%`;
+    const pc = `${Math.round(world.claim * 100)}% claimed`;
+    if (pc !== this.lastPc) { this.lastPc = pc; this.el.claimPc.textContent = pc; }
     const cl = this.el.clearance;
     const boss = world.mainframe;
     if (boss) {
@@ -239,7 +252,7 @@ export class UI {
       cl.classList.toggle('ok', world.clearance);
     }
     const b = world.bounty;
-    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `Bounty claimed: ${b.bounty}` : `Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}`;
+    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `★ Bounty claimed: ${b.bounty}` : `★ Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}${b.spotted ? '' : ', not yet found'}`;
     if (this.el.bounty.textContent !== bt) this.el.bounty.textContent = bt;
     this.el.bounty.classList.toggle('done', !!b && (b.bountyDone || b.team === 'k'));
     // sockets: cooldowns and active states
@@ -258,6 +271,7 @@ export class UI {
     const key = gang.map((d) => `${d.cls}:${Math.round((d.integrity / d.maxIntegrity) * 20)}`).join(',');
     if (key !== this.gangKey) {
       this.gangKey = key;
+      this.el.gangRow.hidden = !gang.length;
       this.el.gang.innerHTML = gang.map((d) => `<span class="ally" title="${esc(FAMILIES[d.family].name)} ${d.cls}">${d.cls}<i style="width:${Math.round((d.integrity / d.maxIntegrity) * 100)}%"></i></span>`).join('');
       this.el.gang.setAttribute('aria-label', gang.length ? `Gang: ${gang.map((d) => `${FAMILIES[d.family].name} ${d.cls}`).join(', ')}` : '');
     }
@@ -368,6 +382,12 @@ export class UI {
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     }
+    const b = world.bounty;
+    let bountyRoom = -1;
+    if (b && b.spotted && b.alive && b.team === 'h' && !b.bountyDone) {
+      const bx = Math.floor(b.pos.x), bz = Math.floor(b.pos.z);
+      if (world.grid.inside(bx, bz)) bountyRoom = world.grid.room[world.grid.idx(bx, bz)];
+    }
     for (const r of rooms) {
       if (!known(r)) continue;
       const [x, y] = C(r);
@@ -384,6 +404,8 @@ export class UI {
       else if (r.role === 'archive' && r.visited) { ctx.fillStyle = '#ffffff'; ctx.fillText('A', x, y); }
       else if (r.role === 'repair' && r.visited) { ctx.fillStyle = PLAYER_HEX; ctx.fillText('+', x, y); }
       else if (r.role === 'boss') { ctx.fillStyle = ink; ctx.fillText('999', x, y); }
+      // the bounty, once you've seen it
+      if (r.index === bountyRoom) { ctx.font = '700 11px "IBM Plex Mono", monospace'; ctx.fillStyle = '#ffcf6e'; ctx.fillText('★', x + s * 0.28, y - s * 0.28); }
     }
     // the player, placed within the current cell
     const p = world.player;

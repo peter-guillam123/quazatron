@@ -70,6 +70,7 @@ export class World {
     this.makeDevices(build.things);
     this.signs = (build.signs || []).map((sg) => new FloorSign(this.root, sg, game.input ? game.input.lastDevice : 'keyboard'));
     this.makeDroids(build.droids);
+    if (this.bounty) this.makeBountyMarker();
     this.makePlayer(run);
     this.claimTotal = this.droids.filter((d) => !d.isPlayer).length
       + this.devices.filter((d) => d.kind === 'turret' || d.kind === 'terminal' || d.kind === 'archive').length;
@@ -131,6 +132,42 @@ export class World {
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);
+    }
+  }
+
+  // A gold ring on the floor under the bounty, and a column of light over
+  // it for a moment when you first see it.
+  makeBountyMarker() {
+    const gold = new THREE.Color(0xffc24a);
+    const ringGeo = new THREE.RingGeometry(0.62, 0.74, 48);
+    ringGeo.rotateX(-Math.PI / 2);
+    this.bountyRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: gold.clone().multiplyScalar(1.8), transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.bountyRing.renderOrder = 3;
+    this.root.add(this.bountyRing);
+    const beamGeo = new THREE.CylinderGeometry(0.45, 0.6, 6, 24, 1, true);
+    beamGeo.translate(0, 3, 0);
+    this.bountyBeam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: gold.clone().multiplyScalar(1.4), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    this.bountyBeam.visible = false;
+    this.root.add(this.bountyBeam);
+    this.bountyBeamT = 0;
+  }
+
+  updateBountyMarker(dt) {
+    const b = this.bounty, ring = this.bountyRing;
+    if (!ring) return;
+    const on = b.alive && b.state === 'active' && b.team === 'h' && !b.bountyDone;
+    ring.visible = on && !b.cloaked;
+    if (on) {
+      const pulse = this.game.reducedMotion ? 1 : 1 + Math.sin(this.time * 4) * 0.06;
+      ring.position.set(b.pos.x, (b.groundY ?? b.pos.y) + 0.04, b.pos.z);
+      ring.scale.setScalar(b.scale * pulse);
+    }
+    this.bountyBeamT = Math.max(0, this.bountyBeamT - dt);
+    const beam = this.bountyBeam;
+    beam.visible = on && this.bountyBeamT > 0;
+    if (beam.visible) {
+      beam.position.copy(b.pos);
+      beam.material.opacity = Math.min(1, this.bountyBeamT / 0.6) * 0.35;
     }
   }
 
@@ -754,6 +791,7 @@ export class World {
     for (const dev of this.devices) dev.update(dt);
     for (const k of this.pickups) k.update(dt);
     this.scrap.update(dt);
+    this.updateBountyMarker(dt);
     this.evaluateChannels();
 
     // which room are we in?
