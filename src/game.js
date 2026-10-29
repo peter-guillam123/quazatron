@@ -133,8 +133,8 @@ export class Game {
         if (this.state === 'hack' && this.session) focus.lerp(this.session.target.pos, 0.5);
         r.follow(focus, dt);
         this.env.update(dt, p.pos);
-        this.env.playerLight.position.set(p.pos.x, p.pos.y + 2.4, p.pos.z);
-        this.env.playerLight.intensity = 6;
+        this.env.playerLight.position.set(p.pos.x, p.pos.y + 3, p.pos.z);
+        this.env.playerLight.intensity = 4;
         this.audio.setListener(p.pos);
         if (this.state === 'play') {
           this.ui.updateHud(w, dt);
@@ -142,7 +142,15 @@ export class Game {
           this.updatePrompt();
           this.musicIntensity(dt);
           this.minimapT = (this.minimapT || 0) - dt;
-          if (this.minimapT <= 0) { this.minimapT = 0.2; this.ui.drawMinimap(w); }
+          if (this.minimapT <= 0) {
+            this.minimapT = 0.2;
+            this.ui.drawMinimap(w);
+            // anything in plain sight goes in the archive
+            for (const d of w.droids) {
+              if (d.isPlayer || !d.family || d.cloaked || this.meta.archive[d.family]) continue;
+              if (d.pos.distanceTo(p.pos) < 9) this.archiveSee(d, 'seen');
+            }
+          }
         }
       }
     }
@@ -328,10 +336,10 @@ export class Game {
     document.getElementById('howto-body').innerHTML = `
       <div><h3>Controls</h3><dl>
         <dt><kbd>WASD</kbd> / arrows</dt><dd>Move. Up is up the screen.</dd>
-        <dt>${L('grapple')}</dt><dd>Grapple a droid or terminal, pick things up, use the lift</dd>
-        <dt>${L('arm')}</dt><dd>Use your arm part (fire, discharge, pull)</dd>
-        <dt>${L('drive')}</dt><dd>Use your drive part (dash, hover, stamp)</dd>
-        <dt>${L('core')}</dt><dd>Use your core part (shield, cloak, phase)</dd>
+        <dt><kbd>Space</kbd></dt><dd>Grapple a droid or terminal, pick things up, use the lift</dd>
+        <dt><kbd>J</kbd> or <kbd>Z</kbd></dt><dd>Use your arm part (fire, discharge, pull)</dd>
+        <dt><kbd>K</kbd> or <kbd>X</kbd></dt><dd>Use your drive part (dash, hover, stamp)</dd>
+        <dt><kbd>L</kbd> or <kbd>C</kbd></dt><dd>Use your core part (shield, cloak, phase)</dd>
         <dt>${L('loadout')}</dt><dd>Parts and firmware</dd>
         <dt>${L('pause')}</dt><dd>Pause</dd>
       </dl><p>A gamepad works too: left stick, A grapple, X arm, B drive, Y core.</p></div>
@@ -390,7 +398,9 @@ export class Game {
     this.disposeWorld();
     this.disposeTitleScene();
     this.fx.clear();
-    const build = generateDeck(n, makeRng(this.run.seed + n * 7919), { tutorial: this.run.tutorial, playerMods: this.run.mods });
+    const seed = this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
+    this.forceSeed = null;
+    const build = generateDeck(n, makeRng(seed), { tutorial: this.run.tutorial, playerMods: this.run.mods });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
@@ -561,7 +571,8 @@ export class Game {
     this.input.clear();
     if (won) {
       this.renderer.flash(PLAYER_HEX, 0.35);
-      if (this.hasPerk('siphon')) p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.25);
+      const heal = (t.kind === 'droid' ? 0.12 : 0.04) + (this.hasPerk('siphon') ? 0.25 : 0);
+      p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * heal);
       p.energy = p.maxEnergy;
       if (t.kind === 'droid') {
         this.stat('hacked');
@@ -591,13 +602,13 @@ export class Game {
         if (t.kind === 'turret') this.toast('Turret hacked. It works for you now.');
       }
     } else {
-      const dmg = 8 + (session.spec.cls || 100) / 45;
+      const dmg = 6 + (session.spec.cls || 100) / 60;
       p.damage(dmg, { force: true, kind: 'feedback' });
       this.renderer.flash('#ff3030', 0.3);
       this.renderer.addShake(0.4);
       if (t.kind === 'droid') {
         const dx = p.pos.x - t.pos.x, dz = p.pos.z - t.pos.z, m = Math.hypot(dx, dz) || 1;
-        p.knock((dx / m) * 7, (dz / m) * 7, 0.6);
+        p.knock((dx / m) * 3.5, (dz / m) * 3.5, 0.4);
         t.graceT = 2.5;
         if (t.brain) t.brain.provoke();
         this.toast('Rejected. Feedback surge.');
@@ -625,9 +636,17 @@ export class Game {
     const slot = MODULES[mod.id].slot;
     const old = p.mods[slot];
     if (old && !MODULES[old.id].starter) {
+      // drop it beside us, somewhere with floor under it
       const k = w.dropModule(old, p.pos);
-      k.pos.x += Math.sin(p.facing + Math.PI) * 0.6;
-      k.pos.z += Math.cos(p.facing + Math.PI) * 0.6;
+      for (let i = 0; i < 12; i++) {
+        const a = p.facing + Math.PI + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.6;
+        const x = p.pos.x + Math.sin(a) * 0.8, z = p.pos.z + Math.cos(a) * 0.8;
+        const gy = w.grid.groundAt(x, z);
+        if (gy !== null && Math.abs(gy - p.pos.y) < 0.3 && !w.pickups.some((o) => o !== k && Math.hypot(o.pos.x - x, o.pos.z - z) < 0.5)) {
+          k.pos.x = x; k.pos.z = z;
+          break;
+        }
+      }
       this.hintOnce('dropped', 'Your old part dropped. Stand by it and press <b>Space</b> to swap back.');
     }
     p.mods[slot] = { id: mod.id, grade: mod.grade };
@@ -770,7 +789,7 @@ export class Game {
     if (!d.family) return;
     const a = this.meta.archive[d.family] || (this.meta.archive[d.family] = { hacked: 0, destroyed: 0, best: 0 });
     if (how === 'hacked') { a.hacked++; a.best = Math.max(a.best || 0, d.cls); }
-    else a.destroyed++;
+    else if (how === 'destroyed') a.destroyed++;
     saveMeta(this.meta);
   }
 
@@ -813,6 +832,8 @@ export class Game {
       this.state = 'transition';
       this.run.deck += 1;
       this.saveRunFromPlayer();
+      // the lift's cradle patches KLP-2 up on the way down
+      this.run.integrity = Math.min(this.run.maxIntegrity, this.run.integrity + this.run.maxIntegrity * 0.25);
       this.loadDeck(this.run.deck);
     }
   }

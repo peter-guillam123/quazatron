@@ -8,7 +8,7 @@ export const PERKS = {
   firstfree: { name: 'Opening move', line: 'The first pulse of every hack costs nothing.' },
   scanner: { name: 'Scanner', line: 'See the hidden parts on your side of the board.' },
   firststrike: { name: 'First strike', line: 'Your opponent starts every hack a second and a half late.' },
-  siphon: { name: 'Siphon', line: 'Winning a hack repairs a quarter of your integrity.' },
+  siphon: { name: 'Siphon', line: 'Winning a hack repairs another quarter of your integrity.' },
   plating: { name: 'Plating', line: 'Take a fifth less damage.' },
   reinforced: { name: 'Reinforced shell', line: '+30 maximum integrity, and a repair now.' },
   capacitor: { name: 'Capacitor', line: 'Energy comes back half as fast again.' },

@@ -407,9 +407,9 @@ export class World {
       this.fx.burst(vic.pos.clone().setY(vic.pos.y + 0.4), vic.accent, 12, 2.5, 0.35, 0.1, 2);
       return;
     }
-    const dmg = (speed - 1.6) * 2.4 * Math.sqrt(atk.mass) * mult;
+    const dmg = (speed - 1.6) * 2.0 * Math.sqrt(atk.mass) * mult;
     vic.damage(dmg, { by: atk, kind: 'ram', dir: { x: dirx, z: dirz } });
-    const push = (2 + speed * 0.7) * mult * Math.sqrt(atk.mass / vic.mass);
+    const push = Math.min(vic.isPlayer ? 7 : 9, (2 + speed * 0.7) * mult * Math.sqrt(atk.mass / vic.mass));
     vic.knock(dirx * push, dirz * push, atk.dash ? 0.5 : 0.15);
     if (vic.brain) vic.brain.provoke();
     const mid = atk.pos.clone().lerp(vic.pos, 0.5); mid.y += 0.3;
@@ -422,6 +422,8 @@ export class World {
   damageScale(d, src) {
     let k = 1;
     if (d.isPlayer) {
+      if (src.kind === 'ram' || src.kind === 'stomp') k *= 0.45;
+      if (src.kind === 'bolt' && src.by && !src.by.isPlayer) k *= 0.75;
       if (this.game.settings.assist) k *= 0.55;
       if (this.game.hasPerk('plating')) k *= 0.8;
     } else if (src.by && src.by.isPlayer) {

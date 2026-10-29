@@ -174,7 +174,7 @@ export class Brain {
   armCooldown() {
     const arm = this.d.modId('arm');
     const g = this.grade;
-    if (arm === 'laser') return Math.max(0.6, 1.9 - g * 0.12) + Math.random() * 0.6;
+    if (arm === 'laser') return Math.max(0.9, 2.4 - g * 0.13) + Math.random() * 0.7;
     if (arm === 'arc') return 2.2 - g * 0.1 + Math.random() * 0.5;
     return 1.4 + Math.random() * 0.8;
   }

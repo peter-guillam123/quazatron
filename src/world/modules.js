@@ -45,7 +45,7 @@ export const MODULES = {
     slot: 'arm', name: 'Bumper', starter: true,
     line: 'A short lunge. KLP-2’s only weapon until it steals a better one.',
     use: 'Press to lunge forwards and bump whatever is in front.',
-    stats: () => ({ lungeSpeed: 9, lungeTime: 0.13, cost: 6, cooldown: 0.7, ramMult: 1.6 }),
+    stats: () => ({ lungeSpeed: 9, lungeTime: 0.13, cost: 6, cooldown: 0.7, ramMult: 1.2 }),
   },
   laser: {
     slot: 'arm', name: 'Laser',

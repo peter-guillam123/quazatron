@@ -111,7 +111,9 @@ export const ABILITIES = {
       const dir = aimDir(d, w, 0.55, s.range);
       if (d.isPlayer) d.facing = Math.atan2(dir.x, dir.z);
       const p = muzzle(d);
-      w.spawnBolt({ owner: d, team: d.team, pos: p, dx: dir.x, dz: dir.z, speed: s.speed, damage: s.damage, range: s.range, color: d.accent });
+      // the tower's bolts are slower than yours, so you can sidestep them
+      const speed = d.isPlayer ? s.speed : 8 + (d.mods.arm ? d.mods.arm.grade : 1) * 0.6;
+      w.spawnBolt({ owner: d, team: d.team, pos: p, dx: dir.x, dz: dir.z, speed, damage: s.damage, range: s.range, color: d.accent });
       d.cd.arm = s.cooldown;
       d.cloaked = false;
       w.audio.play('laser', { at: d.pos, pitch: d.isPlayer ? 1 : 0.8 });

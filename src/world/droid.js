@@ -96,7 +96,7 @@ export class Droid {
     const spec = {
       shape: this.isPlayer ? 'player' : fam ? fam.shape : 'squat',
       scale: this.scale,
-      shell: this.isPlayer ? 0xc9d0da : this.command ? 0x1d1f26 : 0x555b6b,
+      shell: this.isPlayer ? 0xb4bcc8 : this.command ? 0x1d1f26 : 0x555b6b,
       accent: this.accent,
       label: this.isPlayer ? 'K-2' : String(this.cls),
       drive: this.mods.drive.id,
@@ -232,7 +232,7 @@ export class Droid {
       const inputMag = Math.hypot(it.mx, it.mz);
       const cur = Math.hypot(this.vel.x, this.vel.z);
       let rate = inputMag > 0.05 ? ds.accel : ds.friction;
-      if (cur > speed * 1.1) rate = Math.min(rate, ds.friction * 0.9);   // let knockback carry
+      if (cur > speed * 1.1) rate = Math.max(12, ds.friction);          // knockback carries, briefly
       if (!this.grounded && !this.hovering) rate *= 0.15;                 // little control in the air
       const k = rate * dt;
       let dvx = tx - this.vel.x, dvz = tz - this.vel.z;
@@ -241,7 +241,15 @@ export class Droid {
       this.vel.x += dvx; this.vel.z += dvz;
     }
 
-    const hit = moveBody(w.grid, this, this.vel.x * dt, this.vel.z * dt);
+    let mdx = this.vel.x * dt, mdz = this.vel.z * dt;
+    // KLP-2 won't roll itself off into the void. A ram, a stamp, a tractor
+    // beam or a dash still can.
+    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && Math.hypot(this.vel.x, this.vel.z) <= ds.speed * 1.15 + 0.01) {
+      const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
+      if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * 0.06, this.pos.z)) { mdx = 0; this.vel.x = 0; }
+      if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * 0.06)) { mdz = 0; this.vel.z = 0; }
+    }
+    const hit = moveBody(w.grid, this, mdx, mdz);
     if (hit.hitX !== -1) { this.onBump(hit.hitX, Math.sign(this.vel.x), 0, dt); this.vel.x *= -0.15; }
     if (hit.hitZ !== -1) { this.onBump(hit.hitZ, 0, Math.sign(this.vel.z), dt); this.vel.z *= -0.15; }
     if (hit.hitX === -1 && hit.hitZ === -1) this.pushT = 0;

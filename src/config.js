@@ -38,7 +38,7 @@ export const DECKS = [
     classes: [640, 899], rooms: [7, 9], music: 4,
   },
   {
-    n: 6, name: 'Mainframe', ink: 0xf4f1ff, paper: 0x111018, fog: 0x07060c,
+    n: 6, name: 'Mainframe', ink: 0xcfc4ff, paper: 0x0e0b1c, fog: 0x06050c,
     blurb: 'Class 999. The thing that runs the tower.',
     classes: [800, 999], rooms: [3, 3], music: 5,
   },
@@ -50,6 +50,6 @@ export const TUNING = {
   energyRegen: 14,        // per second, after a short pause
   energyRegenDelay: 0.7,
   ramSpeed: 2.6,          // relative speed that counts as a ram
-  voidDamage: 18,
+  voidDamage: 15,
   hazardDps: 26,
 };
