@@ -22,6 +22,7 @@ export class Droid {
     this.family = o.family || null;
     this.cls = o.cls || 0;
     this.command = !!o.command;
+    this.bounty = o.bounty || null;
     this.kind = 'droid';
     this.pos = new THREE.Vector3(o.x, o.y ?? 0, o.z);
     this.vel = { x: 0, z: 0 };
@@ -55,9 +56,9 @@ export class Droid {
     this.room = o.room ?? -1;
     this.damageTaken = 0;
 
-    const scale = this.isPlayer ? 1.0 : 0.92 + 0.045 * Math.max(1, Math.floor(this.cls / 100)) + (this.command ? 0.12 : 0);
+    const scale = this.isPlayer ? 1.0 : 0.92 + 0.045 * Math.max(1, Math.floor(this.cls / 100)) + (this.command ? 0.12 : 0) + (this.bounty ? 0.1 : 0);
     this.scale = scale;
-    this.maxIntegrity = o.integrity ?? (this.isPlayer ? TUNING.playerIntegrity : integrityFor(this.cls) * (this.command ? 1.4 : 1));
+    this.maxIntegrity = o.integrity ?? (this.isPlayer ? TUNING.playerIntegrity : integrityFor(this.cls) * (this.command ? 1.4 : 1) * (this.bounty ? 1.35 : 1));
     this.integrity = this.maxIntegrity;
     this.maxEnergy = this.isPlayer ? TUNING.playerEnergy : 100;
     this.energy = this.maxEnergy;
@@ -106,7 +107,7 @@ export class Droid {
     const spec = {
       shape: this.isPlayer ? 'player' : fam ? fam.shape : 'squat',
       scale: this.scale,
-      shell: this.isPlayer ? 0xb4bcc8 : this.command ? 0x1d1f26 : 0x555b6b,
+      shell: this.isPlayer ? 0xb4bcc8 : this.bounty ? 0x8a6a2c : this.command ? 0x1d1f26 : 0x555b6b,
       accent: this.accent,
       label: this.isPlayer ? 'K-2' : String(this.cls),
       drive: this.mods.drive.id,

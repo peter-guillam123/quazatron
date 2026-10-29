@@ -55,6 +55,8 @@ button, .button { font: inherit; }
 .claim span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--ink), var(--you)); transition: width 0.6s; }
 .hud-clearance { font-size: 12px; color: var(--muted); margin-top: 5px; }
 .hud-clearance.ok { color: var(--you); }
+.hud-bounty { font-size: 12px; color: #ffcf6e; margin-top: 2px; min-height: 1em; }
+.hud-bounty.done { color: var(--muted); }
 
 #minimap { position: absolute; right: 16px; top: 14px; width: 168px; height: 168px; opacity: 0.92; }
 
@@ -96,6 +98,8 @@ body.reduced .banner { animation: none; }
 .label .hp i { display: block; height: 100%; background: currentColor; }
 .label.cmd { color: #fff; }
 .label.cmd::before { content: '◆ '; color: var(--ink); }
+.label.bounty { color: #ffcf6e; }
+.label.bounty::before { content: '★ '; }
 .label.you, .label.ally { color: var(--you); }
 .bubble { position: absolute; transform: translate(-50%, -100%); padding: 3px 8px; background: rgba(6, 8, 13, 0.92); border: 1px solid var(--ink); border-radius: 6px; font-family: var(--mono); font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; color: #f2f5fa; white-space: nowrap; animation: bubble-in 0.18s ease-out; transition: opacity 0.3s; }
 .bubble::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; background: rgba(6, 8, 13, 0.92); border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
@@ -210,6 +214,7 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .deck-num { font-size: 13px; letter-spacing: 0.4em; color: var(--muted); }
 .deck-title { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 8vw, 72px); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; text-shadow: 0 0 30px var(--ink), 0 0 2px #fff; line-height: 1.1; }
 .deck-blurb { color: #c4cad6; font-size: 14px; margin-top: 8px; }
+.deck-bounty { color: #ffcf6e; font-size: 13px; margin-top: 6px; }
 @keyframes deck-in { 0% { opacity: 0; letter-spacing: 0.3em; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
 .fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 20; transition: opacity 0.6s; }

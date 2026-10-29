@@ -11,7 +11,7 @@ import {
   deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup, Fabricator,
 } from './devices.js';
 import { ScrapField, scrapFor } from './scrap.js';
-import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor } from './roster.js';
+import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor, rareMods } from './roster.js';
 import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
 import { Mainframe } from './mainframe.js';
@@ -118,11 +118,13 @@ export class World {
 
   makeDroids(list) {
     for (const s of list) {
+      const mods = modulesOf(s.family, s.cls);
       const d = new Droid(this, {
         family: s.family, cls: s.cls, command: s.command, x: s.x, z: s.z, y: s.h * LEVEL_H,
-        mods: modulesOf(s.family, s.cls), accent: this.deck.ink, room: s.room,
+        mods: s.bounty ? rareMods(mods) : mods, accent: this.deck.ink, room: s.room, bounty: s.bounty,
         facing: Math.random() * Math.PI * 2,
       });
+      if (s.bounty) this.bounty = d;
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);
@@ -148,8 +150,8 @@ export class World {
     const p = this.player;
     const at = this.freeSpotNear(p.pos, 1.4) || p.pos.clone();
     const d = new Droid(this, {
-      family: g.family, cls: g.cls, command: g.command, x: at.x, z: at.z, y: at.y,
-      mods: modulesOf(g.family, g.cls), accent: PLAYER_COLOUR, team: 'k', facing: p.facing,
+      family: g.family, cls: g.cls, command: g.command, x: at.x, z: at.z, y: at.y, bounty: g.bounty,
+      mods: g.bounty ? rareMods(modulesOf(g.family, g.cls)) : modulesOf(g.family, g.cls), accent: PLAYER_COLOUR, team: 'k', facing: p.facing,
     });
     d.integrity = Math.max(1, d.maxIntegrity * (g.hp ?? 1));
     d.brain = new Brain(d, this);
@@ -512,6 +514,7 @@ export class World {
     }
     this.explode(d.pos.clone().setY(d.pos.y + 0.4), this.deck.ink, 1 + d.scale * 0.4);
     this.scrap.burst(d.pos, scrapFor(d.cls));
+    if (d.bounty) this.game.bountyClaimed(d, 'destroyed');
     if (src && src.by && src.by.team === 'k' && !src.by.isPlayer && Math.random() < 0.6) this.game.say?.(src.by, 'allyKill');
     this.removeDroid(d);
     this.claimEvent('droid', d);
@@ -551,6 +554,7 @@ export class World {
     this.game.stat('voided');
     this.game.archiveSee(d, 'destroyed');
     if (ko) this.game.addScrap(scrapFor(d.cls) * 2, 0, true);
+    if (d.bounty) this.game.bountyClaimed(d, 'void');
     else this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
     if (d.command) this.grantClearance('void');
   }
@@ -628,9 +632,9 @@ export class World {
     if (t.kind !== 'droid') return t.hackSpec();
     const F = FAMILIES[t.family];
     const hurt = 1 - t.integrity / t.maxIntegrity;
-    const pulsers = Math.max(1, pulsersFor(t.cls) + (t.command ? 1 : 0) - (hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0));
+    const pulsers = Math.max(1, pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0) - (hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0));
     return {
-      title: `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
+      title: t.bounty ? `${t.bounty}, ${F.name} ${t.cls}` : `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
       stunned: t.stunned, hurt, command: t.command, family: t.family,
     };
   }

@@ -4,7 +4,7 @@
 import { Grid, T, DIRS } from './grid.js';
 import { ROOMS, rotateRoom, roomExits } from './rooms.js';
 import { DECKS } from '../config.js';
-import { FAMILIES, familiesForRange } from './roster.js';
+import { FAMILIES, familiesForRange, BOUNTY_NAMES, hasParts } from './roster.js';
 import { STEALABLE } from './modules.js';
 
 const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M', 'B']);
@@ -325,6 +325,22 @@ function placeDroids(n, deck, rng, rooms, opts) {
     }
   }
 
+  // One droid on each deck has a name, better parts and a price on its head.
+  let bounty = null;
+  if (!opts.noBounty && n <= 5) {
+    const cands = out.filter((d) => !d.command && rooms[d.room].role === 'combat');
+    if (cands.length) {
+      bounty = rng.pick(cands);
+      if (!hasParts(bounty.family)) {
+        const better = pool.filter(hasParts).sort((a, b) => FAMILIES[b].max - FAMILIES[a].max).slice(0, 3);
+        if (better.length) bounty.family = rng.pick(better);
+      }
+      const F = FAMILIES[bounty.family];
+      bounty.cls = Math.max(F.min, Math.min(F.max, hi - rng.int(0, 30)));
+      bounty.bounty = rng.pick(BOUNTY_NAMES);
+    }
+  }
+
   // Every vault's key should be walking around somewhere on the deck.
   const have = new Set();
   if (opts.playerMods) for (const s of ['drive', 'arm', 'core']) if (opts.playerMods[s]) have.add(opts.playerMods[s].id);
@@ -336,7 +352,7 @@ function placeDroids(n, deck, rng, rooms, opts) {
     const fams = pool.filter((f) => { const F = FAMILIES[f]; return room.solves.some((m) => m === F.drive || m === F.arm || m === F.core); });
     if (!fams.length) continue;
     fams.sort((a, b) => FAMILIES[a].min - FAMILIES[b].min);
-    const victims = out.filter((d) => !d.command && rooms[d.room].role === 'combat');
+    const victims = out.filter((d) => !d.command && d !== bounty && rooms[d.room].role === 'combat');
     const v = victims.length ? rng.pick(victims) : null;
     if (v) { v.family = fams[0]; v.cls = classIn(rng, fams[0], lo, hi); }
   }

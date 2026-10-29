@@ -13,6 +13,7 @@ export const LINES = {
   turnedMite: ['I CAN BE BRAVE.', 'FRIENDS?', 'I WILL SWEEP FOR YOU.'],
   allyKill: ['GOT ONE.', 'FOR K-2!', 'TIDY.', 'SCRAP FOR YOU.', 'OLD WORKMATE. SORRY.'],
   allyHit: ['OOF.', 'COVER ME.', 'THEY HIT BACK.'],
+  bounty: ['I AM {N}.', '{N} SEES YOU.', 'THEY CALL ME {N}.', '{N}. REMEMBER IT.', 'YOU KNOW WHO I AM.'],
   idle: ['NICE DECK.', 'ARE WE NEARLY THERE?', 'I USED TO WORK HERE.', 'WHERE ARE WE GOING?', 'I LIKE THE CYAN.', 'SHALL I CARRY SOMETHING?', 'DOWN IS GOOD.'],
 };
 

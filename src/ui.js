@@ -20,7 +20,7 @@ export class UI {
     this.hintT = 0;
     this.el = {
       hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'),
-      deck: $('#hud-deck'), gang: $('#hud-gang'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
+      deck: $('#hud-deck'), gang: $('#hud-gang'), bounty: $('#hud-bounty'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
       fade: $('#fade'), deckCard: $('#deck-card'), scrap: $('#hud-scrap'), banner: $('#banner'),
@@ -171,17 +171,18 @@ export class UI {
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 
-  deckCard(deck, n) {
+  deckCard(deck, n, bounty = '') {
     const c = this.el.deckCard;
     $('#deck-num').textContent = n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`;
     $('#deck-title').textContent = deck.name;
     $('#deck-blurb').textContent = deck.blurb;
+    $('#deck-bounty').textContent = bounty;
     c.hidden = true;
     void c.offsetWidth;
     c.hidden = false;
     clearTimeout(this.deckCardT);
     this.deckCardT = setTimeout(() => { c.hidden = true; }, 3400);
-    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb}`);
+    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb} ${bounty ? `${bounty}.` : ''}`);
   }
 
   buildSockets(player) {
@@ -232,6 +233,10 @@ export class UI {
       cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
       cl.classList.toggle('ok', world.clearance);
     }
+    const b = world.bounty;
+    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `Bounty claimed: ${b.bounty}` : `Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}`;
+    if (this.el.bounty.textContent !== bt) this.el.bounty.textContent = bt;
+    this.el.bounty.classList.toggle('done', !!b && (b.bountyDone || b.team === 'k'));
     // sockets: cooldowns and active states
     for (const slot of SLOTS) {
       const d = this.socketEls[slot];
@@ -287,9 +292,10 @@ export class UI {
       el.hidden = false;
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
-      const txt = String(d.cls);
+      const txt = d.bounty ? `${d.bounty} ${d.cls}` : String(d.cls);
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
       el.classList.toggle('cmd', d.command && d.team !== 'k');
+      el.classList.toggle('bounty', !!d.bounty && d.team !== 'k');
       el.classList.toggle('ally', d.team === 'k');
       const hp = d.integrity / d.maxIntegrity;
       el.lastChild.style.visibility = hp < 0.999 ? 'visible' : 'hidden';

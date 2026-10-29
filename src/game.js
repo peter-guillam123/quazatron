@@ -379,6 +379,8 @@ export class Game {
         <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
         <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
+      <div><h3>Bounties</h3>
+        <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
       <div><h3>Your gang</h3>
         <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
       <div><h3>Scrap</h3>
@@ -446,7 +448,7 @@ export class Game {
     this.meta.bestDeck = Math.max(this.meta.bestDeck || 0, n);
     saveMeta(this.meta);
     fade.classList.remove('on');
-    this.ui.deckCard(w.deck, n);
+    this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '');
     this.state = 'play';
     this.input.clear();
     if (n === 1 && this.run.tutorial) {
@@ -461,7 +463,7 @@ export class Game {
     this.run.integrity = Math.max(1, p.integrity);
     this.run.mods = { drive: p.mods.drive, arm: p.mods.arm, core: p.mods.core };
     // the gang rides down too
-    this.run.gang = this.world.allies().map((d) => ({ family: d.family, cls: d.cls, command: d.command, hp: d.integrity / d.maxIntegrity }));
+    this.run.gang = this.world.allies().map((d) => ({ family: d.family, cls: d.cls, command: d.command, bounty: d.bounty, hp: d.integrity / d.maxIntegrity }));
   }
 
   disposeWorld() {
@@ -638,6 +640,7 @@ export class Game {
       if (t.kind === 'droid') {
         this.stat('hacked');
         this.archiveSee(t, 'hacked');
+        if (t.bounty) this.bountyClaimed(t, 'hacked');
         const offers = [];
         for (const s of SLOTS) {
           const m = t.mods[s];
@@ -889,6 +892,26 @@ export class Game {
     this.ui.announce(`${title}. ${FAMILIES[d.family].name} ${d.cls} knocked into the void. ${n} scrap.`);
   }
 
+  // A bounty is down: scrap, a firmware chip, and a cheer.
+  bountyClaimed(d, how) {
+    if (d.bountyDone) return;
+    d.bountyDone = true;
+    const w = this.world, p = w.player;
+    const n = 10 + 3 * Math.min(5, this.run.deck);
+    this.addScrap(n, 0, true);
+    this.run.stats.bounties = (this.run.stats.bounties || 0) + 1;
+    const at = w.freeSpotNear(p.pos, 1.1) || p.pos.clone();
+    const x = Math.floor(at.x), z = Math.floor(at.z);
+    const chip = new Pickup(w, { t: '$', x, z, h: w.grid.hAt(x, z), room: -1, ch: '' }, { type: 'chip' });
+    chip.pos.set(at.x, at.y + 0.45, at.z);
+    w.pickups.push(chip);
+    setTimeout(() => {
+      this.ui.banner('Bounty claimed', `${d.bounty} · +${n} scrap and a firmware chip`);
+      this.audio.play('unlock');
+    }, how === 'hacked' ? 0 : 500);
+    this.ui.announce(`Bounty claimed: ${d.bounty}. ${n} scrap, and a firmware chip by your side.`);
+  }
+
   openFab(f) {
     this.state = 'menu';
     this.fab = f;
@@ -962,10 +985,12 @@ export class Game {
   // ------------------------------------------------------------------ chatter
   say(d, kind, force = false) {
     if (!d || !d.alive && kind !== 'fall') return;
-    if (this.ui.say(d, line(kind), force)) this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1) });
+    const text = line(kind).replace('{N}', (d.bounty || '').toUpperCase());
+    if (this.ui.say(d, text, force)) this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1) });
   }
 
   onSpotted(d) {
+    if (d.bounty) { this.say(d, 'bounty', true); return; }
     if (d.family === 'mite') { this.audio.play('squeak', { at: d.pos }); this.say(d, 'spotMite', true); return; }
     if (d.command) { this.say(d, 'command'); return; }
     if (Math.random() < 0.5) this.say(d, 'spot');
@@ -1155,7 +1180,7 @@ export class Game {
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
-      ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
+      ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Bounties', st.bounties || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     document.getElementById('end-unlocks').textContent = r.newStolen.length
       ? `New starting parts: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.`

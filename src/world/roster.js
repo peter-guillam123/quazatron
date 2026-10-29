@@ -82,6 +82,24 @@ export const FAMILIES = {
 
 export const FAMILY_ORDER = Object.keys(FAMILIES);
 
+// Each deck has one droid with a name and a price on its head.
+export const BOUNTY_NAMES = [
+  'Grudge', 'Nails', 'The Clerk', 'Mother', 'Bishop', 'Rattle', 'Sixpence', 'Lady Volt', 'Sump King',
+  'The Auditor', 'Gristle', 'Captain Ohm', 'Doris', 'Brass Neck', 'Tinker', 'Old Faithful', 'Fuse', 'The Bailiff',
+];
+
+export function hasParts(familyId) {
+  const F = FAMILIES[familyId];
+  return !!(F.arm || F.core || (F.drive && F.drive !== 'wheels'));
+}
+
+// A bounty's parts are two grades better than its class would give.
+export function rareMods(mods) {
+  const out = {};
+  for (const [slot, m] of Object.entries(mods)) out[slot] = m && m.id !== 'wheels' ? { id: m.id, grade: Math.min(9, m.grade + 2) } : m;
+  return out;
+}
+
 export function familiesForRange(lo, hi) {
   return FAMILY_ORDER.filter((k) => FAMILIES[k].max >= lo && FAMILIES[k].min <= hi);
 }
