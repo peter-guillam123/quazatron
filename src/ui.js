@@ -15,14 +15,15 @@ export class UI {
     this.screen = null;
     this.stack = [];
     this.labels = [];
+    this.bubbles = [];
     this.toastEls = [];
     this.hintT = 0;
     this.el = {
       hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'),
-      deck: $('#hud-deck'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
+      deck: $('#hud-deck'), gang: $('#hud-gang'), bounty: $('#hud-bounty'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
-      fade: $('#fade'), deckCard: $('#deck-card'),
+      fade: $('#fade'), deckCard: $('#deck-card'), scrap: $('#hud-scrap'), banner: $('#banner'),
     };
     this.mm = this.el.minimap.getContext('2d');
 
@@ -60,8 +61,13 @@ export class UI {
     const el = $(`#screen-${id}`);
     this.screen = el;
     el.hidden = false;
-    const first = opts.focus ? el.querySelector(opts.focus) : el.querySelector('button, .button, input, [tabindex="0"]');
-    if (first) requestAnimationFrame(() => first.focus({ preventScroll: true }));
+    // the first thing that can take focus: not hidden, not disabled
+    requestAnimationFrame(() => {
+      if (this.screen !== el) return;
+      const want = opts.focus && el.querySelector(opts.focus);
+      const first = want && !want.disabled && want.offsetParent !== null ? want : this.focusables()[0];
+      if (first) first.focus({ preventScroll: true });
+    });
   }
 
   hide() {
@@ -144,25 +150,44 @@ export class UI {
     this.announce(this.el.hint.textContent);
   }
 
+  // A big word across the screen, for ring-outs and the like.
+  banner(title, sub = '') {
+    const b = this.el.banner;
+    b.firstElementChild.textContent = title;
+    b.lastElementChild.textContent = sub;
+    b.hidden = true;
+    void b.offsetWidth;
+    b.hidden = false;
+    clearTimeout(this.bannerT);
+    this.bannerT = setTimeout(() => { b.hidden = true; }, 1900);
+  }
+
   // ------------------------------------------------------------------ HUD
+  setScrap(n, bump = false) {
+    const el = this.el.scrap;
+    el.querySelector('b').textContent = String(n);
+    if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  }
+
   showHud(on) { this.el.hud.hidden = !on; if (!on) this.clearLabels(); }
 
-  setDeck(deck, n) {
-    this.el.deck.textContent = `Deck ${n} · ${deck.name}`;
+  setDeck(deck, n, daily = false) {
+    this.el.deck.textContent = `${daily ? 'Today’s tower · ' : ''}Deck ${n} · ${deck.name}`;
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 
-  deckCard(deck, n) {
+  deckCard(deck, n, bounty = '', label = '') {
     const c = this.el.deckCard;
-    $('#deck-num').textContent = n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`;
+    $('#deck-num').textContent = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
     $('#deck-title').textContent = deck.name;
     $('#deck-blurb').textContent = deck.blurb;
+    $('#deck-bounty').textContent = bounty;
     c.hidden = true;
     void c.offsetWidth;
     c.hidden = false;
     clearTimeout(this.deckCardT);
     this.deckCardT = setTimeout(() => { c.hidden = true; }, 3400);
-    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb}`);
+    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb} ${bounty ? `${bounty}.` : ''}`);
   }
 
   buildSockets(player) {
@@ -213,6 +238,10 @@ export class UI {
       cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
       cl.classList.toggle('ok', world.clearance);
     }
+    const b = world.bounty;
+    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `Bounty claimed: ${b.bounty}` : `Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}`;
+    if (this.el.bounty.textContent !== bt) this.el.bounty.textContent = bt;
+    this.el.bounty.classList.toggle('done', !!b && (b.bountyDone || b.team === 'k'));
     // sockets: cooldowns and active states
     for (const slot of SLOTS) {
       const d = this.socketEls[slot];
@@ -223,6 +252,14 @@ export class UI {
       cool.style.width = max ? `${Math.min(1, p.cd[slot] / max) * 100}%` : '0';
       const active = (slot === 'drive' && (p.hovering || p.dash)) || (slot === 'core' && (p.shielding || p.cloaked || p.phasing)) || (slot === 'arm' && p.mod.arm.target);
       d.classList.toggle('active', !!active);
+    }
+    // the gang, with a little bar each
+    const gang = world.allies();
+    const key = gang.map((d) => `${d.cls}:${Math.round((d.integrity / d.maxIntegrity) * 20)}`).join(',');
+    if (key !== this.gangKey) {
+      this.gangKey = key;
+      this.el.gang.innerHTML = gang.map((d) => `<span class="ally" title="${esc(FAMILIES[d.family].name)} ${d.cls}">${d.cls}<i style="width:${Math.round((d.integrity / d.maxIntegrity) * 100)}%"></i></span>`).join('');
+      this.el.gang.setAttribute('aria-label', gang.length ? `Gang: ${gang.map((d) => `${FAMILIES[d.family].name} ${d.cls}`).join(', ')}` : '');
     }
     // hint timer
     if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) this.el.hint.classList.remove('on'); }
@@ -260,9 +297,11 @@ export class UI {
       el.hidden = false;
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
-      const txt = String(d.cls);
+      const txt = d.bounty ? `${d.bounty} ${d.cls}` : String(d.cls);
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
-      el.classList.toggle('cmd', d.command);
+      el.classList.toggle('cmd', d.command && d.team !== 'k');
+      el.classList.toggle('bounty', !!d.bounty && d.team !== 'k');
+      el.classList.toggle('ally', d.team === 'k');
       const hp = d.integrity / d.maxIntegrity;
       el.lastChild.style.visibility = hp < 0.999 ? 'visible' : 'hidden';
       el.lastChild.firstChild.style.width = `${hp * 100}%`;
@@ -270,7 +309,43 @@ export class UI {
     }
     for (let i = n; i < this.labels.length; i++) this.labels[i].hidden = true;
   }
-  clearLabels() { for (const l of this.labels) l.hidden = true; }
+  clearLabels() {
+    for (const l of this.labels) l.hidden = true;
+    for (const b of this.bubbles) b.el.remove();
+    this.bubbles = [];
+  }
+
+  // A droid says something, in a bubble over its head.
+  say(d, text, force = false) {
+    if (!text || !d.model) return false;
+    const now = performance.now();
+    if (!force && (now - (d.saidAt || -1e9) < 7000 || this.bubbles.length >= 3)) return false;
+    d.saidAt = now;
+    const old = this.bubbles.find((b) => b.d === d);
+    if (old) { old.el.remove(); this.bubbles.splice(this.bubbles.indexOf(old), 1); }
+    const el = document.createElement('div');
+    el.className = `bubble${d.team === 'k' ? ' ally' : ''}`;
+    el.textContent = text;
+    this.el.labels.appendChild(el);
+    this.bubbles.push({ d, el, until: now + 1800 + text.length * 45, y: d.model.height + 0.62 });
+    return true;
+  }
+
+  updateBubbles(renderer) {
+    const now = performance.now();
+    const out = { x: 0, y: 0, visible: false };
+    for (let i = this.bubbles.length - 1; i >= 0; i--) {
+      const b = this.bubbles[i];
+      if (now > b.until) { b.el.remove(); this.bubbles.splice(i, 1); continue; }
+      const v = b.d.pos.clone();
+      v.y += b.y;
+      renderer.project(v, out);
+      b.el.style.left = `${out.x}px`;
+      b.el.style.top = `${out.y}px`;
+      b.el.style.visibility = out.visible ? 'visible' : 'hidden';
+      b.el.classList.toggle('fading', now > b.until - 350);
+    }
+  }
 
   drawMinimap(world) {
     const ctx = this.mm;
@@ -337,6 +412,20 @@ export class UI {
     </button>`;
   }
 
+  turnCard(d, gang, max) {
+    const F = FAMILIES[d.family];
+    const parts = [d.mods.drive && d.mods.drive.id !== 'wheels' ? d.mods.drive : null, d.mods.arm, d.mods.core].filter(Boolean).map((m) => MODULES[m.id].name.toLowerCase());
+    const weak = gang.length >= max ? gang.slice().sort((a, b) => a.cls - b.cls)[0] : null;
+    const note = weak ? `Gang full: ${esc(FAMILIES[weak.family].name)} ${weak.cls} goes home` : `Gang: ${gang.length} of ${max}`;
+    return `<button class="card turn" data-act="turn">
+      <span class="slot-tag">Your gang</span>
+      <span class="card-head">${iconSvg('gang', 26)}Turn it</span>
+      <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift down with you.</span>
+      <span class="use">${parts.length ? `It keeps its ${esc(parts.join(' and '))}.` : 'It has only its bumper, but it will use it.'}</span>
+      <span class="swap">${note}</span>
+    </button>`;
+  }
+
   perkCard(id) {
     const p = PERKS[id];
     return `<button class="card" data-act="perk" data-id="${id}">
@@ -344,6 +433,21 @@ export class UI {
       <span class="card-head">${esc(p.name)}</span>
       <span class="line">${esc(p.line)}</span>
     </button>`;
+  }
+
+  fab(items, scrap, focus) {
+    $('#fab-lede').textContent = `You have ${scrap} scrap.`;
+    $('#fab-list').innerHTML = items.map((i) => {
+      const short = i.ok && i.cost > scrap;
+      const off = !i.ok || short;
+      const cost = !i.ok ? '' : short ? `${i.cost} scrap · need ${i.cost - scrap} more` : `${i.cost} scrap`;
+      return `<button class="fab-item" data-act="buy" data-id="${i.id}"${off ? ' disabled' : ''}>
+        <span class="fab-name">${i.icon ? iconSvg(i.icon, 20) : ''}${esc(i.name)}</span>
+        <span class="fab-line">${esc(i.line)}</span>
+        <span class="fab-cost">${cost}</span>
+      </button>`;
+    }).join('');
+    this.show('fab', focus ? { focus: `[data-id="${focus}"]` } : {});
   }
 
   offer({ title, lede, cards, extra }) {

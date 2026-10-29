@@ -12,7 +12,7 @@ const DEFAULTS = {
   archive: {},
   stolen: {},
   hints: {},
-  tutorialHack: false,
+  lesson: 0, lessonSeen: -1, seenHidden: false,
   runs: 0, wins: 0, bestDeck: 0, hacks: 0,
 };
 

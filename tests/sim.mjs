@@ -32,6 +32,9 @@ function fakeGame(run) {
     onPlayerHurt: (a, src) => { run.hurt[src.kind || 'other'] = (run.hurt[src.kind || 'other'] || 0) + a; },
     flashEnergy: noop, deckClaimed: noop, offerFirmware: noop, victory: () => { run.won = true; },
     playerDied: () => { run.dead = true; },
+    addScrap: (n) => { run.scrap = (run.scrap || 0) + n; }, ringOut: () => { run.ringouts = (run.ringouts || 0) + 1; },
+    bountyClaimed: (d) => { if (d.bountyDone) return; d.bountyDone = true; run.bounties = (run.bounties || 0) + 1; },
+    allyLost: noop, say: noop, onDroidHurt: noop, onSpotted: noop,
   };
   return g;
 }

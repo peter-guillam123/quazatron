@@ -180,6 +180,7 @@ export const ABILITIES = {
       const dist = Math.hypot(dx, dz) || 1;
       d.intent.aim = { x: -dx, z: -dz };
       if (t.kind === 'droid') {
+        t.lastHit = { by: d, t: w.time };
         if (dist > d.radius + t.radius + 0.25) {
           const resist = t.stats.drive.knockResist ? 0.15 : 1;
           const k = (s.pull * dt * resist) / Math.max(0.6, t.mass);

@@ -11,6 +11,7 @@ export class Brain {
     this.d = d;
     this.w = world;
     this.fam = FAMILIES[d.family] || { temper: 'hunter' };
+    this.target = null;
     this.state = 'patrol';
     this.home = d.pos.clone();
     this.wander = null;
@@ -37,8 +38,50 @@ export class Brain {
   provoke() {
     this.hitT = 2.5;
     if (this.state === 'patrol') { this.state = 'chase'; this.seenT = 1; }
-    if (this.fam.temper === 'timid') this.fleeT = 2.5;
+    if (this.temper === 'timid') this.fleeT = 2.5;
     if (this.d.cloaked) this.d.cloaked = false;
+  }
+
+  get temper() {
+    // a Mite on your side finds its nerve
+    return this.ally && this.fam.temper === 'timid' ? 'hunter' : this.fam.temper;
+  }
+
+  get ally() { return this.d.team === 'k'; }
+
+  // Who to fight. The tower's droids go for KLP-2, or for one of its gang
+  // if that's nearer; the gang goes for whatever is near KLP-2.
+  perceive() {
+    const d = this.d, w = this.w, p = w.player;
+    this.sees = false;
+    const visible = (o, range) => {
+      if (!o || !o.alive || o.state === 'hacked' || (o.kind === 'droid' && o.state !== 'active')) return false;
+      const dist = d.pos.distanceTo(o.pos);
+      if (o.cloaked && dist > 1.4) return false;
+      if (dist < 1.6) return true;
+      return dist < range && w.canSee(d.pos, o.pos);
+    };
+    if (this.ally) {
+      let best = null, bd = Infinity;
+      for (const o of w.hostilesOf(d)) {
+        if (!p || o.pos.distanceTo(p.pos) > 9) continue;
+        const dist = d.pos.distanceTo(o.pos);
+        if (dist < bd && visible(o, 7.5)) { bd = dist; best = o; }
+      }
+      this.target = best;
+      this.sees = !!best;
+      return;
+    }
+    const live = p && p.alive && p.state === 'active' ? p : null;
+    let best = live, bd = live ? d.pos.distanceTo(live.pos) - 1.5 : Infinity;
+    let seen = live && visible(live, this.sight);
+    for (const o of w.droids) {
+      if (o === p || o.team !== 'k' || !o.alive || o.state !== 'active') continue;
+      const dist = d.pos.distanceTo(o.pos);
+      if (dist < bd && visible(o, this.sight)) { bd = dist; best = o; seen = true; }
+    }
+    this.target = best;
+    this.sees = !!seen;
   }
 
   update(dt) {
@@ -47,34 +90,14 @@ export class Brain {
     it.mx = 0; it.mz = 0; it.arm = false; it.drive = false; it.core = false; it.aim = null;
     if (d.stunned) { this.attack = null; d.charge = 0; return; }
 
-    const p = w.player;
-    const target = p && p.alive && p.state === 'active' ? p : null;
     this.hitT = Math.max(0, this.hitT - dt);
     this.cool -= dt; this.driveCool -= dt; this.fleeT -= dt; this.strafeT -= dt;
     this.shieldRest = Math.max(0, this.shieldRest - dt);
 
     // ---- perception, a few times a second
     this.lookT -= dt;
-    if (this.lookT <= 0) {
-      this.lookT = 0.18;
-      this.sees = false;
-      if (target) {
-        const dist = d.pos.distanceTo(target.pos);
-        const cloakedFar = target.cloaked && dist > 1.4;
-        if (!cloakedFar && dist < this.sight && w.canSee(d.pos, target.pos)) this.sees = true;
-        if (!cloakedFar && dist < 1.6) this.sees = true;
-      }
-    }
-    if (this.sees) {
-      this.seenT += dt; this.lostT = 0;
-      if (this.state === 'patrol' && this.seenT > this.reaction) { this.state = 'chase'; w.alertRoom(d); }
-    } else {
-      this.seenT = 0; this.lostT += dt;
-      if (this.state === 'chase' && this.lostT > 4 && this.hitT <= 0) this.state = 'patrol';
-    }
-
-    // hover droids float everywhere; everyone else minds the edges
-    const temper = this.fam.temper;
+    if (this.lookT <= 0) { this.lookT = 0.18; this.perceive(); }
+    const target = this.target && (this.target.alive !== false) ? this.target : null;
 
     // ---- cloak: hidden until it means to strike
     if (d.modId('core') === 'cloak') {
@@ -84,11 +107,37 @@ export class Brain {
       d.revealT = this.attack ? Math.min(1, (d.revealT || 0) + dt * 2) : Math.max(0, (d.revealT || 0) - dt);
     }
 
+    if (this.ally) {
+      if (target && this.sees) { this.state = 'chase'; this.fight(dt, target); } else { this.state = 'follow'; this.attack = null; d.charge = 0; this.follow(dt); }
+      return;
+    }
+
+    // a dozy droid potters about until something wakes it
+    if (d.dozy && !this.woke) {
+      if (this.hitT > 0) this.woke = true;
+      else { this.patrol(dt); return; }
+    }
+
+    if (this.sees) {
+      this.seenT += dt; this.lostT = 0;
+      if (this.state === 'patrol' && this.seenT > this.reaction) { this.state = 'chase'; w.alertRoom(d); this.w.game.onSpotted?.(d); }
+    } else {
+      this.seenT = 0; this.lostT += dt;
+      if (this.state === 'chase' && this.lostT > 4 && this.hitT <= 0) this.state = 'patrol';
+    }
+
     if (this.state === 'patrol' || !target) {
       this.patrol(dt);
       return;
     }
+    this.fight(dt, target);
+  }
 
+  // Close in, keep away or circle, depending on parts; then attack.
+  fight(dt, target) {
+    const d = this.d, w = this.w;
+    const it = d.intent;
+    const temper = this.temper;
     const dx = target.pos.x - d.pos.x, dz = target.pos.z - d.pos.z;
     const dist = Math.hypot(dx, dz) || 0.001;
     const ux = dx / dist, uz = dz / dist;
@@ -127,7 +176,7 @@ export class Brain {
       return;
     }
 
-    // ---- shield up when facing the player
+    // ---- shield up when facing the enemy
     if (d.modId('core') === 'shield' && this.shieldRest <= 0 && dist < 8 && this.sees) {
       it.core = true;
       if (Math.random() < dt * 0.25) this.shieldRest = 1.5;   // it has to rest sometimes
@@ -162,12 +211,36 @@ export class Brain {
     if (this.sees && this.cool <= 0) {
       if (arm === 'laser' && dist < d.stats.arm.range * 0.8) this.begin('arm', 0.5 - this.grade * 0.02);
       else if (arm === 'arc' && dist < d.stats.arm.range * 0.8) this.begin('arm', 0.65);
-      else if (arm === 'tractor' && dist < d.stats.arm.range * 0.9) this.begin('arm', 0.45);
+      else if (arm === 'tractor' && dist < d.stats.arm.range * 0.9 && target.kind === 'droid') this.begin('arm', 0.45);
       else if ((arm === 'ram' || !arm) && dist < 2.2 && temper !== 'timid') this.begin('arm', 0.38);
     }
     if (this.sees && this.driveCool <= 0 && !this.attack) {
       if (drive === 'thrusters' && dist > 2.2 && dist < 5.5 && w.clearRun(d, ux, uz, dist)) this.begin('drive', 0.45);
       else if (drive === 'treads' && dist < 1.9) this.begin('drive', 0.5);
+    }
+  }
+
+  // The gang keeps close to KLP-2, each in its own spot, and catches up if
+  // it gets left behind.
+  follow(dt) {
+    const d = this.d, w = this.w, p = w.player;
+    if (!p || !p.alive) return;
+    const slot = w.droids.filter((o) => o.team === 'k' && !o.isPlayer).indexOf(d);
+    const a = p.facing + Math.PI + (slot - 1) * 0.9;
+    const gx = p.pos.x + Math.sin(a) * 1.5, gz = p.pos.z + Math.cos(a) * 1.5;
+    const dx = gx - d.pos.x, dz = gz - d.pos.z;
+    const m = Math.hypot(dx, dz);
+    const far = d.pos.distanceTo(p.pos);
+    if (m > 0.5) {
+      const k = Math.min(1, m / 2.5);
+      const s = this.steer((dx / m) * k, (dz / m) * k);
+      d.intent.mx = s.x; d.intent.mz = s.z;
+    }
+    // left behind, or stuck on another level: catch up
+    this.lagT = far > 8 || Math.abs(p.pos.y - d.pos.y) > 1.2 ? (this.lagT || 0) + dt : 0;
+    if (this.lagT > 2.5 && p.grounded) {
+      this.lagT = 0;
+      w.warpToPlayer(d);
     }
   }
 

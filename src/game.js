@@ -15,14 +15,20 @@ import { DECKS, PLAYER_COLOUR, PLAYER_HEX, TUNING, LEVEL_H } from './config.js';
 import { generateDeck } from './world/deckgen.js';
 import { World } from './world/world.js';
 import { Grid, T } from './world/grid.js';
-import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg } from './world/modules.js';
+import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg, roman } from './world/modules.js';
 import { FAMILIES } from './world/roster.js';
 import { HackSession } from './hack/session.js';
+import { LESSONS } from './hack/lessons.js';
 import { HackView } from './hack/view.js';
 import { Pickup } from './world/devices.js';
+import { Brain } from './world/ai.js';
+import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
+import { line } from './lines.js';
+import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
+const GANG_MAX = 3;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export class Game {
@@ -98,6 +104,11 @@ export class Game {
     this.last = now;
     this.input.poll();
     this.input.capture = this.state === 'play' || this.state === 'hack';
+    // floor signs show the keys for whatever you last pressed
+    if (this.world && this.world.signs.length && this.input.lastDevice !== this.signDevice) {
+      this.signDevice = this.input.lastDevice;
+      for (const sg of this.world.signs) sg.setDevice(this.signDevice);
+    }
     try {
       this.update(dt);
     } catch (err) {
@@ -116,12 +127,15 @@ export class Game {
     if (this.world) {
       const w = this.world;
       const p = w.player;
+      // a ring-out plays out slowly
+      let wdt = dt;
+      if (this.slowT > 0 && this.state === 'play') { this.slowT -= dt; wdt = dt * 0.3; }
       if (this.state === 'play' && this.hitStop > 0) {
         // a heartbeat's pause on a big hit
         this.hitStop -= dt;
       } else if (this.state === 'play') {
-        this.controlPlayer(dt);
-        w.update(dt);
+        this.controlPlayer(wdt);
+        w.update(wdt);
         this.run.stats.time += dt;
       } else if (this.state === 'grapple') {
         this.updateGrapple(dt);
@@ -145,6 +159,8 @@ export class Game {
         if (this.state === 'play') {
           this.ui.updateHud(w, dt);
           this.ui.updateLabels(w, r);
+          this.ui.updateBubbles(r);
+          this.chatter(dt);
           this.updatePrompt();
           this.musicIntensity(dt);
           this.minimapT = (this.minimapT || 0) - dt;
@@ -185,6 +201,11 @@ export class Game {
     if (m.runs) rec.push(`${m.runs} run${m.runs === 1 ? '' : 's'}`);
     if (m.bestDeck) rec.push(`deepest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
     document.getElementById('title-records').textContent = rec.join(' · ');
+    document.getElementById('btn-induction').hidden = !m.inductionDone;
+    const done = m.daily && m.daily[today()];
+    document.getElementById('daily-note').textContent = done
+      ? (done.won ? 'claimed today' : `today: deck ${done.deck}`)
+      : prettyDate(today()).replace(/ \d{4}$/, '');
     this.ui.show('title');
     this.audio.startMusic(6);
   }
@@ -258,10 +279,17 @@ export class Game {
   onAction(screen, act, el) {
     switch (screen) {
       case 'title':
-        if (act === 'new') this.newRun();
+        if (act === 'new') { if (this.meta.inductionDone) this.newRun(); else this.ui.show('first'); }
+        else if (act === 'induction') this.startRun(null, { induction: true });
+        else if (act === 'daily') this.startRun(null, { daily: today() });
         else if (act === 'archive') this.ui.archive(this.meta);
         else if (act === 'howto') this.showHowto();
         else if (act === 'settings') this.showSettings();
+        break;
+      case 'first':
+        if (act === 'induction') this.startRun(null, { induction: true });
+        else if (act === 'skip') { this.meta.inductionDone = true; saveMeta(this.meta); this.newRun(); }
+        else if (act === 'back') this.ui.show('title');
         break;
       case 'phone':
         if (act === 'anyway') this.toTitle();
@@ -286,8 +314,13 @@ export class Game {
       case 'offer':
         this.onOffer(act, el);
         break;
+      case 'fab':
+        if (act === 'buy') this.buyFab(el.dataset.id);
+        else if (act === 'back') { this.fab = null; this.resume(); }
+        break;
       case 'end':
-        if (act === 'again') this.newRun();
+        if (act === 'copy') this.copyShare();
+        else if (act === 'again') this.newRun();
         else if (act === 'title' || act === 'back') this.toTitle();
         break;
       default: break;
@@ -358,17 +391,27 @@ export class Game {
         <p>Each deck has a lift down, locked until you take its <b>◆ command droid</b>, by hack or by force.</p></div>
       <div><h3>The hack</h3>
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
-        <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p></div>
+        <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
+        <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
-        <ul><li>Ram droids to dent them, and knock them off edges into the void.</li>
+        <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>
         <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
         <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
+      <div><h3>Bounties</h3>
+        <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
+      <div><h3>Your gang</h3>
+        <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
+      <div><h3>Scrap</h3>
+        <p>Wrecked droids burst into scrap, which KLP-2 picks up as it rolls past. Win a hack and you can strip the droid for scrap instead of taking a part.</p>
+        <p>Spend it at a <b>fabricator</b>, near each deck's lift: repairs, better grades of the parts you have, and firmware.</p>
+        <p>Win a hack by four cells or more and it's a clean hack: take two parts.</p></div>
       <div><h3>Parts</h3>
         <p>Three sockets: drive, arm and core. Taking a part drops the old one at your feet, so you can swap back. A part's grade comes from the class of the droid you took it from.</p>
         <p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p></div>
       <div><h3>Between runs</h3>
-        <p>When KLP-2 is destroyed the run ends. You keep the droid archive, and any part you've ever stolen can come with you, at grade I, on the next run.</p></div>`;
+        <p>When KLP-2 is destroyed the run ends. You keep the droid archive, and any part you've ever stolen can come with you, at grade I, on the next run.</p>
+        <p><b>Today's tower</b> is the same five decks for everyone, all day. Only your first go counts, and you get a line of squares to share.</p></div>`;
     this.ui.show('howto', { push: true });
   }
 
@@ -383,16 +426,16 @@ export class Game {
     this.ui.show('kit');
   }
 
-  startRun(kit) {
+  startRun(kit, opts = {}) {
     this.ui.hide();
     const mods = { drive: { id: 'wheels', grade: 1 }, arm: null, core: null };
     if (kit) mods[MODULES[kit].slot] = { id: kit, grade: 1 };
     this.run = {
-      seed: randomSeed(), deck: 1, mods,
+      seed: opts.daily ? dailySeed(opts.daily) : randomSeed(), daily: opts.daily || null, deck: 1, mods,
       integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
-      perks: [], lastGaspUsed: false, newStolen: [],
-      stats: { hacked: 0, destroyed: 0, voided: 0, parts: 0, time: 0, reflects: 0, decks: 0 },
-      tutorial: !this.meta.tutorialDone && this.settings.hints,
+      perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0, gang: [],
+      stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0 },
+      induction: !!opts.induction,
     };
     this.disposeTitleScene();
     this.loadDeck(1);
@@ -407,29 +450,31 @@ export class Game {
     this.disposeWorld();
     this.disposeTitleScene();
     this.fx.clear();
+    this.slowT = 0; this.koStreak = 0; this.koLast = -99;
     const seed = this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
     this.forceSeed = null;
-    const build = generateDeck(n, makeRng(seed), { tutorial: this.run.tutorial, playerMods: this.run.mods });
+    const induction = this.run.induction && n === 1;
+    // today's tower must come out the same for everyone, whatever they carry
+    const build = generateDeck(n, makeRng(seed), { induction, playerMods: this.run.daily ? null : this.run.mods });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
     this.env.setDeck(w.deck, centre);
     this.renderer.zoomTarget = 1; this.renderer.zoom = 1;
     this.renderer.follow(w.player.pos, 0, true);
-    this.ui.setDeck(w.deck, n);
+    this.ui.setDeck(w.deck, n, !!this.run.daily);
     this.ui.buildSockets(w.player);
+    this.ui.setScrap(this.run.scrap);
     this.ui.showHud(true);
     this.audio.startMusic(w.deck.music);
     this.run.stats.decks = Math.max(this.run.stats.decks, n);
     this.meta.bestDeck = Math.max(this.meta.bestDeck || 0, n);
     saveMeta(this.meta);
     fade.classList.remove('on');
-    this.ui.deckCard(w.deck, n);
+    if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
+    else this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '', this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE TOP' : `DECK ${n} OF 5`}` : '');
     this.state = 'play';
     this.input.clear();
-    if (n === 1 && this.run.tutorial) {
-      setTimeout(() => this.hintOnce('move', '<b>WASD</b> or the <b>arrow keys</b> to move. Up is up the screen. Find a droid and get close.', 8), 3200);
-    }
     if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 3400);
   }
 
@@ -438,6 +483,8 @@ export class Game {
     if (!p || !this.run) return;
     this.run.integrity = Math.max(1, p.integrity);
     this.run.mods = { drive: p.mods.drive, arm: p.mods.arm, core: p.mods.core };
+    // the gang rides down too
+    this.run.gang = this.world.allies().map((d) => ({ family: d.family, cls: d.cls, command: d.command, bounty: d.bounty, hp: d.integrity / d.maxIntegrity }));
   }
 
   disposeWorld() {
@@ -470,9 +517,10 @@ export class Game {
     }
     const v = this.renderer.screenToWorld(mv.x, mv.y);
     p.intent.mx = v.x; p.intent.mz = v.z;
-    p.intent.arm = inp.held('arm');
-    p.intent.drive = inp.held('drive');
-    p.intent.core = inp.held('core');
+    // a tap shorter than a frame still counts
+    p.intent.arm = inp.held('arm') || inp.hit('arm');
+    p.intent.drive = inp.held('drive') || inp.hit('drive');
+    p.intent.core = inp.held('core') || inp.hit('core');
     if (p.modId('arm') !== 'tractor') p.intent.aim = null;
     if (inp.hit('grapple')) this.interact();
     if (inp.hit('zoomIn') || inp.hit('zoomOut')) {
@@ -491,6 +539,10 @@ export class Game {
     if (it.kind === 'lift') {
       if (it.ready) this.ui.setPrompt(`${key}Take the lift down`);
       else this.ui.setPrompt(`${key}Lift locked<span class="sub">needs the ◆ command droid's clearance</span>`, true);
+      return;
+    }
+    if (it.kind === 'fabricator') {
+      this.ui.setPrompt(`${key}Use the fabricator<span class="sub">${this.run.scrap} scrap</span>`);
       return;
     }
     if (it.kind === 'pickup') {
@@ -526,6 +578,7 @@ export class Game {
       return;
     }
     if (it.kind === 'pickup') { this.usePickup(it.target); return; }
+    if (it.kind === 'fabricator') { this.openFab(it.target); return; }
     this.tryGrapple(it.target);
   }
 
@@ -555,14 +608,14 @@ export class Game {
     g.t += dt;
     const from = p.pos.clone(); from.y += 0.25; from.x += Math.sin(p.facing) * 0.35; from.z += Math.cos(p.facing) * 0.35;
     const to = t.pos.clone(); to.y += (t.kind === 'droid' ? 0.4 * t.scale : 0.6);
-    const k = Math.min(1, g.t / 0.22);
+    const k = Math.min(1, g.t / 0.18);
     const end = from.clone().lerp(to, k);
     if (g.rib) w.fx.removeRibbon(g.rib);
     g.rib = w.fx.ribbon([from, end], PLAYER_COLOUR, 0.06, 1, { persist: true, bright: 2.5 });
     if (k >= 1 && !g.sparked) { g.sparked = true; w.fx.burst(to, PLAYER_COLOUR, 16, 2, 0.4, 0.1, 0); this.renderer.flash(PLAYER_HEX, 0.15); }
     p.syncModel(dt);
     if (t.syncModel) t.syncModel(dt);
-    if (g.t > 0.4) {
+    if (g.t > 0.32) {
       if (g.rib) w.fx.removeRibbon(g.rib);
       this.startHack(t, { ambush: g.ambush });
     }
@@ -570,8 +623,10 @@ export class Game {
 
   startHack(target, opts = {}) {
     const spec = this.world.hackSpecFor(target);
-    const tutorial = !this.meta.tutorialHack && this.settings.hints;
-    this.session = new HackSession(this, target, spec, { ...opts, tutorial });
+    // until you've won a board of each kind, hacks are lessons
+    const i = this.meta.lesson || 0;
+    const lesson = LESSONS[i] || null;
+    this.session = new HackSession(this, target, spec, { ...opts, lesson, lessonIndex: i });
     this.state = 'hack';
     this.audio.setHack(true);
     this.renderer.zoomTarget = 0.72;
@@ -586,8 +641,12 @@ export class Game {
     this.audio.setHack(false);
     this.renderer.zoomTarget = 1;
     this.ui.el.hud.classList.remove('hacking');
-    this.meta.tutorialHack = true;
     this.meta.hacks = (this.meta.hacks || 0) + 1;
+    if (session.lesson) {
+      this.meta.lessonSeen = session.opts.lessonIndex;
+      if (won) this.meta.lesson = session.opts.lessonIndex + 1;
+    }
+    if (session.sawHidden) this.meta.seenHidden = true;
     saveMeta(this.meta);
     this.state = 'play';
     this.input.clear();
@@ -603,25 +662,22 @@ export class Game {
       if (t.kind === 'droid') {
         this.stat('hacked');
         this.archiveSee(t, 'hacked');
+        if (t.bounty) this.bountyClaimed(t, 'hacked');
         const offers = [];
         for (const s of SLOTS) {
           const m = t.mods[s];
           if (m && !MODULES[m.id].starter) offers.push({ id: m.id, grade: m.grade });
         }
         this.powerDown(t);
-        if (offers.length) {
-          this.offerState = { kind: 'salvage', offers };
-          const first = !this.meta.stolen || !Object.keys(this.meta.stolen).length;
-          this.ui.offer({
-            title: `${FAMILIES[t.family].name} ${t.cls} is yours`,
-            lede: first ? 'Take one part. It goes in the matching socket; anything it replaces drops at your feet.' : 'Take one part, or leave them.',
-            cards: offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot])),
-            extra: '<button data-act="leave">Take nothing</button>',
-          });
-          this.state = 'menu';
-        } else {
-          this.toast(`${FAMILIES[t.family].name} ${t.cls} wiped. Nothing worth taking.`);
+        // win by four or more and it's a clean hack: two parts, or a bonus
+        const clean = session.roundsTotal === 1 && session.margin >= 4;
+        if (clean && offers.length < 2) {
+          w.scrap.burst(t.pos, scrapFor(t.cls), { pull: 2 });
+          this.toast('Clean hack. Bonus scrap.');
         }
+        this.offerState = { kind: 'salvage', offers, target: t, picks: clean && offers.length >= 2 ? 2 : 1, taken: 0, strip: scrapFor(t.cls) + 2 };
+        this.showSalvage();
+        this.state = 'menu';
       } else {
         t.onHackWin();
         if (t.kind === 'terminal') this.toast('Terminal hacked.');
@@ -638,12 +694,74 @@ export class Game {
         t.graceT = 2.5;
         if (t.brain) t.brain.provoke();
         this.toast('Rejected. Feedback surge.');
+        setTimeout(() => this.say(t, 'rejected', true), 250);
       } else {
         t.onHackLose();
         p.knock(0, 0, 0.4);
       }
     }
     this.ui.refreshSockets(p);
+  }
+
+  showSalvage() {
+    const o = this.offerState, t = o.target, p = this.world.player;
+    const name = `${FAMILIES[t.family].name} ${t.cls}`;
+    let title, lede;
+    if (o.taken) {
+      title = 'One more part';
+      lede = 'A clean hack: take a second part, or stop there.';
+    } else {
+      title = o.picks > 1 ? `Clean hack. ${name} is yours` : `${name} is yours`;
+      const first = !Object.keys(this.meta.stolen || {}).length;
+      if (!o.offers.length) lede = 'Nothing worth fitting. Turn it to your side, or strip it for scrap.';
+      else if (o.picks > 1) lede = 'You won by four cells or more, so take two parts. Or turn it, or strip it for scrap.';
+      else if (first) lede = 'Take a part: it goes in the matching socket, and anything it replaces drops at your feet. Or turn the droid to your side, or strip it for scrap.';
+      else lede = 'Take a part, turn it to your side, or strip it for scrap.';
+    }
+    const cards = o.offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot]));
+    if (!o.taken) cards.push(this.ui.turnCard(t, this.world.allies(), GANG_MAX));
+    this.ui.offer({
+      title, lede, cards,
+      extra: o.taken ? '<button data-act="leave">Done</button>' : `<button data-act="strip">Strip it for ${o.strip} scrap</button>`,
+    });
+  }
+
+  // A hacked droid comes back on, cyan, and joins KLP-2's gang.
+  turnDroid(d) {
+    const w = this.world;
+    const gang = w.allies();
+    if (gang.length >= GANG_MAX) {
+      // the weakest goes home to make room
+      const weak = gang.sort((a, b) => a.cls - b.cls)[0];
+      w.fx.burst(weak.pos.clone().setY(weak.pos.y + 0.4), PLAYER_COLOUR, 20, 2, 0.6, 0.1, -1);
+      w.removeDroid(weak);
+      weak.alive = false;
+      this.toast(`${FAMILIES[weak.family].name} ${weak.cls} goes home.`);
+    }
+    d.state = 'active';
+    d.alive = true;
+    d.solid = true;
+    d.team = 'k';
+    d.downT = 0;
+    d.vel.x = d.vel.z = 0;
+    d.integrity = Math.max(d.integrity, d.maxIntegrity * 0.6);
+    d.model.body.rotation.x = 0;
+    d.setAccent(PLAYER_COLOUR);
+    d.brain = new Brain(d, w);
+    d.brain.state = 'follow';
+    d.lastHit = null;
+    w.fx.ring(d.pos, PLAYER_COLOUR, 1.4, 0.5);
+    w.fx.burst(d.pos.clone().setY(d.pos.y + 0.5), PLAYER_COLOUR, 24, 2.5, 0.6, 0.1, 1);
+    this.audio.play('turn', { at: d.pos });
+    this.run.stats.turned = (this.run.stats.turned || 0) + 1;
+    this.toast(`${FAMILIES[d.family].name} ${d.cls} joins your gang.`);
+    setTimeout(() => this.say(d, d.family === 'mite' ? 'turnedMite' : 'turned', true), 600);
+    this.hintOnce('gang', 'Your gang follows you, fights for you and rides the lift with you. Up to three at a time.', 7);
+  }
+
+  allyLost(d, how) {
+    this.toast(how === 'void' ? `${FAMILIES[d.family].name} ${d.cls} fell into the void.` : `${FAMILIES[d.family].name} ${d.cls} was wrecked.`);
+    this.audio.play('allyLost', { at: d.pos });
   }
 
   powerDown(d) {
@@ -720,7 +838,7 @@ export class Game {
     const picks = rng.shuffle(pool.slice()).slice(0, 3);
     this.offerState = { kind: 'perk', pickup, source };
     this.ui.offer({
-      title: source === 'archive' ? 'Archive unlocked' : source === 'claim' ? 'Deck claimed' : 'Firmware chip',
+      title: source === 'archive' ? 'Archive unlocked' : source === 'claim' ? 'Deck claimed' : source === 'fab' ? 'Fabricator' : 'Firmware chip',
       lede: 'Pick one upgrade. It lasts for the rest of the run.',
       cards: picks.map((id) => this.ui.perkCard(id)),
     });
@@ -734,11 +852,24 @@ export class Game {
     if (act === 'take') {
       this.equip({ id: el.dataset.id, grade: +el.dataset.grade });
       if (o.kind === 'cache' && o.pickup) this.world.removePickup(o.pickup);
+      if (o.kind === 'salvage') {
+        o.taken += 1;
+        o.offers = o.offers.filter((m) => m.id !== el.dataset.id);
+        if (o.taken < o.picks && o.offers.length) { this.showSalvage(); return; }
+      }
     } else if (act === 'perk') {
       this.addPerk(el.dataset.id);
       if (o.pickup) this.world.removePickup(o.pickup);
-    } else if (act === 'back' && o.kind === 'perk') {
-      return; // a perk choice can't be skipped by accident
+    } else if (act === 'turn') {
+      this.turnDroid(o.target);
+    } else if (act === 'strip') {
+      const t = o.target;
+      this.world.scrap.burst(t.pos, o.strip, { pull: 2 });
+      this.world.fx.burst(t.pos.clone().setY(t.pos.y + 0.4), 0xffe2a8, 18, 3, 0.5, 0.1, 4);
+      this.audio.play('crate', { at: t.pos });
+      t.downT = Math.max(t.downT || 0, 3.2);
+    } else if (act === 'back' && (o.kind === 'perk' || (o.kind === 'salvage' && !o.taken))) {
+      return; // a choice that can't be skipped by accident
     }
     this.offerState = null;
     this.ui.hide();
@@ -754,6 +885,154 @@ export class Game {
     this.audio.play('unlock');
     this.toast(`Firmware: ${PERKS[id].name}`);
     this.ui.refreshSockets(p);
+  }
+
+  // ------------------------------------------------------------------ scrap and the fabricator
+  addScrap(n, chain = 0, quiet = false) {
+    if (!this.run) return;
+    this.run.scrap += n;
+    this.run.stats.scrap += n;
+    if (!quiet) this.audio.play('scrap', { pitch: 1 + Math.min(chain, 16) * 0.045 });
+    this.ui.setScrap(this.run.scrap, true);
+  }
+
+  ringOut(d, by) {
+    const now = this.world.time;
+    this.koStreak = now - (this.koLast ?? -99) < 6 ? (this.koStreak || 1) + 1 : 1;
+    this.koLast = now;
+    this.run.stats.ringouts += 1;
+    const n = scrapFor(d.cls) * 2;
+    const word = ['', '', 'Double', 'Triple', 'Quadruple'][this.koStreak] || `${this.koStreak} in a row:`;
+    const title = this.koStreak > 1 ? `${word} ring out` : 'Ring out';
+    const who = by.isPlayer ? '' : by.family ? ` · ${FAMILIES[by.family].name} did it` : ' · your turret did it';
+    this.ui.banner(title, `+${n} scrap${who}`);
+    this.say(d, 'fall', true);
+    this.slowT = this.reducedMotion ? 0.3 : 0.75;
+    this.audio.play('ringout');
+    this.input.rumble(0.6, 220);
+    this.renderer.flash('#ffffff', 0.18);
+    this.ui.announce(`${title}. ${FAMILIES[d.family].name} ${d.cls} knocked into the void. ${n} scrap.`);
+  }
+
+  // A bounty is down: scrap, a firmware chip, and a cheer.
+  bountyClaimed(d, how) {
+    if (d.bountyDone) return;
+    d.bountyDone = true;
+    const w = this.world, p = w.player;
+    const n = 10 + 3 * Math.min(5, this.run.deck);
+    this.addScrap(n, 0, true);
+    this.run.stats.bounties = (this.run.stats.bounties || 0) + 1;
+    const at = w.freeSpotNear(p.pos, 1.1) || p.pos.clone();
+    const x = Math.floor(at.x), z = Math.floor(at.z);
+    const chip = new Pickup(w, { t: '$', x, z, h: w.grid.hAt(x, z), room: -1, ch: '' }, { type: 'chip' });
+    chip.pos.set(at.x, at.y + 0.45, at.z);
+    w.pickups.push(chip);
+    setTimeout(() => {
+      this.ui.banner('Bounty claimed', `${d.bounty} · +${n} scrap and a firmware chip`);
+      this.audio.play('unlock');
+    }, how === 'hacked' ? 0 : 500);
+    this.ui.announce(`Bounty claimed: ${d.bounty}. ${n} scrap, and a firmware chip by your side.`);
+  }
+
+  openFab(f) {
+    this.state = 'menu';
+    this.fab = f;
+    this.ui.setPrompt(null);
+    this.showFab();
+    this.hintOnce('fab', 'Scrap comes from wrecked droids. Knock one into the void and you get double.', 7);
+  }
+
+  fabItems() {
+    const r = this.run, p = this.world.player;
+    const deck = Math.min(5, r.deck);
+    const items = [];
+    const missing = p.maxIntegrity - p.integrity;
+    const fix = Math.round(Math.min(missing, p.maxIntegrity * 0.35));
+    items.push({ id: 'repair', name: 'Repair', line: missing > 0.5 ? `Patch up ${fix} integrity.` : 'You’re in one piece.', cost: 5 + 2 * deck, ok: missing > 0.5 });
+    for (const slot of SLOTS) {
+      const m = p.mods[slot];
+      if (!m || MODULES[m.id].starter) continue;
+      items.push({
+        id: `up-${slot}`, name: `Upgrade ${MODULES[m.id].name}`, icon: m.id,
+        line: m.grade < 9 ? `Mk ${roman(m.grade)} to Mk ${roman(m.grade + 1)}.` : 'Already Mk IX, as good as it gets.',
+        cost: 8 + 3 * m.grade, ok: m.grade < 9,
+      });
+    }
+    const gang = this.world.allies();
+    if (gang.length) {
+      const hurt = gang.filter((d) => d.integrity < d.maxIntegrity - 0.5).length;
+      items.push({ id: 'gang', name: 'Patch up the gang', line: hurt ? `Repair all ${gang.length === 1 ? 'of your gang' : `${gang.length} of your gang`} in full.` : 'Your gang is in one piece.', cost: 4 + 2 * gang.length, ok: hurt > 0 });
+    }
+    const left = PERK_IDS.filter((id) => !r.perks.includes(id)).length;
+    items.push({ id: 'firmware', name: 'Firmware', line: left ? 'Pick one of three upgrades for the rest of the run.' : 'Nothing left to install.', cost: 24 + 12 * r.fabPerks, ok: left > 0 });
+    return items;
+  }
+
+  showFab(focus) {
+    this.ui.fab(this.fabItems(), this.run.scrap, focus);
+  }
+
+  buyFab(id) {
+    const r = this.run, p = this.world.player;
+    const item = this.fabItems().find((i) => i.id === id);
+    if (!item || !item.ok || item.cost > r.scrap) { this.audio.play('empty'); return; }
+    r.scrap -= item.cost;
+    this.ui.setScrap(r.scrap);
+    this.audio.play('buy');
+    if (id === 'repair') {
+      p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.35);
+      this.world.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
+      this.toast('Repaired');
+    } else if (id === 'gang') {
+      for (const d of this.world.allies()) {
+        d.integrity = d.maxIntegrity;
+        this.world.fx.burst(d.pos.clone().setY(d.pos.y + 0.5), PLAYER_COLOUR, 14, 2, 0.7, 0.1, -1);
+      }
+      this.toast('Gang repaired');
+    } else if (id.startsWith('up-')) {
+      const slot = id.slice(3);
+      p.mods[slot] = { id: p.mods[slot].id, grade: p.mods[slot].grade + 1 };
+      p.refresh();
+      this.ui.refreshSockets(p);
+      this.toast(`${moduleLabel(p.mods[slot])} fitted`);
+    } else if (id === 'firmware') {
+      r.fabPerks += 1;
+      this.fab = null;
+      this.offerFirmware('fab');
+      return;
+    }
+    this.showFab(id);
+  }
+
+  // ------------------------------------------------------------------ chatter
+  say(d, kind, force = false) {
+    if (!d || !d.alive && kind !== 'fall') return;
+    const text = line(kind).replace('{N}', (d.bounty || '').toUpperCase());
+    if (this.ui.say(d, text, force)) this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1) });
+  }
+
+  onSpotted(d) {
+    if (d.bounty) { this.say(d, 'bounty', true); return; }
+    if (d.family === 'mite') { this.audio.play('squeak', { at: d.pos }); this.say(d, 'spotMite', true); return; }
+    if (d.command) { this.say(d, 'command'); return; }
+    if (Math.random() < 0.5) this.say(d, 'spot');
+  }
+
+  onDroidHurt(d, src) {
+    if (d.team === 'k') { if (Math.random() < 0.2) this.say(d, 'allyHit'); return; }
+    if (d.family === 'mite') this.audio.play('squeak', { at: d.pos });
+    if (!d.saidLow && d.integrity > 0 && d.integrity < d.maxIntegrity * 0.3) { d.saidLow = true; this.say(d, 'low', true); return; }
+    if (src.by && src.by.team === 'k' && Math.random() < 0.3) this.say(d, 'hit');
+  }
+
+  // now and then, one of the gang passes a remark
+  chatter(dt) {
+    const w = this.world;
+    this.chatT = (this.chatT ?? 20) - dt;
+    if (this.chatT > 0) return;
+    this.chatT = 18 + Math.random() * 16;
+    const gang = w.allies().filter((d) => d.brain && d.brain.state === 'follow');
+    if (gang.length && !w.droids.some((d) => d.team === 'h' && d.brain && d.brain.state === 'chase')) this.say(gang[Math.floor(Math.random() * gang.length)], 'idle');
   }
 
   // ------------------------------------------------------------------ world callbacks
@@ -806,12 +1085,18 @@ export class Game {
 
   onEnterRoom(room, first) {
     if (!first) return;
+    if (room.signs) {
+      // read the floor signs out, with the right keys in
+      const keys = (t) => t.replace(/\{(\w+)\}/g, (m, k) => (k === 'move' ? (this.input.lastDevice === 'pad' ? 'Left stick' : 'WASD or the arrow keys') : this.input.label(k)));
+      const said = room.signs.map((sg) => `${keys(sg.text)}${sg.sub ? `${/^[a-z]/.test(sg.sub) ? ' ' : '. '}${keys(sg.sub)}` : ''}.`).join(' ');
+      // in 1986 mode the floor is too coarse to read, so put the words on screen too
+      if (this.renderer.retro) this.ui.hint(said.replace(/[&<>"]/g, ''), 7);
+      else this.ui.announce(said);
+      return;
+    }
     if (room.role === 'vault' && room.hint) this.hint(`A sealed vault. ${room.hint}`, 6);
     if (room.role === 'lift' && !this.world.clearance) this.hintOnce('lift', 'The lift is here, locked. The droid marked <b>◆</b> holds the clearance: hack it or destroy it.', 8);
     if (room.role === 'archive') this.hintOnce('archive', 'An archive terminal. Hack it to pick a firmware upgrade.', 6);
-    if (room.role === 'combat' && this.run.tutorial && this.run.deck === 1) {
-      this.hintOnce('grapple', 'Get close to a droid and press <b>Space</b> to grapple it. Ram it first and it hacks back weaker.', 8);
-    }
   }
 
   archiveSee(d, how) {
@@ -848,7 +1133,7 @@ export class Game {
     this.ui.clearLabels();
     p.pos.x = w.lift.pos.x; p.pos.z = w.lift.pos.z;
     this.audio.play('descend');
-    if (this.run.deck === 1) { this.meta.tutorialDone = true; saveMeta(this.meta); }
+    if (this.run.deck === 1 && this.run.induction) { this.meta.inductionDone = true; saveMeta(this.meta); }
   }
 
   updateDescend(dt) {
@@ -900,8 +1185,24 @@ export class Game {
     this.renderer.flash(PLAYER_HEX, 0.8);
     this.audio.play('hackWin');
     this.ui.announce('The Mainframe is yours. The tower is claimed.', true);
-    for (const d of w.droids) if (!d.isPlayer && d.alive && d.state === 'active') this.powerDown(d);
+    for (const d of w.droids) if (d.team === 'h' && d.alive && d.state === 'active') this.powerDown(d);
     setTimeout(() => this.endRun(true, 'won'), 3600);
+  }
+
+  async copyShare() {
+    const note = document.getElementById('share-note');
+    try {
+      await navigator.clipboard.writeText(this.shareText);
+      document.getElementById('share-copy').textContent = 'Copied';
+      this.ui.announce('Result copied.');
+    } catch {
+      // no clipboard: select the text so it can be copied by hand
+      const pre = document.getElementById('share-text');
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      note.textContent = 'Copying isn’t allowed here. The text is selected: press Ctrl+C or Cmd+C.';
+    }
   }
 
   endRun(won, how) {
@@ -923,11 +1224,26 @@ export class Game {
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
-      ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
+      ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Bounties', st.bounties || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     document.getElementById('end-unlocks').textContent = r.newStolen.length
       ? `New starting parts: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.`
       : '';
+    // today's tower: the first go counts, and you get a line to share
+    const share = document.getElementById('end-share');
+    share.hidden = !r.daily;
+    if (r.daily) {
+      const result = { date: r.daily, deck: r.deck, won, how, hacked: st.hacked, ringouts: st.ringouts, time: st.time };
+      this.meta.daily = this.meta.daily || {};
+      const first = !this.meta.daily[r.daily];
+      if (first) { this.meta.daily[r.daily] = result; saveMeta(this.meta); }
+      const shown = this.meta.daily[r.daily];
+      this.shareText = shareText(shown);
+      document.getElementById('share-text').textContent = this.shareText;
+      document.getElementById('share-summary').textContent = `Today's tower: ${shareSummary(shown, DECKS.map((d) => d.name))}`;
+      document.getElementById('share-note').textContent = first ? '' : 'Only your first go counts, so this is the one you share.';
+      document.getElementById('share-copy').textContent = 'Copy result';
+    }
     this.ui.show('end');
     this.run = null;
   }

@@ -10,6 +10,7 @@
 //   t   laser target         x  conduit (needs an arc)
 //   T   terminal (hack it)   A  archive terminal (pick firmware)
 //   +   repair pad           g  turret           L  lift
+//   B   fabricator (spend scrap)
 //   S   start                d  droid            k  command droid
 //   m   module cache         $  firmware chip
 //   R   relay (the Mainframe's shield)      M  the Mainframe
@@ -81,7 +82,7 @@ export const ROOMS = [
       ' .>111L111<. ',
       '...1111111...',
       '...##1^1##...',
-      '.............',
+      '.B...........',
       '..d...k...d..',
       '.............',
       '...#.....#...',
@@ -95,7 +96,7 @@ export const ROOMS = [
       '   .......   ',
       '   ...L...   ',
       '   ..k....   ',
-      '   .......   ',
+      '   .....B.   ',
       '      .      ',
       '      .      ',
       '      .      ',
@@ -111,7 +112,7 @@ export const ROOMS = [
     id: 'lift-gate', tags: ['lift'], minDeck: 2, map: [
       '   #######   ',
       '   #..L..#   ',
-      '   #.....#   ',
+      '   #B....#   ',
       '   ##...##   ',
       '.....k.......',
       '.............',
@@ -625,7 +626,7 @@ export const ROOMS = [
       '  .......  ',
       ' ..#.+.#.. ',
       '...........',
-      '..+.....+..',
+      '..+..B..+..',
       '...........',
       ' ..#...#.. ',
       '  .......  ',
@@ -635,7 +636,7 @@ export const ROOMS = [
   {
     id: 'repair', tags: ['repair'], map: [
       '  .....  ',
-      ' ....... ',
+      ' ..B.... ',
       '..#...#..',
       '....+....',
       '.........',

@@ -4,20 +4,23 @@
 import { Grid, T, DIRS } from './grid.js';
 import { ROOMS, rotateRoom, roomExits } from './rooms.js';
 import { DECKS } from '../config.js';
-import { FAMILIES, familiesForRange } from './roster.js';
+import { FAMILIES, familiesForRange, BOUNTY_NAMES, hasParts } from './roster.js';
 import { STEALABLE } from './modules.js';
+import { inductionPlan } from './induction.js';
 
-const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M']);
+const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M', 'B']);
 
 export function generateDeck(n, rng, opts = {}) {
   const deck = DECKS[n - 1];
-  const plan = layout(n, rng, opts);
+  // the first run's first deck is built by hand
+  const induction = !!opts.induction && n === 1;
+  const plan = induction ? inductionPlan() : layout(n, rng, opts);
   const CELL = n === 6 ? 24 : 16;
 
   // ---- choose templates
   const used = new Set();
   const available = availableModules(deck, opts.playerMods);
-  for (const cell of plan.cells) {
+  for (const cell of induction ? [] : plan.cells) {
     const need = cell.links.map((o) => dirTo(cell, o));
     const tag = cell.role;
     let cands = ROOMS.filter((r) => r.tags.includes(tag) && (r.minDeck || 1) <= n && (r.maxDeck || 9) >= n);
@@ -50,6 +53,7 @@ export function generateDeck(n, rng, opts = {}) {
   const grid = new Grid(W, D);
   const things = [];
   const rooms = [];
+  const signs = [];
 
   plan.cells.forEach((cell, index) => {
     const r = cell.room;
@@ -61,8 +65,13 @@ export function generateDeck(n, rng, opts = {}) {
       index, id: r.id, role: cell.role, tags: r.tags, hint: r.hint, solves: r.solves || [],
       ox, oz, w, d, cx: ox + (w - 1) / 2, cz: oz + (d - 1) / 2,
       cell: { x: cell.x - minX, z: cell.z - minZ }, links: [], spawns: [], visited: false,
+      droidSpecs: r.droids || null,
     };
     rooms.push(info);
+    for (const sg of r.signs || []) {
+      signs.push({ x: ox + sg.x, z: oz + sg.z, h: heights[sg.z * w + sg.x], text: sg.text, sub: sg.sub || '', wide: sg.wide, room: index });
+    }
+    if (r.signs) info.signs = r.signs;
     for (let j = 0; j < d; j++) {
       for (let i = 0; i < w; i++) {
         const c = r.map[j][i];
@@ -117,7 +126,7 @@ export function generateDeck(n, rng, opts = {}) {
   const start = { x: startThing.x + 0.5, z: startThing.z + 0.5, h: startThing.h };
 
   // ---- droids
-  const droids = placeDroids(n, deck, rng, rooms, opts);
+  const droids = induction ? placeInduction(rooms) : placeDroids(n, deck, rng, rooms, opts);
 
   // ---- module caches get their contents now, so a seed replays the same
   for (const t of things) {
@@ -128,7 +137,7 @@ export function generateDeck(n, rng, opts = {}) {
     }
   }
 
-  return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL };
+  return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL, signs, induction };
 }
 
 function floorVariant(rng) {
@@ -149,7 +158,7 @@ function layout(n, rng, opts) {
     cells[0].links.push(cells[1]); cells[1].links.push(cells[0]);
     return { cells, links: [[0, 1]] };
   }
-  const mainLen = [4, 5, 5, 6, 6][n - 1] + (n > 1 && rng.chance(0.4) ? 1 : 0);
+  const mainLen = [4, 4, 5, 5, 5][n - 1] + (n > 1 && rng.chance(0.3) ? 1 : 0);
   let cells = null;
   for (let attempt = 0; attempt < 200 && !cells; attempt++) {
     const path = [{ x: 0, z: 0 }];
@@ -285,6 +294,19 @@ function classIn(rng, fam, lo, hi) {
   return a <= b ? rng.int(a, b) : rng.int(F.min, F.max);
 }
 
+// The induction's droids are written into its rooms, one per spawn spot.
+function placeInduction(rooms) {
+  const out = [];
+  for (const room of rooms) {
+    (room.droidSpecs || []).forEach((spec, i) => {
+      const s = room.spawns[i];
+      if (!s) return;
+      out.push({ family: spec.family, cls: spec.cls, dozy: !!spec.dozy, x: s.x, z: s.z, h: s.h, room: room.index, command: s.command });
+    });
+  }
+  return out;
+}
+
 function placeDroids(n, deck, rng, rooms, opts) {
   const [lo, hi] = deck.classes;
   const pool = familiesForRange(lo, hi);
@@ -311,17 +333,19 @@ function placeDroids(n, deck, rng, rooms, opts) {
     }
   }
 
-  // First run: the first room teaches the hack with easy targets.
-  if (opts.tutorial && n === 1) {
-    const first = rooms.find((r) => r.role === 'combat' && r.links.includes(0)) || rooms.find((r) => r.role === 'combat');
-    const inFirst = out.filter((d) => d.room === first.index);
-    const want = ['mite', 'spark'];
-    inFirst.forEach((d, i) => { if (i < want.length) { d.family = want[i]; d.cls = classIn(rng, want[i], 101, 160); } });
-    while (inFirst.length < 2 && first.spawns.length > inFirst.length) {
-      const s = first.spawns[inFirst.length];
-      const fam = want[inFirst.length];
-      const d = { family: fam, cls: classIn(rng, fam, 101, 160), x: s.x, z: s.z, h: s.h, room: first.index };
-      out.push(d); inFirst.push(d);
+  // One droid on each deck has a name, better parts and a price on its head.
+  let bounty = null;
+  if (!opts.noBounty && n <= 5) {
+    const cands = out.filter((d) => !d.command && rooms[d.room].role === 'combat');
+    if (cands.length) {
+      bounty = rng.pick(cands);
+      if (!hasParts(bounty.family)) {
+        const better = pool.filter(hasParts).sort((a, b) => FAMILIES[b].max - FAMILIES[a].max).slice(0, 3);
+        if (better.length) bounty.family = rng.pick(better);
+      }
+      const F = FAMILIES[bounty.family];
+      bounty.cls = Math.max(F.min, Math.min(F.max, hi - rng.int(0, 30)));
+      bounty.bounty = rng.pick(BOUNTY_NAMES);
     }
   }
 
@@ -336,7 +360,7 @@ function placeDroids(n, deck, rng, rooms, opts) {
     const fams = pool.filter((f) => { const F = FAMILIES[f]; return room.solves.some((m) => m === F.drive || m === F.arm || m === F.core); });
     if (!fams.length) continue;
     fams.sort((a, b) => FAMILIES[a].min - FAMILIES[b].min);
-    const victims = out.filter((d) => !d.command && rooms[d.room].role === 'combat');
+    const victims = out.filter((d) => !d.command && d !== bounty && rooms[d.room].role === 'combat');
     const v = victims.length ? rng.pick(victims) : null;
     if (v) { v.family = fams[0]; v.cls = classIn(rng, fams[0], lo, hi); }
   }

@@ -22,6 +22,7 @@ export class Droid {
     this.family = o.family || null;
     this.cls = o.cls || 0;
     this.command = !!o.command;
+    this.bounty = o.bounty || null;
     this.kind = 'droid';
     this.pos = new THREE.Vector3(o.x, o.y ?? 0, o.z);
     this.vel = { x: 0, z: 0 };
@@ -55,9 +56,9 @@ export class Droid {
     this.room = o.room ?? -1;
     this.damageTaken = 0;
 
-    const scale = this.isPlayer ? 1.0 : 0.92 + 0.045 * Math.max(1, Math.floor(this.cls / 100)) + (this.command ? 0.12 : 0);
+    const scale = this.isPlayer ? 1.0 : 0.92 + 0.045 * Math.max(1, Math.floor(this.cls / 100)) + (this.command ? 0.12 : 0) + (this.bounty ? 0.1 : 0);
     this.scale = scale;
-    this.maxIntegrity = o.integrity ?? (this.isPlayer ? TUNING.playerIntegrity : integrityFor(this.cls) * (this.command ? 1.4 : 1));
+    this.maxIntegrity = o.integrity ?? (this.isPlayer ? TUNING.playerIntegrity : integrityFor(this.cls) * (this.command ? 1.4 : 1) * (this.bounty ? 1.35 : 1));
     this.integrity = this.maxIntegrity;
     this.maxEnergy = this.isPlayer ? TUNING.playerEnergy : 100;
     this.energy = this.maxEnergy;
@@ -106,7 +107,7 @@ export class Droid {
     const spec = {
       shape: this.isPlayer ? 'player' : fam ? fam.shape : 'squat',
       scale: this.scale,
-      shell: this.isPlayer ? 0xb4bcc8 : this.command ? 0x1d1f26 : 0x555b6b,
+      shell: this.isPlayer ? 0xb4bcc8 : this.bounty ? 0x8a6a2c : this.command ? 0x1d1f26 : 0x555b6b,
       accent: this.accent,
       label: this.isPlayer ? 'K-2' : String(this.cls),
       drive: this.mods.drive.id,
@@ -160,6 +161,7 @@ export class Droid {
       amount *= 0.15;
     }
     amount *= this.world.damageScale(this, src);
+    if (src.by && src.by !== this) this.lastHit = { by: src.by, t: this.world.time };
     this.integrity -= amount;
     this.damageTaken += amount;
     this.model.hit();
@@ -223,7 +225,9 @@ export class Droid {
 
     // movement
     const ds = this.stats.drive;
-    let speed = ds.speed;
+    // KLP-2 is a little quicker than the tower's droids, so it can catch a Mite
+    const top = ds.speed * (this.isPlayer ? TUNING.playerSpeed : 1);
+    let speed = top;
     if (this.shielding) speed *= 0.55;
     if (this.charge > 0 && !this.isPlayer) speed *= 0.5;
     if (this.hovering && this.mods.drive.id !== 'hover') speed *= 0.8;
@@ -241,7 +245,7 @@ export class Droid {
     } else {
       const inputMag = Math.hypot(it.mx, it.mz);
       const cur = Math.hypot(this.vel.x, this.vel.z);
-      let rate = inputMag > 0.05 ? ds.accel : ds.friction;
+      let rate = inputMag > 0.05 ? ds.accel * (this.isPlayer ? TUNING.playerSpeed : 1) : ds.friction;
       if (cur > speed * 1.1) rate = Math.max(12, ds.friction);          // knockback carries, briefly
       if (!this.grounded && !this.hovering) rate *= 0.15;                 // little control in the air
       const k = rate * dt;
@@ -254,7 +258,7 @@ export class Droid {
     let mdx = this.vel.x * dt, mdz = this.vel.z * dt;
     // KLP-2 won't roll itself off into the void. A ram, a stamp, a tractor
     // beam or a dash still can.
-    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && Math.hypot(this.vel.x, this.vel.z) <= ds.speed * 1.15 + 0.01) {
+    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && Math.hypot(this.vel.x, this.vel.z) <= top * 1.15 + 0.01) {
       const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
       if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * 0.06, this.pos.z)) { mdx = 0; this.vel.x = 0; }
       if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * 0.06)) { mdz = 0; this.vel.z = 0; }
@@ -298,6 +302,12 @@ export class Droid {
       const cx = tx0 + 0.5, cz = tz0 + 0.5;
       if (Math.hypot(this.pos.x - cx, this.pos.z - cz) < 0.35 && w.grid.block[w.grid.idx(tx0, tz0)] === 0) this.lastSafe.set(cx, this.pos.y, cz);
     }
+    // over an edge with nothing underneath: it's going
+    if (!this.doomed && !this.grounded && !this.hovering && this.airborne <= 0 && this.groundY === null && this.vy < -2) {
+      this.doomed = true;
+      w.onDoomed(this);
+    }
+    if (this.groundY !== null) this.doomed = false;
     if (this.pos.y < VOID_Y) w.onFellIntoVoid(this);
 
     // a little dust when rolling fast
@@ -350,8 +360,9 @@ export class Droid {
     if (this.phasing) vis = Math.min(vis, 0.45);
     let look = 0;
     const p = this.world.player;
-    if (!this.isPlayer && p && this.brain && this.brain.state === 'chase') {
-      const a = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z) - this.facing;
+    const seen = this.brain && this.brain.state === 'chase' ? this.brain.target : this.brain && this.brain.state === 'follow' ? p : null;
+    if (!this.isPlayer && seen) {
+      const a = Math.atan2(seen.pos.x - this.pos.x, seen.pos.z - this.pos.z) - this.facing;
       look = Math.atan2(Math.sin(a), Math.cos(a));
     }
     m.update(dt, {

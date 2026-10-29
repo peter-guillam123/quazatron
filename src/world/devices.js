@@ -511,6 +511,7 @@ export class Turret extends Device {
       this.accent.emissive.setRGB(0.05, 0.05, 0.05);
       this.head.rotation.x = 0.5;
       this.world.explode(this.arcPoint(), this.world.deck.ink, 0.8);
+      this.world.scrap.burst(this.arcPoint(), 3);
       if (this.team !== 'k') this.world.claimEvent('turret');   // a hacked one was counted already
     }
     return n;
@@ -578,6 +579,45 @@ export class Repair extends Device {
       this.world.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 30, 2, 0.9, 0.12, -1);
       this.world.game.toast('Repaired');
     }
+  }
+}
+
+// ------------------------------------------------------------------ fabricator
+// Turns scrap into repairs, better parts and firmware. Friendly to anyone,
+// so it glows cyan whatever the deck.
+export class Fabricator extends Device {
+  constructor(world, t) {
+    super(world, t);
+    this.kind = 'fabricator';
+    this.radius = 0.5;
+    const m = world.mats;
+    this.mesh(G('fabBase', () => new THREE.BoxGeometry(0.86, 0.22, 0.74)), m.metal, [0, 0.11, 0]);
+    this.mesh(G('fabBody', () => new THREE.BoxGeometry(0.7, 0.5, 0.56)), m.panel, [0, 0.47, -0.04]);
+    this.glow = glowMat(PLAYER_COLOUR, 1.8);
+    this.mesh(G('fabSlot', () => new THREE.BoxGeometry(0.46, 0.06, 0.04)), this.glow, [0, 0.5, 0.25], null, false);
+    this.mesh(G('fabTrim', () => new THREE.BoxGeometry(0.72, 0.03, 0.58)), this.glow, [0, 0.73, -0.04], null, false);
+    // a little arm over a turntable
+    this.arm = new THREE.Group();
+    this.arm.position.set(0.24, 0.72, -0.14);
+    this.group.add(this.arm);
+    const up = new THREE.Mesh(G('fabArm1', () => new THREE.BoxGeometry(0.06, 0.34, 0.06)), m.steel);
+    up.position.y = 0.17; this.arm.add(up);
+    const fore = new THREE.Mesh(G('fabArm2', () => new THREE.BoxGeometry(0.06, 0.06, 0.3)), m.steel);
+    fore.position.set(0, 0.33, 0.13); this.arm.add(fore);
+    const tip = new THREE.Mesh(G('fabTip', () => new THREE.SphereGeometry(0.045, 10, 8)), this.glow);
+    tip.position.set(0, 0.29, 0.28); this.arm.add(tip);
+    this.ring = this.mesh(G('fabRing', () => new THREE.TorusGeometry(0.2, 0.015, 6, 32)), this.glow, [-0.12, 0.9, 0.0], [Math.PI / 2, 0, 0], false);
+    this.part = this.mesh(G('fabPart', () => new THREE.OctahedronGeometry(0.08)), this.glow, [-0.12, 0.92, 0], null, false);
+    this.group.rotation.y = Math.PI * 0.25;
+    this.block(1);
+    this.t = Math.random() * 5;
+  }
+  update(dt) {
+    this.t += dt;
+    this.arm.rotation.y = Math.sin(this.t * 0.9) * 0.8;
+    this.part.rotation.y += dt * 2;
+    this.part.position.y = 0.92 + Math.sin(this.t * 2) * 0.03;
+    this.ring.rotation.z += dt * 0.8;
   }
 }
 

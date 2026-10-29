@@ -3,7 +3,8 @@
 import { generateBoard, HackRound, reach } from '../src/hack/board.js';
 import { HackAI } from '../src/hack/ai.js';
 import { makeRng } from '../src/rng.js';
-import { rowsFor, pulsersFor } from '../src/world/roster.js';
+import { rowsFor, pulsersFor, timerFor } from '../src/world/roster.js';
+import { LESSONS } from '../src/hack/lessons.js';
 
 function sideScore(side) {
   let s = 0;
@@ -23,7 +24,7 @@ function play(cls, playerPulsers, playerSkill, seed) {
   const pulsers = [];
   pulsers[ps] = playerPulsers;
   pulsers[es] = pulsersFor(cls);
-  const round = new HackRound(board, { timer: 10, pulsers });
+  const round = new HackRound(board, { timer: timerFor(cls), pulsers });
   const you = new HackAI(round, ps, playerSkill, { rng, delay: 0.4 });
   const them = new HackAI(round, es, Math.min(0.95, cls / 1000 + 0.1), { rng });
   const dt = 1 / 30;
@@ -43,4 +44,26 @@ for (const cls of [130, 250, 400, 550, 700, 850, 999]) {
     });
     console.log(`${String(cls).padStart(5)}  ${pp}        (${pulsersFor(cls)})     ${res.join(' / ')}`);
   }
+}
+
+// the lessons: a beginner (skill 0.25) against the lesson's opponent
+console.log('\nlesson   win% for a beginner / a decent player');
+for (const L of LESSONS) {
+  const res = [0.25, 0.5].map((sk) => {
+    let w = 0;
+    for (let i = 0; i < N; i++) {
+      const rng = makeRng(i * 31 + L.rows);
+      const board = generateBoard(rng, { rows: L.rows, cls: 150, parts: L.parts, focus: L.focus, side: L.side });
+      const ps = L.side && sideScore(board.sides[1]) > sideScore(board.sides[0]) ? 1 : 0;
+      const pulsers = []; pulsers[ps] = 4; pulsers[1 - ps] = Math.min(3, L.enemy);
+      const round = new HackRound(board, { timer: L.timer, pulsers });
+      const you = new HackAI(round, ps, sk, { rng, delay: 1.0 });
+      const them = new HackAI(round, 1 - ps, Math.min(0.25, L.skill), { rng, delay: 0.7 + L.delay });
+      while (!round.over) { you.update(1 / 30); them.update(1 / 30); round.update(1 / 30); }
+      const [a, b] = [round.result[ps], round.result[1 - ps]];
+      w += a > b ? 1 : a === b ? 0.5 : 0;
+    }
+    return ((w / N) * 100).toFixed(0).padStart(3);
+  });
+  console.log(`${L.id.padEnd(8)} ${res.join(' / ')}`);
 }

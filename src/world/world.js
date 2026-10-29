@@ -8,12 +8,14 @@ import { Droid } from './droid.js';
 import { Brain } from './ai.js';
 import { resolveBodies } from './physics.js';
 import {
-  deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup,
+  deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup, Fabricator,
 } from './devices.js';
-import { FAMILIES, modulesOf, rowsFor, pulsersFor } from './roster.js';
+import { ScrapField, scrapFor } from './scrap.js';
+import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor, rareMods } from './roster.js';
 import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
 import { Mainframe } from './mainframe.js';
+import { FloorSign } from '../render/signs.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
 const boltGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.55, 6, 1);
@@ -63,12 +65,15 @@ export class World {
     this.roomNow = -1;
     this.chars = new Map();
     for (const t of build.things) this.chars.set(`${t.x},${t.z}`, t.t);
+    this.scrap = new ScrapField(this);
 
     this.makeDevices(build.things);
+    this.signs = (build.signs || []).map((sg) => new FloorSign(this.root, sg, game.input ? game.input.lastDevice : 'keyboard'));
     this.makeDroids(build.droids);
     this.makePlayer(run);
     this.claimTotal = this.droids.filter((d) => !d.isPlayer).length
       + this.devices.filter((d) => d.kind === 'turret' || d.kind === 'terminal' || d.kind === 'archive').length;
+    for (const g of run.gang || []) this.spawnAlly(g);
     this.evaluateChannels();
   }
 
@@ -95,6 +100,7 @@ export class World {
         case 'g': dev = new Turret(this, t); break;
         case '+': dev = new Repair(this, t); break;
         case 'L': dev = new Lift(this, t); this.lift = dev; break;
+        case 'B': dev = new Fabricator(this, t); break;
         case 'M': dev = new Mainframe(this, t); this.mainframe = dev; break;
         case 'm': dev = new Pickup(this, t, { type: 'cache', offer: t.offer }); this.pickups.push(dev); break;
         case '$': dev = new Pickup(this, t, { type: 'chip' }); this.pickups.push(dev); break;
@@ -114,11 +120,14 @@ export class World {
 
   makeDroids(list) {
     for (const s of list) {
+      const mods = modulesOf(s.family, s.cls);
       const d = new Droid(this, {
         family: s.family, cls: s.cls, command: s.command, x: s.x, z: s.z, y: s.h * LEVEL_H,
-        mods: modulesOf(s.family, s.cls), accent: this.deck.ink, room: s.room,
+        mods: s.bounty ? rareMods(mods) : mods, accent: this.deck.ink, room: s.room, bounty: s.bounty,
         facing: Math.random() * Math.PI * 2,
       });
+      if (s.bounty) this.bounty = d;
+      d.dozy = !!s.dozy;
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);
@@ -138,6 +147,49 @@ export class World {
     this.player = p;
     this.game.attachPlayerGhost(p);
   }
+
+  // One of KLP-2's gang, arriving on a new deck beside it.
+  spawnAlly(g) {
+    const p = this.player;
+    const at = this.freeSpotNear(p.pos, 1.4) || p.pos.clone();
+    const d = new Droid(this, {
+      family: g.family, cls: g.cls, command: g.command, x: at.x, z: at.z, y: at.y, bounty: g.bounty,
+      mods: g.bounty ? rareMods(modulesOf(g.family, g.cls)) : modulesOf(g.family, g.cls), accent: PLAYER_COLOUR, team: 'k', facing: p.facing,
+    });
+    d.integrity = Math.max(1, d.maxIntegrity * (g.hp ?? 1));
+    d.brain = new Brain(d, this);
+    d.brain.state = 'follow';
+    this.root.add(d.model.group);
+    this.droids.push(d);
+    return d;
+  }
+
+  // Somewhere flat and empty near a point, for a droid to appear.
+  freeSpotNear(pos, r) {
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + 0.4, rr = r * (1 + Math.floor(i / 8) * 0.6);
+      const x = pos.x + Math.sin(a) * rr, z = pos.z + Math.cos(a) * rr;
+      const g = this.grid.groundAt(x, z);
+      const tx = Math.floor(x), tz = Math.floor(z);
+      if (g === null || Math.abs(g - pos.y) > 0.3 || this.grid.block[this.grid.idx(tx, tz)] !== 0 || this.grid.typeAt(tx, tz) === T.HAZARD) continue;
+      if (this.droids.some((o) => o.alive && Math.hypot(o.pos.x - x, o.pos.z - z) < 0.8)) continue;
+      return new THREE.Vector3(x, g, z);
+    }
+    return null;
+  }
+
+  // A gang member left behind blinks back to KLP-2's side.
+  warpToPlayer(d) {
+    const p = this.player;
+    const at = this.freeSpotNear(p.pos, 1.3);
+    if (!at) return;
+    this.fx.burst(d.pos.clone().setY(d.pos.y + 0.4), PLAYER_COLOUR, 14, 2, 0.5, 0.1, 0);
+    d.pos.copy(at); d.vel.x = d.vel.z = 0; d.vy = 0;
+    d.lastSafe.copy(at);
+    this.fx.burst(d.pos.clone().setY(d.pos.y + 0.4), PLAYER_COLOUR, 14, 2, 0.5, 0.1, 0);
+  }
+
+  allies() { return this.droids.filter((d) => d.team === 'k' && !d.isPlayer && d.alive && d.state === 'active'); }
 
   spawnDroid(family, cls, x, z, opts = {}) {
     const g = this.grid.groundAt(x, z) ?? 0;
@@ -276,23 +328,18 @@ export class World {
       for (const o of this.hostilesOf(d)) if (o.kind === 'droid') consider(o, 'droid');
       for (const c of this.crates) if (!c.removed && !c.heavy) consider(c, 'crate');
       for (const p of this.pickups) consider(p, 'pickup');
-    } else if (this.player && this.player.alive && !this.player.cloaked) {
-      consider(this.player, 'droid');
+    } else {
+      const t = d.brain && d.brain.target;
+      if (t && t.kind === 'droid' && t.alive && !t.cloaked) consider(t, 'droid');
     }
     return best;
   }
 
   turretTarget(t) {
     const range = 8.5;
-    if (t.team === 'h') {
-      const p = this.player;
-      if (!p || !p.alive || p.state !== 'active' || p.cloaked) return null;
-      if (p.pos.distanceTo(t.pos) > range) return null;
-      return this.canSee(t.pos.clone().setY(t.y + 0.3), p.pos) ? p : null;
-    }
     let best = null, bd = range;
     for (const d of this.droids) {
-      if (d.team === t.team || !d.alive || d.state !== 'active') continue;
+      if (d.team === t.team || !d.alive || d.state !== 'active' || d.cloaked) continue;
       const dist = d.pos.distanceTo(t.pos);
       if (dist < bd && this.canSee(t.pos.clone().setY(t.y + 0.3), d.pos)) { bd = dist; best = d; }
     }
@@ -391,6 +438,11 @@ export class World {
 
   // Two bodies met. Was it a ram?
   onImpact(a, b, speed, nx, nz) {
+    // a shove from KLP-2's side counts towards a ring-out, however gentle
+    if (a.team !== b.team) {
+      if (a.team === 'k') b.lastHit = { by: a, t: this.time };
+      if (b.team === 'k') a.lastHit = { by: b, t: this.time };
+    }
     if (speed < TUNING.ramSpeed) return;
     // whoever was moving into the other is the rammer
     const va = a.vel.x * nx + a.vel.z * nz;
@@ -431,6 +483,8 @@ export class World {
       if (src.kind === 'bolt' && src.by && !src.by.isPlayer) k *= 0.75;
       if (this.game.settings.assist) k *= 0.55;
       if (this.game.hasPerk('plating')) k *= 0.8;
+    } else if (d.team === 'k') {
+      k *= 0.7;   // the gang is a little tougher than it looks
     } else if (src.by && src.by.isPlayer) {
       if (this.game.hasPerk('overcharge')) k *= 1.25;
     }
@@ -444,15 +498,27 @@ export class World {
   onDamaged(d, amount, src) {
     if (d.isPlayer) {
       this.game.onPlayerHurt(amount, src);
-    } else if (src.by && src.by.isPlayer && this.game.hasPerk('leech') && src.kind === 'bolt') {
+      return;
+    }
+    if (src.by && src.by.isPlayer && this.game.hasPerk('leech') && src.kind === 'bolt') {
       this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + 3);
     }
+    if (amount > 0.5) this.game.onDroidHurt?.(d, src);
   }
 
   onDestroyed(d, src) {
     if (d.isPlayer) { this.game.playerDied(src); return; }
     d.alive = false;
+    if (d.team === 'k') {
+      this.explode(d.pos.clone().setY(d.pos.y + 0.4), PLAYER_COLOUR, 0.8 + d.scale * 0.3);
+      this.removeDroid(d);
+      this.game.allyLost(d, 'destroyed');
+      return;
+    }
     this.explode(d.pos.clone().setY(d.pos.y + 0.4), this.deck.ink, 1 + d.scale * 0.4);
+    this.scrap.burst(d.pos, scrapFor(d.cls));
+    if (d.bounty) this.game.bountyClaimed(d, 'destroyed');
+    if (src && src.by && src.by.team === 'k' && !src.by.isPlayer && Math.random() < 0.6) this.game.say?.(src.by, 'allyKill');
     this.removeDroid(d);
     this.claimEvent('droid', d);
     this.game.stat('destroyed');
@@ -484,12 +550,31 @@ export class World {
       return;
     }
     d.alive = false;
+    if (d.team === 'k') { this.removeDroid(d); this.game.allyLost(d, 'void'); return; }
+    const ko = d.koBy || this.ringOutBy(d);
     this.removeDroid(d);
     this.claimEvent('droid', d);
     this.game.stat('voided');
     this.game.archiveSee(d, 'destroyed');
-    this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
+    if (ko) this.game.addScrap(scrapFor(d.cls) * 2, 0, true);
+    if (d.bounty) this.game.bountyClaimed(d, 'void');
+    else this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
     if (d.command) this.grantClearance('void');
+  }
+
+  // Who put this droid over the edge, if it was us: someone on KLP-2's side
+  // hit, rammed or pulled it in the last few seconds.
+  ringOutBy(d) {
+    const h = d.lastHit;
+    if (!h || this.time - h.t > 3 || !h.by || h.by.team !== 'k') return null;
+    return h.by;
+  }
+
+  // A droid has gone over an edge with nothing below it.
+  onDoomed(d) {
+    if (d.team === 'k') return;
+    const by = this.ringOutBy(d);
+    if (by) { d.koBy = by; this.game.ringOut(d, by); }
   }
 
   onLanding(d, impact) {
@@ -550,9 +635,9 @@ export class World {
     if (t.kind !== 'droid') return t.hackSpec();
     const F = FAMILIES[t.family];
     const hurt = 1 - t.integrity / t.maxIntegrity;
-    const pulsers = Math.max(1, pulsersFor(t.cls) + (t.command ? 1 : 0) - (hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0));
+    const pulsers = Math.max(1, pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0) - (hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0));
     return {
-      title: `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: 10,
+      title: t.bounty ? `${t.bounty}, ${F.name} ${t.cls}` : `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
       stunned: t.stunned, hurt, command: t.command, family: t.family,
     };
   }
@@ -588,6 +673,14 @@ export class World {
     return best;
   }
 
+  fabNear(p) {
+    for (const f of this.devices) {
+      if (f.kind !== 'fabricator') continue;
+      if (Math.hypot(f.pos.x - p.pos.x, f.pos.z - p.pos.z) < 1.2 && Math.abs(f.y - p.pos.y) < 0.4) return f;
+    }
+    return null;
+  }
+
   onLift(p) {
     const l = this.lift;
     if (!l) return false;
@@ -601,6 +694,8 @@ export class World {
     if (this.onLift(p)) return { kind: 'lift', ready: this.clearance };
     const k = this.pickupNear(p);
     if (k) return { kind: 'pickup', target: k };
+    const f = this.fabNear(p);
+    if (f) return { kind: 'fabricator', target: f };
     const t = this.grappleTarget(p);
     if (t) return { kind: 'grapple', target: t };
     return null;
@@ -654,8 +749,8 @@ export class World {
     this.updateBolts(dt);
     for (const dev of this.devices) dev.update(dt);
     for (const k of this.pickups) k.update(dt);
-    if (this.channelDirty) this.evaluateChannels();
-    else this.evaluateChannels();
+    this.scrap.update(dt);
+    this.evaluateChannels();
 
     // which room are we in?
     const p = this.player;
@@ -688,6 +783,8 @@ export class World {
   dispose() {
     for (const b of this.bolts) this.root.remove(b.mesh);
     for (const d of this.droids) d.model.dispose();
+    this.scrap.dispose();
+    for (const sg of this.signs) sg.dispose();
     this.level.dispose();
     // device materials belong to this deck; geometry is shared and stays
     const keep = new Set([...boltMats.values()]);

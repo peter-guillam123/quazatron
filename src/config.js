@@ -49,6 +49,7 @@ export const TUNING = {
   playerEnergy: 100,
   energyRegen: 14,        // per second, after a short pause
   energyRegenDelay: 0.7,
+  playerSpeed: 1.18,      // KLP-2's drive runs this much faster than a droid's
   ramSpeed: 2.6,          // relative speed that counts as a ram
   voidDamage: 15,
   hazardDps: 26,

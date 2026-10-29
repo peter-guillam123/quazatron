@@ -14,6 +14,13 @@ beats them in a circuit-board duel and steals their parts.
   Graftgold; don't use their name as the title.
 - Structure: roguelite. Each deck is assembled from hand-made rooms. The way
   down never needs a particular module; sealed vaults do.
+- Onboarding: a first run starts with the induction, a fixed deck 1 in
+  `src/world/induction.js` (skippable, replayable from the title). The hack
+  teaches one part per won board (`src/hack/lessons.js`, `meta.lesson`).
+- Fun layer (October 2026 round): scrap and fabricators, ring-outs, clean
+  hacks (win by 4+: two parts), turning droids into a gang of up to three,
+  speech bubbles, a named bounty per generated deck, today's tower (seeded
+  by the date, first go counts, shareable squares).
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken
@@ -48,4 +55,8 @@ then open http://localhost:8080.
 - For anything visual, drive the page with Playwright (preinstalled in cloud
   sessions) and look at screenshots. `window.klepto` is the game instance;
   `klepto.timeScale` speeds things up and `klepto.forceSeed` pins the next
-  deck's layout.
+  deck's layout. `klepto.meta.lesson = 99` skips the hack lessons and
+  `klepto.meta.inductionDone = true` skips the induction prompt.
+- Software rendering in the test browser runs at a couple of frames a
+  second, so wait on conditions (state, flags) rather than fixed delays, and
+  raise `timeScale` for long waits like the lift ride.

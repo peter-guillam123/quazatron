@@ -1,16 +1,10 @@
-// Runs a hack from first board to last: side choice, play, the result
-// banner, extra rounds for the Mainframe, and the first-time walkthrough.
-import { generateBoard, HackRound, reach, DURATION, TRAVEL } from './board.js';
+// Runs a hack from first board to last: the lesson line, side choice,
+// play, the result banner, and extra rounds for the Mainframe.
+import { generateBoard, HackRound, reach, partsOn, DURATION, TRAVEL } from './board.js';
 import { HackAI } from './ai.js';
+import { HIDDEN_LESSON } from './lessons.js';
 import { makeRng, randomSeed } from '../rng.js';
 import { PLAYER_HEX } from '../config.js';
-
-const TUTORIAL = [
-  { id: 'goal', when: 'choose', title: 'The hack', text: 'You’re wired into its circuits. Win the middle column: when the timer runs out, whoever owns more cells wins.' },
-  { id: 'side', when: 'choose', title: 'Pick a side', text: 'The two sides are wired differently. Look for wires that run clean to the middle.\n← → to swap sides, then Space to start.' },
-  { id: 'fire', when: 'play', title: 'Fire pulses', text: '↑ ↓ picks one of your wires. Space fires a pulse down it. The dotted outline shows the cells it will reach.\nA pulse holds its cell for a few seconds. The cell stays yours until they power it back.' },
-  { id: 'parts', when: 'play', title: 'Parts on the wires', text: 'Forks reach two cells. AND gates need two of your pulses at once. Inverts paint their colour, so avoid them. Locks stay lit. You have a few pulsers; spend them well, and keep some for the end.' },
-];
 
 export class HackSession {
   constructor(game, target, spec, opts = {}) {
@@ -26,8 +20,8 @@ export class HackSession {
     this.title = `Hacking ${spec.title}`;
     this.subtitle = `CLASS ${spec.cls}`;
     this.opts = opts;
-    this.tutorialQueue = opts.tutorial ? TUTORIAL.slice() : [];
-    this.tutorial = null;
+    // a lesson board, while you're still learning the parts
+    this.lesson = spec.boss ? null : opts.lesson || null;
     this.done = false;
     this.lastTick = 99;
     this.updateKeys();
@@ -37,32 +31,43 @@ export class HackSession {
   updateKeys() {
     const pad = this.game.input.lastDevice === 'pad';
     this.keys = pad
-      ? { choose: 'D-pad ← → choose a side  ·  A to start', play: 'D-pad ↑ ↓ choose a wire  ·  A fires' }
-      : { choose: '← → choose a side  ·  Space to start', play: '↑ ↓ choose a wire  ·  Space fires' };
+      ? { choose: 'D-pad ← → choose a side  ·  A to start', play: 'D-pad ↑ ↓ choose a wire  ·  A fires', start: 'A to start' }
+      : { choose: '← → choose a side  ·  Space to start', play: '↑ ↓ choose a wire  ·  Space fires', start: 'Space to start' };
   }
 
   newRound() {
     const s = this.spec;
-    this.board = generateBoard(this.rng, { rows: s.rows, cls: s.cls });
+    const L = this.lesson;
+    this.board = L
+      ? generateBoard(this.rng, { rows: Math.min(L.rows, s.rows), cls: s.cls, parts: L.parts, focus: L.focus, side: L.side })
+      : generateBoard(this.rng, { rows: s.rows, cls: s.cls });
+    this.rows = this.board.rows;
+    this.parts = partsOn(this.board);
+    // the line along the top: this lesson, or the first time a part is hidden
+    this.callout = L || null;
+    this.focus = L ? L.focus : null;
+    if (!L && this.parts.has('hidden') && !this.game.meta.seenHidden) {
+      this.callout = HIDDEN_LESSON;
+      this.focus = 'hidden';
+      this.sawHidden = true;
+    }
+    this.fresh = !!this.callout && (!L || this.game.meta.lessonSeen !== this.opts.lessonIndex);
     this.phase = 'choose';
-    this.chooseT = this.roundIndex === 0 ? 7 : 5;
+    this.canSwap = !L || L.side;
+    // no clock while you read something new
+    if (!this.canSwap || (L && L.focus === 'break')) this.chooseT = Infinity;
+    else if (this.fresh) this.chooseT = 10;
+    else this.chooseT = this.roundIndex === 0 ? 6 : 4;
     this.playerSide = 0;
-    this.cursor = Math.floor(s.rows / 2);
+    this.cursor = Math.floor(this.rows / 2);
+    this.introT = 0;
     // an inert round so the board can be drawn while choosing
     this.round = new HackRound(this.board, { timer: s.timer, pulsers: [0, 0] });
     this.startPulsers = [0, 0];
     this.preview = null;
-    this.nextTutorial('choose');
-    this.game.announce(this.roundIndex === 0 ? `${this.title}. Choose a side with left and right, then press Space.` : `Round ${this.roundIndex + 1}. Choose a side.`);
-  }
-
-  nextTutorial(phase) {
-    if (this.tutorial) return;
-    const i = this.tutorialQueue.findIndex((t) => t.when === phase);
-    if (i < 0) return;
-    const t = this.tutorialQueue.splice(i, 1)[0];
-    this.tutorial = { ...t, more: this.game.input.lastDevice === 'pad' ? 'A to continue' : 'Space to continue' };
-    this.game.announce(`${t.title}. ${t.text}`);
+    const how = this.canSwap ? 'Choose a side with left and right, then press Space.' : 'Press Space to start.';
+    if (this.callout) this.game.announce(`${this.title}. ${this.callout.title}. ${this.callout.line} ${how}`);
+    else this.game.announce(this.roundIndex === 0 ? `${this.title}. ${how}` : `Round ${this.roundIndex + 1}. ${how}`);
   }
 
   begin() {
@@ -71,7 +76,8 @@ export class HackSession {
     const ps = this.playerSide, es = 1 - ps;
     const pulsers = [];
     pulsers[ps] = g.playerPulsers();
-    pulsers[es] = s.pulsers;
+    const L = this.lesson;
+    pulsers[es] = L ? Math.min(s.pulsers, L.enemy) : s.pulsers;
     const duration = [], travel = [], freeFirst = [];
     duration[ps] = DURATION * (g.hasPerk('longpulse') ? 1.4 : 1);
     duration[es] = DURATION;
@@ -81,17 +87,18 @@ export class HackSession {
     freeFirst[es] = false;
     if (g.hasPerk('scanner')) for (const col of this.board.sides[ps].grid) for (const c of col) if (c) c.hidden = false;
     // a fresh copy of the cells, since choosing didn't change anything
-    this.round = new HackRound(this.board, { timer: s.timer * (g.settings.slowHack ? 1.5 : 1), pulsers, duration, travel, freeFirst });
+    const timer = L ? L.timer : s.timer;
+    this.round = new HackRound(this.board, { timer: timer * (g.settings.slowHack ? 1.5 : 1), pulsers, duration, travel, freeFirst });
     this.startPulsers = pulsers.slice();
     let delay = 0.5 + Math.random() * 0.4;
     if (s.stunned) delay += 2.2;
     if (this.opts.ambush) delay += this.opts.ambush;
     if (g.hasPerk('firststrike')) delay += 1.5;
-    const skill = Math.min(0.95, s.cls / 1000 + 0.1);
+    if (L) delay += L.delay;
+    const skill = Math.min(0.95, s.cls / 1000 + 0.1, L ? L.skill : 1);
     this.ai = new HackAI(this.round, es, skill, { delay });
     this.phase = 'play';
     this.updatePreview();
-    this.nextTutorial('play');
     g.audio.play('hackStart');
   }
 
@@ -113,13 +120,10 @@ export class HackSession {
       if (input.hit('grapple') || input.hit('confirm')) { this.paused = false; audio.play('uiSelect'); }
       return;
     }
-    if (this.tutorial) {
-      if (input.hit('grapple') || input.hit('confirm') || input.hit('arm')) { this.tutorial = null; audio.play('uiSelect'); this.nextTutorial(this.phase); }
-      return;
-    }
+    this.introT += dt;
     if (this.phase === 'choose') {
-      if (input.hit('left') && this.playerSide !== 0) { this.playerSide = 0; audio.play('uiMove'); }
-      if (input.hit('right') && this.playerSide !== 1) { this.playerSide = 1; audio.play('uiMove'); }
+      if (this.canSwap && input.hit('left') && this.playerSide !== 0) { this.playerSide = 0; audio.play('uiMove'); }
+      if (this.canSwap && input.hit('right') && this.playerSide !== 1) { this.playerSide = 1; audio.play('uiMove'); }
       this.chooseT -= dt;
       if (input.hit('grapple') || input.hit('arm') || this.chooseT <= 0) this.begin();
       return;
@@ -146,7 +150,7 @@ export class HackSession {
     }
     if (this.phase === 'result') {
       this.resultT -= dt;
-      if (this.resultT <= 0 || ((input.hit('grapple') || input.hit('confirm')) && this.resultT < 1.0)) this.afterRound();
+      if (this.resultT <= 0 || ((input.hit('grapple') || input.hit('confirm')) && this.resultT < 1.1)) this.afterRound();
     }
   }
 
@@ -155,7 +159,8 @@ export class HackSession {
     const ps = this.playerSide;
     const you = R.result[ps], them = R.result[1 - ps];
     this.phase = 'result';
-    this.resultT = 1.8;
+    this.resultT = 1.4;
+    this.margin = you - them;
     if (you > them) { this.roundWon = 1; this.wins[0]++; }
     else if (them > you) { this.roundWon = 0; this.wins[1]++; }
     else this.roundWon = -1;
