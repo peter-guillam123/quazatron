@@ -1,6 +1,6 @@
 // Every deck must be fully reachable: from the start you can roll to the
 // lift, the command droid, every droid and every terminal, without needing
-// any particular part. Run: node tests/decks.mjs [seeds]
+// any particular part. The induction deck is checked too. Run: node tests/decks.mjs [seeds]
 await import('./stub-dom.mjs');
 const { T } = await import('../src/world/grid.js');
 const { generateDeck } = await import('../src/world/deckgen.js');
@@ -25,9 +25,10 @@ function passable(g, x, z, blocked) {
 }
 
 let failures = 0, decks = 0;
-for (let seed = 1; seed <= SEEDS; seed++) {
-  for (const n of [1, 2, 3, 4, 5, 6]) {
-    const b = generateDeck(n, makeRng(seed * 7919 + n), {});
+for (let seed = 0; seed <= SEEDS; seed++) {
+  // seed 0 is the hand-built induction
+  for (const n of seed === 0 ? [1] : [1, 2, 3, 4, 5, 6]) {
+    const b = generateDeck(n, makeRng(seed * 7919 + n), { induction: seed === 0 });
     decks++;
     const g = b.grid;
     const blocked = new Set();

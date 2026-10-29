@@ -49,6 +49,7 @@
     <p class="strap">A roguelite after <i>Quazatron</i> (1986). Grapple droids, out-wire them, steal their parts.</p>
     <nav class="menu" aria-label="Main menu">
       <button data-act="new">New run</button>
+      <button data-act="induction" id="btn-induction" hidden>Replay the induction</button>
       <button data-act="archive">Droid archive</button>
       <button data-act="howto">How to play</button>
       <button data-act="settings">Settings</button>
@@ -57,6 +58,18 @@
     <p class="records" id="title-records"></p>
   </div>
   <p class="title-foot">Keyboard or gamepad. <span id="title-keys">Arrow keys and Enter to choose.</span></p>
+</section>
+
+<section class="screen panel-screen" id="screen-first" hidden aria-labelledby="first-h">
+  <div class="panel">
+    <h2 id="first-h">First time in the tower?</h2>
+    <p class="lede">The induction is a short first deck that brings things in one at a time: moving, hacking, parts, rams, terminals and the lift. The run carries on as normal after it.</p>
+    <nav class="menu" aria-label="Induction">
+      <button data-act="induction">Start with the induction</button>
+      <button data-act="skip">Skip it</button>
+      <button data-act="back">Back</button>
+    </nav>
+  </div>
 </section>
 
 <section class="screen panel-screen" id="screen-kit" hidden aria-labelledby="kit-h">

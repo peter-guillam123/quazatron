@@ -15,6 +15,7 @@ import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor, rareMods } from './
 import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
 import { Mainframe } from './mainframe.js';
+import { FloorSign } from '../render/signs.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
 const boltGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.55, 6, 1);
@@ -67,6 +68,7 @@ export class World {
     this.scrap = new ScrapField(this);
 
     this.makeDevices(build.things);
+    this.signs = (build.signs || []).map((sg) => new FloorSign(this.root, sg, game.input ? game.input.lastDevice : 'keyboard'));
     this.makeDroids(build.droids);
     this.makePlayer(run);
     this.claimTotal = this.droids.filter((d) => !d.isPlayer).length
@@ -125,6 +127,7 @@ export class World {
         facing: Math.random() * Math.PI * 2,
       });
       if (s.bounty) this.bounty = d;
+      d.dozy = !!s.dozy;
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);
@@ -781,6 +784,7 @@ export class World {
     for (const b of this.bolts) this.root.remove(b.mesh);
     for (const d of this.droids) d.model.dispose();
     this.scrap.dispose();
+    for (const sg of this.signs) sg.dispose();
     this.level.dispose();
     // device materials belong to this deck; geometry is shared and stays
     const keep = new Set([...boltMats.values()]);

@@ -112,6 +112,12 @@ export class Brain {
       return;
     }
 
+    // a dozy droid potters about until something wakes it
+    if (d.dozy && !this.woke) {
+      if (this.hitT > 0) this.woke = true;
+      else { this.patrol(dt); return; }
+    }
+
     if (this.sees) {
       this.seenT += dt; this.lostT = 0;
       if (this.state === 'patrol' && this.seenT > this.reaction) { this.state = 'chase'; w.alertRoom(d); this.w.game.onSpotted?.(d); }

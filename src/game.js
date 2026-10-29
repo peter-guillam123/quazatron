@@ -103,6 +103,11 @@ export class Game {
     this.last = now;
     this.input.poll();
     this.input.capture = this.state === 'play' || this.state === 'hack';
+    // floor signs show the keys for whatever you last pressed
+    if (this.world && this.world.signs.length && this.input.lastDevice !== this.signDevice) {
+      this.signDevice = this.input.lastDevice;
+      for (const sg of this.world.signs) sg.setDevice(this.signDevice);
+    }
     try {
       this.update(dt);
     } catch (err) {
@@ -195,6 +200,7 @@ export class Game {
     if (m.runs) rec.push(`${m.runs} run${m.runs === 1 ? '' : 's'}`);
     if (m.bestDeck) rec.push(`deepest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
     document.getElementById('title-records').textContent = rec.join(' · ');
+    document.getElementById('btn-induction').hidden = !m.inductionDone;
     this.ui.show('title');
     this.audio.startMusic(6);
   }
@@ -268,10 +274,16 @@ export class Game {
   onAction(screen, act, el) {
     switch (screen) {
       case 'title':
-        if (act === 'new') this.newRun();
+        if (act === 'new') { if (this.meta.inductionDone) this.newRun(); else this.ui.show('first'); }
+        else if (act === 'induction') this.startRun(null, { induction: true });
         else if (act === 'archive') this.ui.archive(this.meta);
         else if (act === 'howto') this.showHowto();
         else if (act === 'settings') this.showSettings();
+        break;
+      case 'first':
+        if (act === 'induction') this.startRun(null, { induction: true });
+        else if (act === 'skip') { this.meta.inductionDone = true; saveMeta(this.meta); this.newRun(); }
+        else if (act === 'back') this.ui.show('title');
         break;
       case 'phone':
         if (act === 'anyway') this.toTitle();
@@ -406,7 +418,7 @@ export class Game {
     this.ui.show('kit');
   }
 
-  startRun(kit) {
+  startRun(kit, opts = {}) {
     this.ui.hide();
     const mods = { drive: { id: 'wheels', grade: 1 }, arm: null, core: null };
     if (kit) mods[MODULES[kit].slot] = { id: kit, grade: 1 };
@@ -415,7 +427,7 @@ export class Game {
       integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
       perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0, gang: [],
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0 },
-      tutorial: !this.meta.tutorialDone && this.settings.hints,
+      induction: !!opts.induction,
     };
     this.disposeTitleScene();
     this.loadDeck(1);
@@ -432,7 +444,8 @@ export class Game {
     this.fx.clear();
     const seed = this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
     this.forceSeed = null;
-    const build = generateDeck(n, makeRng(seed), { tutorial: this.run.tutorial, playerMods: this.run.mods });
+    const induction = this.run.induction && n === 1;
+    const build = generateDeck(n, makeRng(seed), { induction, playerMods: this.run.mods });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
@@ -448,12 +461,10 @@ export class Game {
     this.meta.bestDeck = Math.max(this.meta.bestDeck || 0, n);
     saveMeta(this.meta);
     fade.classList.remove('on');
-    this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '');
+    if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
+    else this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '');
     this.state = 'play';
     this.input.clear();
-    if (n === 1 && this.run.tutorial) {
-      setTimeout(() => this.hintOnce('move', '<b>WASD</b> or the <b>arrow keys</b> to move. Up is up the screen. Find a droid and get close.', 8), 3200);
-    }
     if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 3400);
   }
 
@@ -1063,12 +1074,15 @@ export class Game {
 
   onEnterRoom(room, first) {
     if (!first) return;
+    if (room.signs) {
+      // read the floor signs out, with the right keys in
+      const keys = (t) => t.replace(/\{(\w+)\}/g, (m, k) => (k === 'move' ? (this.input.lastDevice === 'pad' ? 'Left stick' : 'WASD or the arrow keys') : this.input.label(k)));
+      this.ui.announce(room.signs.map((sg) => `${keys(sg.text)}${sg.sub ? `${/^[a-z]/.test(sg.sub) ? ' ' : '. '}${keys(sg.sub)}` : ''}.`).join(' '));
+      return;
+    }
     if (room.role === 'vault' && room.hint) this.hint(`A sealed vault. ${room.hint}`, 6);
     if (room.role === 'lift' && !this.world.clearance) this.hintOnce('lift', 'The lift is here, locked. The droid marked <b>◆</b> holds the clearance: hack it or destroy it.', 8);
     if (room.role === 'archive') this.hintOnce('archive', 'An archive terminal. Hack it to pick a firmware upgrade.', 6);
-    if (room.role === 'combat' && this.run.tutorial && this.run.deck === 1) {
-      this.hintOnce('grapple', 'Get close to a droid and press <b>Space</b> to grapple it. Ram it first and it hacks back weaker.', 8);
-    }
   }
 
   archiveSee(d, how) {
@@ -1105,7 +1119,7 @@ export class Game {
     this.ui.clearLabels();
     p.pos.x = w.lift.pos.x; p.pos.z = w.lift.pos.z;
     this.audio.play('descend');
-    if (this.run.deck === 1) { this.meta.tutorialDone = true; saveMeta(this.meta); }
+    if (this.run.deck === 1 && this.run.induction) { this.meta.inductionDone = true; saveMeta(this.meta); }
   }
 
   updateDescend(dt) {

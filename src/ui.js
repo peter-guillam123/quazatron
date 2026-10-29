@@ -171,9 +171,9 @@ export class UI {
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 
-  deckCard(deck, n, bounty = '') {
+  deckCard(deck, n, bounty = '', label = '') {
     const c = this.el.deckCard;
-    $('#deck-num').textContent = n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`;
+    $('#deck-num').textContent = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
     $('#deck-title').textContent = deck.name;
     $('#deck-blurb').textContent = deck.blurb;
     $('#deck-bounty').textContent = bounty;
