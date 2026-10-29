@@ -229,7 +229,8 @@ export class Game {
     s.klp.update(dt, { speed: 0.4, facing: s.t * 0.4, visibility: 1 });
     s.foes.forEach((m, i) => m.update(dt, { speed: 0, facing: m.group.rotation.y, charge: (Math.sin(s.t * 1.3 + i * 2) + 1) * 0.25, visibility: 1 }));
     const r = this.renderer;
-    const a = s.t * 0.06 + Math.PI * 0.25;
+    // a slow orbit, held still for anyone who prefers less motion
+    const a = (this.reducedMotion ? 0 : s.t * 0.06) + Math.PI * 0.25;
     const c = new THREE.Vector3(6.5, 0.4, 6.5);
     r.camera.position.set(c.x + Math.sin(a) * 25, 19, c.z + Math.cos(a) * 25);
     // keep the diorama to the right of the menu
