@@ -369,7 +369,7 @@ export class UI {
 
   archive(meta) {
     const seen = FAMILY_ORDER.filter((k) => meta.archive[k]).length;
-    $('#archive-lede').textContent = `${seen} of ${FAMILY_ORDER.length} families on file. Hack a droid to read its parts; you keep this archive between runs.`;
+    $('#archive-lede').textContent = `${seen} of ${FAMILY_ORDER.length} families on file. Droids you see go in; hack one to read its parts. The archive stays with you between runs.`;
     $('#archive-body').innerHTML = FAMILY_ORDER.map((k) => {
       const F = FAMILIES[k];
       const a = meta.archive[k];
@@ -377,7 +377,7 @@ export class UI {
       const parts = [F.drive, F.arm, F.core].filter(Boolean).map((m) => `<span title="${esc(MODULES[m].name)}">${iconSvg(m, 20)}</span>`).join('');
       const names = [F.drive, F.arm, F.core].filter(Boolean).map((m) => MODULES[m].name).join(', ');
       return `<div class="droid"><h3>${esc(F.name)} <span>${F.min}–${F.max}</span></h3>
-        <div class="parts" aria-label="Parts: ${esc(names)}">${a.hacked ? parts : ''}</div>
+        ${a.hacked ? `<div class="parts" aria-label="Parts: ${esc(names)}">${parts}</div>` : '<p class="tally">Hack one to read its parts.</p>'}
         <p>${esc(F.role)}. ${esc(F.blurb)}</p>
         <p class="tally">Hacked ${a.hacked || 0} · destroyed ${a.destroyed || 0}${a.best ? ` · best class ${a.best}` : ''}</p></div>`;
     }).join('');

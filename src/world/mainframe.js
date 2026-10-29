@@ -65,11 +65,11 @@ export class Mainframe {
       p.rotation.y = a;
       g.add(p);
     }
-    this.shieldMat = new THREE.MeshBasicMaterial({ color: ink.clone().multiplyScalar(0.9), transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, wireframe: false });
+    this.shieldMat = new THREE.MeshBasicMaterial({ color: ink.clone().multiplyScalar(0.7), transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, wireframe: false });
     this.shield = new THREE.Mesh(new THREE.SphereGeometry(2.1, 40, 24), this.shieldMat);
     this.shield.position.y = 1.7;
     g.add(this.shield);
-    this.wire = new THREE.Mesh(new THREE.IcosahedronGeometry(2.12, 2), new THREE.MeshBasicMaterial({ color: ink.clone().multiplyScalar(1.4), wireframe: true, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.wire = new THREE.Mesh(new THREE.IcosahedronGeometry(2.12, 2), new THREE.MeshBasicMaterial({ color: ink.clone().multiplyScalar(0.9), wireframe: true, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false }));
     this.wire.position.y = 1.7;
     g.add(this.wire);
 

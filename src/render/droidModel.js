@@ -64,7 +64,7 @@ export class DroidModel {
       lift = 0.2;
       const ring = add(this.group, G('hoverRing', () => new THREE.TorusGeometry(0.27, 0.035, 10, 40)), m.accent, [0, 0.16, 0], [Math.PI / 2, 0, 0]);
       ring.castShadow = false;
-      this.hoverGlow = add(this.group, G('disc', () => new THREE.CircleGeometry(0.34, 32)), m.glow, [0, 0.03, 0], [-Math.PI / 2, 0, 0]);
+      this.hoverGlow = add(this.group, G('disc', () => new THREE.CircleGeometry(0.3, 32)), new THREE.MeshBasicMaterial({ color: accent.clone().multiplyScalar(0.9), transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }), [0, 0.03, 0], [-Math.PI / 2, 0, 0]);
       this.hoverGlow.castShadow = false;
       add(this.body, G('hoverCone', () => new THREE.CylinderGeometry(0.22, 0.12, 0.12, 24)), m.dark, [0, 0.14, 0]);
     } else if (drive === 'treads') {
@@ -243,7 +243,7 @@ export class DroidModel {
     const hoverBob = this.spec.drive === 'hover' ? Math.sin(this.t * 3) * 0.03 : 0;
     this.body.position.y = this.lift + hoverBob + (info.bob || 0);
     if (this.hoverGlow) {
-      this.hoverGlow.material.opacity = 0.5 + Math.sin(this.t * 8) * 0.15;
+      this.hoverGlow.material.opacity = 0.22 + Math.sin(this.t * 8) * 0.06;
     }
     if (this.jets) {
       const k = info.dashing ? 1 : (info.speed || 0) > 0.5 ? 0.35 : 0.15;

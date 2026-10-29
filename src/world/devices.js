@@ -592,7 +592,7 @@ export class Lift extends Device {
       this.mesh(G('liftPylon', () => new THREE.BoxGeometry(0.1, 1.2, 0.1)), m.steel, [Math.cos(a) * 0.62, 0.6, Math.sin(a) * 0.62]);
       this.mesh(G('liftPylonLight', () => new THREE.BoxGeometry(0.04, 0.9, 0.11)), this.padMat, [Math.cos(a) * 0.62, 0.65, Math.sin(a) * 0.62], null, false);
     }
-    this.beamMat = new THREE.MeshBasicMaterial({ color: CYAN.clone().multiplyScalar(1.5), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    this.beamMat = new THREE.MeshBasicMaterial({ color: CYAN.clone().multiplyScalar(1.2), alphaMap: beamFade(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     this.beam = this.mesh(G('liftBeam', () => new THREE.CylinderGeometry(0.5, 0.58, 3.5, 32, 1, true)), this.beamMat, [0, 1.75, 0], null, false);
     this.unlocked = false;
   }
@@ -603,9 +603,23 @@ export class Lift extends Device {
     this.world.audio.play('unlock', { at: this.pos });
   }
   update(dt) {
-    this.beamMat.opacity += ((this.unlocked ? 0.22 + Math.sin(performance.now() / 400) * 0.06 : 0) - this.beamMat.opacity) * Math.min(1, dt * 3);
+    this.beamMat.opacity += ((this.unlocked ? 0.5 + Math.sin(performance.now() / 400) * 0.12 : 0) - this.beamMat.opacity) * Math.min(1, dt * 3);
     this.ring.rotation.z += dt * (this.unlocked ? 1.5 : 0.3);
   }
+}
+
+// a vertical fade, bright at the floor and gone at the top
+let beamTex = null;
+function beamFade() {
+  if (beamTex) return beamTex;
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, '#000'); grad.addColorStop(0.7, '#555'); grad.addColorStop(1, '#fff');
+  g.fillStyle = grad; g.fillRect(0, 0, 4, 128);
+  beamTex = new THREE.CanvasTexture(c);
+  return beamTex;
 }
 
 // ------------------------------------------------------------------ pickups: dropped parts, caches, chips

@@ -321,27 +321,31 @@ export class HackView {
             break;
           }
           case 'and': {
-            const a = comp.a, dst = a + comp.dst, other = a + 1 - comp.dst;
-            const ya = rowY(a), yb = rowY(a + 1);
-            line(sx, ya, mx - 10, ya, inC(a));
-            line(sx, yb, mx - 10, yb, inC(a + 1));
-            line(mx - 10, ya, mx - 10, yb, inC(a) && inC(a + 1) ? outC(dst) : null);
-            line(mx + 10, rowY(dst), ex, rowY(dst), outC(dst));
-            // gate body
-            const gy = (ya + yb) / 2, gh = Math.min(yb - ya - 4, 26);
-            ctx.fillStyle = '#141924';
-            ctx.strokeStyle = outC(dst) || '#8b93a6'; ctx.lineWidth = 2;
+            const a = comp.a, dst = a + comp.dst;
+            const ya = rowY(a), yb = rowY(a + 1), gy = (ya + yb) / 2;
+            const hh = Math.min(L.rowH / 2 + 4, 26), gw = 6 + hh * 0.8;
+            const gx = mx - gw / 2 - 4;
+            const nose = gx + gw;
+            const lit = outC(dst);
+            line(sx, ya, gx, ya, inC(a));
+            line(sx, yb, gx, yb, inC(a + 1));
+            line(nose, gy, nose + 6, gy, lit);
+            line(nose + 6, gy, nose + 6, rowY(dst), lit);
+            line(nose + 6, rowY(dst), ex, rowY(dst), lit);
+            ctx.save();
+            ctx.translate(mirror(gx), gy);
+            ctx.scale(side === 0 ? 1 : -1, 1);
             ctx.beginPath();
-            const gx = mirror(mx - 10), dirx = side === 0 ? 1 : -1;
-            ctx.moveTo(gx, gy - gh / 2); ctx.lineTo(gx + dirx * 8, gy - gh / 2);
-            ctx.arc(gx + dirx * 8, gy, gh / 2, -Math.PI / 2 * dirx, Math.PI / 2 * dirx, side === 1);
-            ctx.lineTo(gx, gy + gh / 2); ctx.closePath();
+            ctx.moveTo(0, -hh); ctx.lineTo(6, -hh);
+            ctx.ellipse(6, 0, hh * 0.8, hh, 0, -Math.PI / 2, Math.PI / 2);
+            ctx.lineTo(0, hh); ctx.closePath();
+            ctx.fillStyle = '#141924';
+            ctx.strokeStyle = lit || '#8b93a6'; ctx.lineWidth = 2;
+            if (lit) { ctx.shadowColor = lit; ctx.shadowBlur = 10; }
             ctx.fill(); ctx.stroke();
-            ctx.fillStyle = '#c8cfdc'; ctx.font = '700 10px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('&', gx + dirx * 9, gy + 0.5);
-            // out to the dst row
-            line(mx - 10 + 8 + 8, gy, mx + 10, rowY(dst), outC(dst));
-            void other;
+            ctx.restore();
+            ctx.fillStyle = '#c8cfdc'; ctx.font = '700 12px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('&', mirror(gx + gw * 0.45), gy + 0.5);
             break;
           }
           default: break;

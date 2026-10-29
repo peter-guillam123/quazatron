@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Hack board test</title>
+<link rel="stylesheet" href="../css/game.css">
+<style>body { overflow: hidden; } canvas#hack { pointer-events: none; }</style>
+</head>
+<body>
+<!-- Dev page: two AIs play the hack so the board drawing can be checked by eye.
+     ?seed=7&rows=12&cls=600&t=4 sets the board and how many seconds to run. -->
+<canvas id="hack"></canvas>
+<script type="module">
+import { generateBoard, HackRound } from '../src/hack/board.js';
+import { HackView } from '../src/hack/view.js';
+import { HackAI } from '../src/hack/ai.js';
+import { makeRng } from '../src/rng.js';
+
+const q = new URLSearchParams(location.search);
+const rng = makeRng(+(q.get('seed') || 7));
+const rows = +(q.get('rows') || 10), cls = +(q.get('cls') || 400);
+const board = generateBoard(rng, { rows, cls });
+const round = new HackRound(board, { timer: 10, pulsers: [5, 5] });
+const a = new HackAI(round, 0, 0.7, { rng, delay: 0.2 });
+const b = new HackAI(round, 1, 0.6, { rng, delay: 0.4 });
+const view = new HackView(document.getElementById('hack'));
+view.resize();
+const s = {
+  round, board, phase: 'play', playerSide: 0, cursor: 3, youColour: '#2ef2ff', themColour: '#ff3ad8',
+  title: 'Hacking Courier 247', subtitle: `CLASS ${cls}`, roundsTotal: 1, wins: [0, 0], startPulsers: [5, 5],
+  keys: { play: '↑ ↓ choose a wire  ·  Space fires', choose: '' }, preview: null,
+};
+const until = +(q.get('t') || 4);
+let t = 0;
+function step() {
+  const dt = 1 / 30;
+  if (t < until) { a.update(dt); b.update(dt); round.update(dt); t += dt; }
+  view.draw(s, dt);
+  requestAnimationFrame(step);
+}
+step();
+</script>
+</body>
+</html>
