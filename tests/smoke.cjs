@@ -27,16 +27,30 @@ const { chromium } = require('playwright');
   await step('deck1', () => page.keyboard.press('Enter'), 3000);
   await step('move', async () => { await page.keyboard.down('ArrowUp'); await page.waitForTimeout(600); await page.keyboard.up('ArrowUp'); });
   await step('grapple', async () => {
-    await page.evaluate(() => {
-      const w = window.klepto.world, p = w.player;
-      const d = w.droids.filter((x) => !x.isPlayer).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos))[0];
-      d.brain.update = () => {};
-      p.pos.set(d.pos.x + d.radius + p.radius + 0.1, d.pos.y, d.pos.z);
-    });
-    await page.keyboard.press('Space');
-  }, 1500);
+    // try droids nearest first until one is standing somewhere we can reach
+    for (let i = 0; i < 6; i++) {
+      const placed = await page.evaluate((i) => {
+        const w = window.klepto.world, p = w.player;
+        const ds = w.droids.filter((x) => !x.isPlayer && x.alive).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos));
+        const d = ds[i];
+        if (!d) return false;
+        d.brain.update = () => {};
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const x = d.pos.x + dx * (d.radius + p.radius + 0.1), z = d.pos.z + dz * (d.radius + p.radius + 0.1);
+          const g = w.grid.groundAt(x, z);
+          if (g !== null && Math.abs(g - d.pos.y) < 0.1) { p.pos.set(x, g, z); p.vel.x = p.vel.z = 0; return true; }
+        }
+        return false;
+      }, i);
+      if (!placed) continue;
+      await page.waitForTimeout(200);
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(1200);
+      if (await page.evaluate(() => window.klepto.state === 'hack')) break;
+    }
+  }, 300);
   const state = await page.evaluate(() => window.klepto.state);
-  if (state !== 'hack') errors.push(`expected a hack, got ${state}`);
+  if (state !== 'hack') { errors.push(`expected a hack, got ${state}`); await browser.close(); console.log('FAILED\n' + errors.join('\n')); process.exit(1); }
   await step('salvage', () => page.evaluate(() => { const g = window.klepto; g.endHack(g.session, true); }), 1200);
   await step('take', () => page.evaluate(() => {
     const b = document.querySelector('#screen-offer button');
@@ -50,7 +64,12 @@ const { chromium } = require('playwright');
     });
     await page.waitForTimeout(300);
     await page.keyboard.press('Space');
-  }, 6000);
+    // software rendering is slow; give the ride down up to 30 seconds
+    for (let i = 0; i < 60; i++) {
+      if (await page.evaluate(() => window.klepto.state === 'play' && window.klepto.run.deck === 2)) break;
+      await page.waitForTimeout(500);
+    }
+  }, 500);
   const deck = await page.evaluate(() => window.klepto.run && window.klepto.run.deck);
   if (deck !== 2) errors.push(`expected deck 2, got ${deck}`);
 

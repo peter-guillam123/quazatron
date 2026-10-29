@@ -35,6 +35,7 @@ export class Game {
     this.input = new Input();
     this.audio = new Audio();
     this.ui = new UI(this);
+    this.input.blocked = () => !!this.ui.screen;
     this.hackView = new HackView(document.getElementById('hack'));
     this.hackView.resize();
     window.addEventListener('resize', () => this.hackView.resize());
@@ -402,7 +403,7 @@ export class Game {
     const fade = document.getElementById('fade');
     fade.classList.add('on');
     await sleep(this.world ? 650 : 350);
-    this.saveRunFromPlayer();
+    // the run was saved on the way down; a fresh run must not inherit the last KLP-2
     this.disposeWorld();
     this.disposeTitleScene();
     this.fx.clear();
@@ -646,6 +647,8 @@ export class Game {
   }
 
   powerDown(d) {
+    d.releaseParts();
+    for (const o of this.world.droids) if (o.mod.arm.target === d) o.releaseParts();
     d.state = 'hacked';
     d.solid = false;
     d.downT = 0;
@@ -850,8 +853,9 @@ export class Game {
 
   updateDescend(dt) {
     const w = this.world, p = w.player;
+    if (this.descendT === 0) this.descendY = p.pos.y;
     this.descendT += dt;
-    p.pos.y -= dt * dt * 40 * this.descendT;
+    p.pos.y = this.descendY - 6 * this.descendT * this.descendT;
     p.syncModel(dt);
     w.lift.group.position.y = p.pos.y;
     if (this.descendT > 1.1 && this.state === 'descending') {
@@ -866,6 +870,7 @@ export class Game {
 
   playerDied() {
     const w = this.world, p = w.player;
+    if (this.state === 'won' || this.state === 'end') { p.integrity = 1; return; }
     if (this.hasPerk('lastgasp') && !this.run.lastGaspUsed) {
       this.run.lastGaspUsed = true;
       p.integrity = 1; p.invuln = 2;
@@ -885,8 +890,13 @@ export class Game {
 
   victory() {
     this.state = 'won';
-    const w = this.world;
+    const w = this.world, p = w.player;
+    w.fullyClaimed = true;     // no "deck claimed" fanfare on top of the win
     w.claimed = w.claimTotal;
+    p.invuln = 999;
+    p.intent.mx = p.intent.mz = 0; p.intent.arm = p.intent.drive = p.intent.core = false;
+    for (const b of w.bolts) w.root.remove(b.mesh);
+    w.bolts.length = 0;
     this.renderer.flash(PLAYER_HEX, 0.8);
     this.audio.play('hackWin');
     this.ui.announce('The Mainframe is yours. The tower is claimed.', true);
@@ -896,6 +906,7 @@ export class Game {
 
   endRun(won, how) {
     const r = this.run;
+    if (this.state === 'end') return;    // a second call (death timer after a win) changes nothing
     if (!r) { this.toTitle(); return; }
     this.meta.runs = (this.meta.runs || 0) + 1;
     if (won) this.meta.wins = (this.meta.wins || 0) + 1;

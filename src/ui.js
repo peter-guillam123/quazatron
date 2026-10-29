@@ -39,6 +39,7 @@ export class UI {
       if (!this.screen) return;
       if (e.key === 'Escape' || (e.key === 'Backspace' && e.target.tagName !== 'INPUT')) {
         e.preventDefault();
+        e.stopPropagation();   // or the game would see the same Escape and pause again
         this.back();
         return;
       }
@@ -102,11 +103,14 @@ export class UI {
   // gamepad driving the menus
   pollPad(input) {
     if (!this.screen) return;
-    if (input.padHit('up') || input.padHit('left')) this.moveFocus(-1);
-    if (input.padHit('down') || input.padHit('right')) {
-      const a = document.activeElement;
-      if (a && a.type === 'range' && input.padHit('right')) { a.stepUp(); a.dispatchEvent(new Event('input')); return; }
-      this.moveFocus(1);
+    const a = document.activeElement;
+    const slider = a && a.type === 'range';
+    if (slider && (input.padHit('left') || input.padHit('right'))) {
+      if (input.padHit('left')) a.stepDown(); else a.stepUp();
+      a.dispatchEvent(new Event('input'));
+    } else {
+      if (input.padHit('up') || input.padHit('left')) this.moveFocus(-1);
+      if (input.padHit('down') || input.padHit('right')) this.moveFocus(1);
     }
     if (input.padHit('confirm')) {
       const a = document.activeElement;

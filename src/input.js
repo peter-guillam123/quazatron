@@ -36,13 +36,18 @@ export class Input {
     this.padPrev = [];
     this.padAxes = [0, 0];
     this.padStickPrev = { x: 0, y: 0 };
+    this.padHold = new Set();   // buttons held through a menu, ignored until let go
     this.padConnected = false;
     this.capture = false;     // when true, game keys don't reach the page
     this.lastDevice = 'keyboard';
     this.listeners = new Set();
 
     window.addEventListener('keydown', (e) => {
-      if (e.repeat && this.keys.has(e.code)) {
+      // keys pressed while a menu is open belong to the menu, not the game
+      if (this.blocked && this.blocked()) return;
+      if (e.repeat) {
+        // auto-repeat never counts as a fresh press
+        this.keys.add(e.code);
         if (this.capture && GAME_KEYS.has(e.code)) e.preventDefault();
         return;
       }
@@ -72,6 +77,7 @@ export class Input {
     if (p) {
       this.padConnected = true;
       this.padButtons = p.buttons.map((b) => b.pressed || b.value > 0.5);
+      for (const b of [...this.padHold]) if (!this.padButtons[b]) this.padHold.delete(b);
       let x = p.axes[0] || 0, y = p.axes[1] || 0;
       const m = Math.hypot(x, y);
       if (m < 0.22) { x = 0; y = 0; } else { const k = (m - 0.22) / (1 - 0.22) / m; x *= k; y *= k; }
@@ -97,13 +103,13 @@ export class Input {
 
   held(action) {
     for (const k of KEYS[action] || []) if (this.keys.has(k)) return true;
-    for (const b of PAD[action] || []) if (this.padButtons[b]) return true;
+    for (const b of PAD[action] || []) if (this.padButtons[b] && !this.padHold.has(b)) return true;
     return false;
   }
 
   hit(action) {
     for (const k of KEYS[action] || []) if (this.pressedKeys.has(k)) return true;
-    for (const b of PAD[action] || []) if (this.padButtons[b] && !this.padPrev[b]) return true;
+    for (const b of PAD[action] || []) if (this.padButtons[b] && !this.padPrev[b] && !this.padHold.has(b)) return true;
     if (this.stickHit && this.stickHit[action]) return true;
     return false;
   }
@@ -129,7 +135,12 @@ export class Input {
     return { x, y };
   }
 
-  clear() { this.keys.clear(); this.pressedKeys.clear(); }
+  clear() {
+    this.keys.clear();
+    this.pressedKeys.clear();
+    this.padButtons.forEach((down, b) => { if (down) this.padHold.add(b); });
+    this.stickHit = { up: false, down: false, left: false, right: false };
+  }
 
   // A short buzz on a controller that supports it.
   rumble(strength = 0.5, ms = 120) {

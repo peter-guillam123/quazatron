@@ -499,6 +499,7 @@ export class Turret extends Device {
   }
   onHackLose() { this.cool = 0.3; }
   arcPoint() { return this.pos.clone().setY(this.y + 0.55); }
+  knock() {}   // bolted to the floor
   damage(n, src = {}) {
     if (this.integrity <= 0) return 0;
     if (src.by && src.by.team === this.team) return 0;
@@ -510,7 +511,7 @@ export class Turret extends Device {
       this.accent.emissive.setRGB(0.05, 0.05, 0.05);
       this.head.rotation.x = 0.5;
       this.world.explode(this.arcPoint(), this.world.deck.ink, 0.8);
-      this.world.claimEvent('turret');
+      if (this.team !== 'k') this.world.claimEvent('turret');   // a hacked one was counted already
     }
     return n;
   }

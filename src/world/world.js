@@ -461,6 +461,9 @@ export class World {
   }
 
   removeDroid(d) {
+    d.releaseParts();
+    // anyone pulling this droid lets go
+    for (const o of this.droids) if (o.mod.arm.target === d) o.releaseParts();
     this.root.remove(d.model.group);
     d.model.dispose();
     const i = this.droids.indexOf(d);
@@ -526,7 +529,7 @@ export class World {
 
   // ------------------------------------------------------------------ claiming
   claimEvent(kind, who) {
-    if (kind === 'target' || kind === 'conduit' || kind === 'relay') return;
+    if (kind === 'target' || kind === 'conduit' || kind === 'relay' || kind === 'mainframe') return;
     this.claimed = Math.min(this.claimTotal, this.claimed + 1);
     if (this.claimed >= this.claimTotal && this.claimTotal > 0 && !this.fullyClaimed) {
       this.fullyClaimed = true;
@@ -613,6 +616,7 @@ export class World {
   }
 
   removePickup(k) {
+    k.removed = true;
     k.dispose();
     const i = this.pickups.indexOf(k);
     if (i >= 0) this.pickups.splice(i, 1);

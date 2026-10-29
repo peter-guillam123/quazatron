@@ -78,8 +78,17 @@ export class Droid {
     return m ? m.id : (slot === 'arm' ? 'ram' : null);
   }
 
+  // Let go of anything a part is holding on to, like a tractor beam.
+  releaseParts() {
+    const st = this.mod && this.mod.arm;
+    if (st && st.beam) { this.world.fx.removeRibbon(st.beam); st.beam = null; }
+    if (st) st.target = null;
+    this.charge = 0;
+  }
+
   // Recompute stats and rebuild the model after a part changes.
   refresh() {
+    if (this.mod) this.releaseParts();
     if (!this.mods.drive) this.mods.drive = { id: 'wheels', grade: 1 };
     this.stats = {
       drive: moduleStats(this.mods.drive),
