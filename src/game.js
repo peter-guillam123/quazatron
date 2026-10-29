@@ -392,6 +392,7 @@ export class Game {
       <div><h3>The hack</h3>
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
         <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
+        <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
         <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
         <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>

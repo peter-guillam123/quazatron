@@ -1,10 +1,15 @@
 // Draws the hack board on a 2D canvas over the game. Lit wires glow in the
 // colour they paint; each cell carries a chevron pointing at its owner, so
 // the board reads without relying on colour alone.
-import { reach, evalSide } from './board.js';
+import { reach, evalSide, pathOf } from './board.js';
 
 const DIM = '#2c3240';
 const DIM2 = '#454d5f';
+// Colours marked with a ~ are the faint trail of the wire you've selected,
+// drawn before you fire, not a live pulse.
+const GHOST = '~';
+const isGhost = (c) => !!c && c[0] === GHOST;
+const ink = (c) => (isGhost(c) ? c.slice(1) : c);
 
 export class HackView {
   constructor(canvas) {
@@ -94,8 +99,12 @@ export class HackView {
 
     if (s.callout) this.drawCallout(s, L);
 
+    // ---- the selected wire's path, worked out fresh each frame as locks light
+    const ghost = s.phase === 'play' && s.cursor != null ? pathOf(B.sides[s.playerSide], s.cursor) : null;
+    const preview = ghost ? ghost.cells : s.preview;
+
     // ---- both sides
-    for (let side = 0; side < 2; side++) this.drawSide(s, L, side, colour, valColour);
+    for (let side = 0; side < 2; side++) this.drawSide(s, L, side, colour, valColour, side === s.playerSide ? ghost : null);
 
     // ---- centre column
     for (let r = 0; r < B.rows; r++) {
@@ -134,9 +143,9 @@ export class HackView {
       }
       ctx.restore();
       // preview: which cells the selected wire reaches
-      if (s.preview && s.preview[r]) {
+      if (preview && preview[r]) {
         ctx.save();
-        ctx.strokeStyle = s.preview[r] === 1 ? s.youColour : s.themColour;
+        ctx.strokeStyle = preview[r] === 1 ? s.youColour : s.themColour;
         ctx.setLineDash([4, 3]); ctx.lineWidth = 2;
         roundRect(ctx, x0 - 3, y + 1, w + 6, h + 4, 6);
         ctx.stroke();
@@ -216,7 +225,7 @@ export class HackView {
     ctx.restore();
   }
 
-  drawSide(s, L, side, colour, valColour) {
+  drawSide(s, L, side, colour, valColour, ghost) {
     const ctx = this.ctx;
     const R = s.round;
     const B = R.board;
@@ -270,12 +279,20 @@ export class HackView {
       for (const p of partial) if (p.tr[c + half][r] && xFrac <= p.k) return valColour(side, p.tr[c + half][r]);
       return null;
     };
+    // the selected wire's trail, in the colour it would paint
+    const ghostLit = (c, r, half) => {
+      const v = ghost ? ghost.path[c + half][r] : 0;
+      return v ? GHOST + valColour(side, v) : null;
+    };
     const frac = (x) => (x - xs + 46) / (xe - xs + 46 + L.cw / 2);
 
     const line = (xa, ya, xb, yb, col, width = 2) => {
       ctx.beginPath();
       ctx.moveTo(mirror(xa), ya); ctx.lineTo(mirror(xb), yb);
-      if (col) {
+      if (isGhost(col)) {
+        ctx.strokeStyle = ink(col); ctx.globalAlpha = 0.5; ctx.lineWidth = width + 0.5;
+        ctx.stroke(); ctx.globalAlpha = 1;
+      } else if (col) {
         ctx.strokeStyle = col; ctx.lineWidth = width + 1.5;
         ctx.shadowColor = col; ctx.shadowBlur = 12;
         ctx.stroke();
@@ -301,10 +318,10 @@ export class HackView {
       const y = rowY(r);
       // port to first slot
       const pv = trace ? trace[0][r] : 0;
-      const pc = valColour(side, pv) || partialLit(0, r, 0, 0);
+      const pc = valColour(side, pv) || partialLit(0, r, 0, 0) || ghostLit(0, r, 0);
       line(xPort + 8, y, xs, y, pc);
       // last slot to the cell
-      const lc = segColour(S.cols - 1, r, 1) || partialLit(S.cols - 1, r, 1, frac(xe));
+      const lc = segColour(S.cols - 1, r, 1) || partialLit(S.cols - 1, r, 1, frac(xe)) || ghostLit(S.cols - 1, r, 1);
       line(xe, y, L.cx - L.cw / 2 + 4, y, lc);
     }
 
@@ -315,8 +332,8 @@ export class HackView {
         const comp = S.grid[c][r];
         if (!comp || done.has(comp)) continue;
         done.add(comp);
-        const inC = (rr) => segColour(c, rr, 0) || partialLit(c, rr, 0, frac(mx));
-        const outC = (rr) => segColour(c, rr, 1) || partialLit(c, rr, 1, frac(ex));
+        const inC = (rr) => segColour(c, rr, 0) || partialLit(c, rr, 0, frac(mx)) || ghostLit(c, rr, 0);
+        const outC = (rr) => segColour(c, rr, 1) || partialLit(c, rr, 1, frac(ex)) || ghostLit(c, rr, 1);
         if (comp.hidden) {
           // the wiring in this slot is unknown until a pulse runs through it
           const rows = comp.t === 'fork' || comp.t === 'and' ? [comp.a, comp.a + 1] : [comp.a];
@@ -343,14 +360,9 @@ export class HackView {
             break;
           }
           case 'inv': {
-            line(sx, y, mx - 8, y, inC(comp.a)); line(mx + 8, y, ex, y, outC(comp.a));
-            const col = inC(comp.a) ? outC(comp.a) || '#c8cfdc' : '#8b93a6';
-            ctx.strokeStyle = col; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(mirror(mx), y, 8, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(mirror(mx - 4), y - 3.5); ctx.lineTo(mirror(mx + 4), y - 3.5); ctx.moveTo(mirror(mx + 1.5), y - 6); ctx.lineTo(mirror(mx + 4), y - 3.5); ctx.lineTo(mirror(mx + 1.5), y - 1);
-            ctx.moveTo(mirror(mx + 4), y + 3.5); ctx.lineTo(mirror(mx - 4), y + 3.5); ctx.moveTo(mirror(mx - 1.5), y + 1); ctx.lineTo(mirror(mx - 4), y + 3.5); ctx.lineTo(mirror(mx - 1.5), y + 6);
-            ctx.stroke();
+            line(sx, y, mx - 10, y, inC(comp.a)); line(mx + 10, y, ex, y, outC(comp.a));
+            const into = inC(comp.a);
+            this.invert(mirror(mx), y, 10.5, colour(side), colour(1 - side), side === 1, into ? (isGhost(into) ? 0.6 : 1) : 0);
             break;
           }
           case 'lock': {
@@ -373,7 +385,7 @@ export class HackView {
             line(mx, rowY(a), mx, rowY(a + 1), oc);
             line(mx, rowY(a), ex, rowY(a), oc);
             line(mx, rowY(a + 1), ex, rowY(a + 1), outC(a + 1));
-            ctx.fillStyle = oc || '#8b93a6';
+            ctx.fillStyle = oc ? ink(oc) : '#8b93a6';
             ctx.beginPath(); ctx.arc(mirror(mx), rowY(src), 4.5, 0, Math.PI * 2); ctx.fill();
             break;
           }
@@ -397,9 +409,16 @@ export class HackView {
             ctx.ellipse(6, 0, hh * 0.8, hh, 0, -Math.PI / 2, Math.PI / 2);
             ctx.lineTo(0, hh); ctx.closePath();
             ctx.fillStyle = '#141924';
-            ctx.strokeStyle = lit || '#8b93a6'; ctx.lineWidth = 2;
-            if (lit) { ctx.shadowColor = lit; ctx.shadowBlur = 10; }
+            ctx.strokeStyle = lit ? ink(lit) : '#8b93a6'; ctx.lineWidth = 2;
+            if (lit && !isGhost(lit)) { ctx.shadowColor = lit; ctx.shadowBlur = 10; }
             ctx.fill(); ctx.stroke();
+            // a light on each input, so you can see when it's waiting for the other
+            ctx.shadowBlur = 0;
+            const at = (yy) => Math.max(-hh + 5, Math.min(hh - 5, yy - gy));
+            for (const [iy, ic] of [[at(ya), inC(a)], [at(yb), inC(a + 1)]]) {
+              ctx.beginPath(); ctx.arc(3, iy, 3.2, 0, Math.PI * 2);
+              if (ic) { ctx.fillStyle = ink(ic); ctx.globalAlpha = isGhost(ic) ? 0.6 : 1; ctx.fill(); ctx.globalAlpha = 1; } else { ctx.strokeStyle = DIM2; ctx.lineWidth = 1.2; ctx.stroke(); }
+            }
             ctx.restore();
             ctx.fillStyle = '#c8cfdc'; ctx.font = '700 12px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText('&', mirror(gx + gw * 0.45), gy + 0.5);
@@ -478,7 +497,7 @@ export class HackView {
     const total = widths.reduce((a, b) => a + b, 0) + 22 * (items.length - 1);
     let x = L.cx - total / 2;
     items.forEach(([k, label], i) => {
-      this.glyph(k, x + 8, y);
+      this.glyph(k, x + 8, y, s);
       ctx.fillStyle = k === s.focus ? '#e8edf5' : '#8f98ab';
       ctx.textAlign = 'left';
       ctx.fillText(label, x + 20, y);
@@ -491,7 +510,7 @@ export class HackView {
     ctx.restore();
   }
 
-  glyph(k, x, y) {
+  glyph(k, x, y, s) {
     const ctx = this.ctx;
     ctx.save();
     ctx.strokeStyle = '#c8cfdc'; ctx.fillStyle = '#c8cfdc'; ctx.lineWidth = 1.6;
@@ -501,8 +520,9 @@ export class HackView {
     } else if (k === 'and') {
       ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x, y - 6); ctx.arc(x, y, 6, -Math.PI / 2, Math.PI / 2); ctx.lineTo(x - 6, y + 6); ctx.closePath(); ctx.stroke();
     } else if (k === 'inv') {
-      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x - 3, y - 2); ctx.lineTo(x + 3, y - 2); ctx.moveTo(x + 3, y + 2); ctx.lineTo(x - 3, y + 2); ctx.stroke();
+      ctx.restore();
+      this.invert(x, y, 7, s ? s.youColour : '#c8cfdc', s ? s.themColour : '#8b93a6', false, 0.6);
+      ctx.save();
     } else if (k === 'lock') {
       ctx.strokeRect(x - 5, y - 2, 10, 8);
       ctx.beginPath(); ctx.arc(x, y - 2, 3.5, Math.PI, 0); ctx.stroke();
@@ -517,6 +537,32 @@ export class HackView {
       ctx.font = '700 11px "Chakra Petch", sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('?', x, y + 0.5);
     }
+    ctx.restore();
+  }
+
+  // An invert: a ring split down the middle, the way in in the colour the
+  // pulse arrives as, the way out in the colour it leaves as. lit 0 to 1.
+  invert(x, y, r, inCol, outCol, flip, lit) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(x, y);
+    if (flip) ctx.scale(-1, 1);
+    for (const [a0, a1, col] of [[Math.PI / 2, Math.PI * 1.5, inCol], [-Math.PI / 2, Math.PI / 2, outCol]]) {
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, a0, a1); ctx.closePath();
+      ctx.fillStyle = col; ctx.globalAlpha = 0.45 + 0.5 * lit; ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, r, a0, a1);
+      ctx.strokeStyle = col; ctx.globalAlpha = 1; ctx.lineWidth = 2;
+      if (lit >= 1) { ctx.shadowColor = col; ctx.shadowBlur = 10; }
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    // the swap: one arrow each way
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = lit >= 0.5 ? '#05070c' : '#f2f5fa'; ctx.lineWidth = 1.7;
+    const k = r / 8;
+    ctx.beginPath();
+    ctx.moveTo(-4 * k, -3 * k); ctx.lineTo(4 * k, -3 * k); ctx.moveTo(1.5 * k, -5.5 * k); ctx.lineTo(4 * k, -3 * k); ctx.lineTo(1.5 * k, -0.5 * k);
+    ctx.moveTo(4 * k, 3 * k); ctx.lineTo(-4 * k, 3 * k); ctx.moveTo(-1.5 * k, 0.5 * k); ctx.lineTo(-4 * k, 3 * k); ctx.lineTo(-1.5 * k, 5.5 * k);
+    ctx.stroke();
     ctx.restore();
   }
 
