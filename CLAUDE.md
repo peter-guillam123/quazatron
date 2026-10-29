@@ -35,3 +35,15 @@ beats them in a circuit-board duel and steals their parts.
     python3 -m http.server 8080
 
 then open http://localhost:8080.
+
+## Checking changes
+
+- `node tests/decks.mjs` after touching rooms or the generator: every deck
+  must stay finishable.
+- `node tests/hack-balance.mjs` after touching the hack's rules or AI.
+- `node tests/sim.mjs` after touching combat, parts or the AI: a bot plays
+  whole runs headless and reports crashes and where the damage came from.
+- For anything visual, drive the page with Playwright (preinstalled in cloud
+  sessions) and look at screenshots. `window.klepto` is the game instance;
+  `klepto.timeScale` speeds things up and `klepto.forceSeed` pins the next
+  deck's layout.

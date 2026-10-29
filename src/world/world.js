@@ -39,6 +39,7 @@ export class World {
     this.root.name = 'deck';
     game.renderer.scene.add(this.root);
     this.mats = deviceMaterials(this.deck);
+    this.inkColour = new THREE.Color(this.deck.ink);
     this.time = 0;
 
     const rng = makeRng(build.n * 977 + 13);
@@ -662,9 +663,9 @@ export class World {
 
     // the deck's light drifts towards cyan as you claim it
     this.claimShown += (this.claim - this.claimShown) * Math.min(1, dt * 1.5);
-    const k = this.claimShown * 0.85;
-    const ink = new THREE.Color(this.deck.ink);
-    const mix = ink.clone().lerp(CYAN, k);
+    // blend by hue, so magenta passes through blue on its way to cyan
+    // rather than through grey
+    const mix = this.inkColour.clone().lerpHSL(CYAN, this.claimShown);
     const L = this.level.materials;
     L.floorMat.emissive.copy(mix);
     L.wallMat.emissive.copy(mix);
