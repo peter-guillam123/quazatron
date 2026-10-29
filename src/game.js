@@ -939,6 +939,7 @@ export class Game {
     this.fab = f;
     this.ui.setPrompt(null);
     this.showFab();
+    this.ui.announce(`Fabricator. You have ${this.run.scrap} scrap.`);
     this.hintOnce('fab', 'Scrap comes from wrecked droids. Knock one into the void and you get double.', 7);
   }
 
@@ -979,6 +980,7 @@ export class Game {
     r.scrap -= item.cost;
     this.ui.setScrap(r.scrap);
     this.audio.play('buy');
+    setTimeout(() => this.ui.announce(`${r.scrap} scrap left.`), 600);
     if (id === 'repair') {
       p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.35);
       this.world.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
