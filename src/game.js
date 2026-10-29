@@ -516,9 +516,10 @@ export class Game {
     }
     const v = this.renderer.screenToWorld(mv.x, mv.y);
     p.intent.mx = v.x; p.intent.mz = v.z;
-    p.intent.arm = inp.held('arm');
-    p.intent.drive = inp.held('drive');
-    p.intent.core = inp.held('core');
+    // a tap shorter than a frame still counts
+    p.intent.arm = inp.held('arm') || inp.hit('arm');
+    p.intent.drive = inp.held('drive') || inp.hit('drive');
+    p.intent.core = inp.held('core') || inp.hit('core');
     if (p.modId('arm') !== 'tractor') p.intent.aim = null;
     if (inp.hit('grapple')) this.interact();
     if (inp.hit('zoomIn') || inp.hit('zoomOut')) {
