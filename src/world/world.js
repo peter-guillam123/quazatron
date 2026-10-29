@@ -572,7 +572,7 @@ export class World {
 
   // A droid has gone over an edge with nothing below it.
   onDoomed(d) {
-    if (d.isPlayer) return;
+    if (d.team === 'k') return;
     const by = this.ringOutBy(d);
     if (by) { d.koBy = by; this.game.ringOut(d, by); }
   }

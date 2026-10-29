@@ -450,6 +450,7 @@ export class Game {
     this.disposeWorld();
     this.disposeTitleScene();
     this.fx.clear();
+    this.slowT = 0; this.koStreak = 0; this.koLast = -99;
     const seed = this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
     this.forceSeed = null;
     const induction = this.run.induction && n === 1;
@@ -903,7 +904,7 @@ export class Game {
     const n = scrapFor(d.cls) * 2;
     const word = ['', '', 'Double', 'Triple', 'Quadruple'][this.koStreak] || `${this.koStreak} in a row:`;
     const title = this.koStreak > 1 ? `${word} ring out` : 'Ring out';
-    const who = by.isPlayer ? '' : ` · ${FAMILIES[by.family].name} did it`;
+    const who = by.isPlayer ? '' : by.family ? ` · ${FAMILIES[by.family].name} did it` : ' · your turret did it';
     this.ui.banner(title, `+${n} scrap${who}`);
     this.say(d, 'fall', true);
     this.slowT = this.reducedMotion ? 0.3 : 0.75;
@@ -1184,7 +1185,7 @@ export class Game {
     this.renderer.flash(PLAYER_HEX, 0.8);
     this.audio.play('hackWin');
     this.ui.announce('The Mainframe is yours. The tower is claimed.', true);
-    for (const d of w.droids) if (!d.isPlayer && d.alive && d.state === 'active') this.powerDown(d);
+    for (const d of w.droids) if (d.team === 'h' && d.alive && d.state === 'active') this.powerDown(d);
     setTimeout(() => this.endRun(true, 'won'), 3600);
   }
 

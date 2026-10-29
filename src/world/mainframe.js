@@ -138,7 +138,7 @@ export class Mainframe {
 
     // call for help
     this.spawnT -= dt;
-    const alive = w.droids.filter((d) => !d.isPlayer && d.alive && d.state === 'active').length;
+    const alive = w.droids.filter((d) => d.team === 'h' && d.alive && d.state === 'active').length;
     if (this.spawnT <= 0 && alive < (shielded ? 3 : 4)) {
       this.spawnT = shielded ? 13 : 9;
       const room = w.build.rooms[this.room];

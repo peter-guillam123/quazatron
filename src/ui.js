@@ -61,8 +61,13 @@ export class UI {
     const el = $(`#screen-${id}`);
     this.screen = el;
     el.hidden = false;
-    const first = opts.focus ? el.querySelector(opts.focus) : el.querySelector('button, .button, input, [tabindex="0"]');
-    if (first) requestAnimationFrame(() => first.focus({ preventScroll: true }));
+    // the first thing that can take focus: not hidden, not disabled
+    requestAnimationFrame(() => {
+      if (this.screen !== el) return;
+      const want = opts.focus && el.querySelector(opts.focus);
+      const first = want && !want.disabled && want.offsetParent !== null ? want : this.focusables()[0];
+      if (first) first.focus({ preventScroll: true });
+    });
   }
 
   hide() {
@@ -442,8 +447,7 @@ export class UI {
         <span class="fab-cost">${cost}</span>
       </button>`;
     }).join('');
-    this.show('fab', focus ? { focus: `[data-id="${focus}"]:not([disabled])` } : {});
-    if (focus && !$(`#fab-list [data-id="${focus}"]:not([disabled])`)) requestAnimationFrame(() => { const b = this.focusables()[0]; if (b) b.focus(); });
+    this.show('fab', focus ? { focus: `[data-id="${focus}"]` } : {});
   }
 
   offer({ title, lede, cards, extra }) {
