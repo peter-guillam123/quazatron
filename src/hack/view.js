@@ -445,19 +445,11 @@ export class HackView {
     roundRect(ctx, x, L.boardY - 6, w, L.boardH + 12, 10);
     ctx.stroke();
     ctx.shadowBlur = 0;
-    // banner
-    const bw = 360, bh = 64;
-    const bx = L.cx - bw / 2, by = L.y + L.H / 2 - bh / 2;
-    ctx.fillStyle = 'rgba(5,7,12,0.92)';
-    roundRect(ctx, bx, by, bw, bh, 10); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+    // the prompt sits in the header, so the wires stay visible while you compare
     ctx.fillStyle = '#e8edf5';
-    ctx.font = '700 17px "Chakra Petch", sans-serif';
+    ctx.font = '700 15px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('Choose your side', L.cx, by + 22);
-    ctx.font = '500 12px "IBM Plex Mono", monospace';
-    ctx.fillStyle = '#9aa3b5';
-    ctx.fillText(`Starts in ${Math.ceil(s.chooseT)}`, L.cx, by + 44);
+    ctx.fillText(`Choose your side  ·  ${Math.ceil(s.chooseT)}`, L.cx, L.y + 64);
     ctx.restore();
   }
 
