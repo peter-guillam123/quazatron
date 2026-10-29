@@ -1,0 +1,14 @@
+{
+  "name": "klepto",
+  "private": true,
+  "version": "0.1.0",
+  "description": "KLEPTO: a roguelite after Quazatron (Graftgold, 1986), built with three.js",
+  "type": "module",
+  "scripts": {
+    "vendor": "node scripts/vendor.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}
