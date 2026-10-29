@@ -164,6 +164,12 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .loadout li b { color: var(--text); }
 
 /* fabricator */
+.fab-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.fab-wallet { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 12px; border: 1px solid rgba(255, 226, 168, 0.45); border-radius: 8px; background: rgba(255, 226, 168, 0.07); color: #ffe2a8; white-space: nowrap; }
+.fab-wallet b { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1; color: #fff4dc; display: inline-block; }
+.fab-wallet span { font-size: 13px; }
+.fab-wallet.spent b { animation: spent 0.35s ease-out; }
+@keyframes spent { 40% { transform: scale(1.25); color: #ffe2a8; } }
 .fab-list { display: flex; flex-direction: column; gap: 8px; }
 .fab-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 14px; text-align: left; padding: 10px 14px; min-height: 56px; }
 .fab-item .fab-name { display: flex; align-items: center; gap: 8px; }

@@ -118,6 +118,26 @@ export function evalSide(side, live, commit = false) {
   return trace;
 }
 
+// Where a pulse down one wire would go, column by column, for drawing it
+// before you fire. Locks already lit are left out, since they'd glow anyway,
+// and the path stops at the first hidden part: that stays a surprise.
+export function pathOf(side, row) {
+  const zero = new Array(side.rows).fill(0);
+  const live = zero.slice(); live[row] = 1;
+  const tr = evalSide(side, live, false), base = evalSide(side, zero, false);
+  const path = tr.map((col, c) => col.map((v, r) => (base[c][r] ? 0 : v)));
+  let stop = side.cols;
+  for (let c = 0; c < side.cols && stop === side.cols; c++) {
+    for (let r = 0; r < side.rows; r++) {
+      const comp = side.grid[c][r];
+      if (path[c][r] && comp && comp.hidden) { stop = c; break; }
+    }
+  }
+  // a cut-off path shows how far it gets, but no cells
+  for (let c = stop + 1; c < path.length; c++) path[c].fill(0);
+  return { path, cells: stop < side.cols ? null : path[side.cols] };
+}
+
 // What a single port reaches, ignoring everything else: rows painted, and how.
 export function reach(side, row) {
   const live = new Array(side.rows).fill(0);

@@ -436,7 +436,13 @@ export class UI {
   }
 
   fab(items, scrap, focus) {
-    $('#fab-lede').textContent = `You have ${scrap} scrap.`;
+    const wallet = $('#fab-wallet');
+    const was = wallet.dataset.n;
+    wallet.querySelector('b').textContent = String(scrap);
+    wallet.setAttribute('aria-label', `You have ${scrap} scrap`);
+    wallet.classList.remove('spent');
+    if (was !== undefined && +was !== scrap && this.screen && this.screen.id === 'screen-fab') { void wallet.offsetWidth; wallet.classList.add('spent'); }
+    wallet.dataset.n = String(scrap);
     $('#fab-list').innerHTML = items.map((i) => {
       const short = i.ok && i.cost > scrap;
       const off = !i.ok || short;

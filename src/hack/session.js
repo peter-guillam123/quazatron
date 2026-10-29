@@ -1,6 +1,6 @@
 // Runs a hack from first board to last: the lesson line, side choice,
 // play, the result banner, and extra rounds for the Mainframe.
-import { generateBoard, HackRound, reach, partsOn, DURATION, TRAVEL } from './board.js';
+import { generateBoard, HackRound, pathOf, partsOn, DURATION, TRAVEL } from './board.js';
 import { HackAI } from './ai.js';
 import { HIDDEN_LESSON } from './lessons.js';
 import { makeRng, randomSeed } from '../rng.js';
@@ -104,8 +104,8 @@ export class HackSession {
 
   updatePreview() {
     if (this.phase !== 'play') { this.preview = null; return; }
-    const out = reach(this.board.sides[this.playerSide], this.cursor);
-    this.preview = out.map((v) => v);
+    // recomputed as you move, and again in the drawing as locks light up
+    this.preview = pathOf(this.board.sides[this.playerSide], this.cursor).cells;
   }
 
   update(dt) {
