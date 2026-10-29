@@ -131,6 +131,17 @@ export class Input {
 
   clear() { this.keys.clear(); this.pressedKeys.clear(); }
 
+  // A short buzz on a controller that supports it.
+  rumble(strength = 0.5, ms = 120) {
+    if (this.lastDevice !== 'pad' || this.noRumble) return;
+    const p = this.pad();
+    const act = p && p.vibrationActuator;
+    if (!act || !act.playEffect) return;
+    try {
+      act.playEffect('dual-rumble', { duration: ms, strongMagnitude: Math.min(1, strength), weakMagnitude: Math.min(1, strength * 0.6) }).catch(() => {});
+    } catch { /* not supported here */ }
+  }
+
   label(action) {
     const pad = this.lastDevice === 'pad';
     const names = pad

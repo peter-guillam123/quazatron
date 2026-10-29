@@ -591,6 +591,7 @@ export class Game {
     this.input.clear();
     if (won) {
       this.renderer.flash(PLAYER_HEX, 0.35);
+      this.input.rumble(0.4, 220);
       const from = t.pos.clone(); from.y += t.kind === 'droid' ? 0.5 * t.scale : 0.7;
       const to = p.pos.clone(); to.y += 0.45;
       w.fx.stream(from, to, PLAYER_COLOUR, 46);
@@ -769,6 +770,7 @@ export class Game {
 
   onPlayerHurt(amount, src) {
     this.renderer.flash('#ff2020', Math.min(0.35, amount / 40));
+    this.input.rumble(Math.min(1, 0.25 + amount / 30), 140);
     this.renderer.addShake(Math.min(0.4, amount / 30));
     const p = this.world.player;
     if (p.integrity < p.maxIntegrity * 0.25 && !this.lowWarned) { this.lowWarned = true; this.ui.announce('Integrity low.', true); }

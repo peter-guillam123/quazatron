@@ -419,6 +419,7 @@ export class World {
     if (atk.isPlayer || vic.isPlayer) {
       this.shake(atk, Math.min(0.5, 0.12 * mult + speed * 0.03));
       if (mult >= 1.5 || dmg > 14) this.game.hitStop = Math.min(0.09, 0.03 + dmg * 0.002);
+      if (atk.isPlayer && this.game.input) this.game.input.rumble(Math.min(1, 0.2 + dmg / 40), 90);
     }
     if (atk.dash) { atk.dash = null; atk.vel.x *= 0.2; atk.vel.z *= 0.2; }
   }
