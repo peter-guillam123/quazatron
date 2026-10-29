@@ -1,6 +1,7 @@
 // "1986 mode": renders the game the way a ZX Spectrum would have had to.
-// The picture drops to 192 lines, and every 8x8 block may only use two
-// colours from the Spectrum's fifteen, which is where attribute clash came from.
+// The picture drops to 192 lines and every 8x8 block gets one bright ink on
+// black paper, dithered by brightness. Where KLP-2's cyan meets a magenta
+// deck, the block has to pick one: that's attribute clash.
 import * as THREE from 'three';
 
 const PALETTE = [
@@ -28,7 +29,10 @@ const attrShader = {
       return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
     }
     vec3 toSrgb(vec3 c) { return pow(c, vec3(1.0 / 2.2)); }
-    vec3 fetch(vec2 px) { return toSrgb(aces(texture2D(tSrc, (px + 0.5) / res).rgb)); }
+    // lift the shadows so dark floors dither in rather than vanishing to black
+    vec3 fetch(vec2 px) { return clamp(toSrgb(aces(texture2D(tSrc, (px + 0.5) / res).rgb * 1.4)), 0.0, 1.0); }
+
+    float lum(vec3 c) { return max(c.r, max(c.g, c.b)); }
 
     int nearest(vec3 c) {
       int best = 0; float bd = 1e9;
@@ -50,26 +54,32 @@ const attrShader = {
     void main() {
       vec2 px = floor(vUv * res);
       vec2 block = floor(px / 8.0) * 8.0;
-      float counts[15];
-      for (int i = 0; i < 15; i++) counts[i] = 0.0;
+      // Paper is always black, as in the original. Each block picks one bright
+      // ink: the hue that carries most light in it.
+      float w[7];
+      for (int i = 0; i < 7; i++) w[i] = 0.0;
       for (int y = 0; y < 8; y++) {
         for (int x = 0; x < 8; x++) {
           vec3 c = fetch(block + vec2(float(x), float(y)));
-          int k = nearest(c);
-          // bright colours weigh a little more, so lit edges win their block
-          counts[k] += 1.0 + dot(c, vec3(0.3, 0.59, 0.11));
+          float m = max(c.r, max(c.g, c.b));
+          if (m < 0.04) continue;
+          vec3 n = c / m;
+          int best = 6; float bd = 1e9;
+          for (int i = 0; i < 7; i++) {
+            vec3 d = n - palette[8 + i];
+            float dist = dot(d, d);
+            if (dist < bd) { bd = dist; best = i; }
+          }
+          w[best] += m * m;
         }
       }
-      int ink = 0; float bi = -1.0;
-      for (int i = 0; i < 15; i++) if (counts[i] > bi) { bi = counts[i]; ink = i; }
-      int paper = 0; float bp = -1.0;
-      for (int i = 0; i < 15; i++) if (i != ink && counts[i] > bp) { bp = counts[i]; paper = i; }
-      if (bp <= 0.0) paper = 0;
-      vec3 a = palette[ink], b = palette[paper];
-      vec3 c = fetch(px);
-      vec3 ab = b - a;
-      float t = clamp(dot(c - a, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
-      vec3 col = t > bayer(px) ? b : a;
+      int ink = 6; float bw = 0.0;
+      for (int i = 0; i < 7; i++) if (w[i] > bw) { bw = w[i]; ink = i; }
+      // line art: edges always draw, flat areas only when they're bright
+      float l = lum(fetch(px));
+      float e = abs(l - lum(fetch(px + vec2(1.0, 0.0)))) + abs(l - lum(fetch(px + vec2(0.0, 1.0))));
+      float k = max(smoothstep(0.1, 0.32, e), pow(l, 3.0) * 1.3);
+      vec3 col = k > bayer(px) ? palette[8 + ink] : vec3(0.0);
       gl_FragColor = vec4(col, 1.0);
     }`,
 };
