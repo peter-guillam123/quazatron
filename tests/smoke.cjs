@@ -22,7 +22,7 @@ const { chromium } = require('playwright');
   await page.goto('http://localhost:8080/index.html');
   await page.waitForTimeout(1500);
   await step('title', async () => {
-    await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.tutorialHack = true; });
+    await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.lesson = 99; });
   });
   await step('deck1', () => page.keyboard.press('Enter'), 3000);
   await step('move', async () => { await page.keyboard.down('ArrowUp'); await page.waitForTimeout(600); await page.keyboard.up('ArrowUp'); });

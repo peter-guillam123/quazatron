@@ -105,6 +105,11 @@ export function pulsersFor(cls) {
   return 3 + Math.floor(cls / 250);
 }
 
+// Small droids are quick to hack; officers take longer.
+export function timerFor(cls) {
+  return cls < 200 ? 7.5 : cls < 400 ? 8.5 : 10;
+}
+
 export function rowsFor(cls) {
   return cls < 200 ? 8 : cls < 500 ? 10 : 12;
 }

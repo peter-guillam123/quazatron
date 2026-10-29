@@ -17,6 +17,7 @@ export const DURATION = 2.8;      // how long a pulse keeps its cell powered
 export function makeSide(rng, rows, cols, opts = {}) {
   const grid = [];
   const pFork = opts.pFork ?? 0.11, pAnd = opts.pAnd ?? 0.07;
+  const pBreak = opts.pBreak ?? 0.09, pInv = opts.pInv ?? 0.07, pLock = opts.pLock ?? 0.05;
   for (let c = 0; c < cols; c++) {
     const col = new Array(rows).fill(null);
     let r = 0;
@@ -27,15 +28,15 @@ export function makeSide(rng, rows, cols, opts = {}) {
         const comp = { t: 'fork', a: r, src: rng() < 0.5 ? 0 : 1 };
         col[r] = comp; col[r + 1] = comp; r += 2; continue;
       }
-      if (r + 1 < rows && roll < pFork + pAnd) {
+      if (r + 1 < rows && pAnd > 0 && roll < pFork + pAnd) {
         const comp = { t: 'and', a: r, dst: rng() < 0.5 ? 0 : 1 };
         col[r] = comp; col[r + 1] = comp; r += 2; continue;
       }
       const s = rng();
       let t = 'wire';
-      if (s < (opts.pBreak ?? 0.09)) t = 'break';
-      else if (s < (opts.pBreak ?? 0.09) + (opts.pInv ?? 0.07)) t = 'inv';
-      else if (s < (opts.pBreak ?? 0.09) + (opts.pInv ?? 0.07) + (last || c === cols - 2 ? 0.05 : 0.0)) t = 'lock';
+      if (s < pBreak) t = 'break';
+      else if (s < pBreak + pInv) t = 'inv';
+      else if (s < pBreak + pInv + (last || c === cols - 2 ? pLock : 0)) t = 'lock';
       col[r] = { t, a: r };
       r += 1;
     }
@@ -48,6 +49,24 @@ export function makeSide(rng, rows, cols, opts = {}) {
   for (let r = 0; r < rows; r++) ports.push({ free: false });
   if (rng() < (opts.pFree ?? 0.45)) ports[Math.floor(rng() * rows)].free = true;
   return { rows, cols, grid, ports };
+}
+
+// How many of a part a side carries (free wires count as ports).
+export function countPart(side, t) {
+  if (t === 'free') return side.ports.filter((p) => p.free).length;
+  const seen = new Set();
+  for (const col of side.grid) for (const comp of col) if (comp && comp.t === t) seen.add(comp);
+  return seen.size;
+}
+
+// Every kind of part on the board, for the legend.
+export function partsOn(board) {
+  const out = new Set();
+  for (const side of board.sides) {
+    for (const col of side.grid) for (const comp of col) if (comp && comp.t !== 'wire') out.add(comp.hidden ? 'hidden' : comp.t);
+    if (side.ports.some((p) => p.free)) out.add('free');
+  }
+  return out;
 }
 
 // Run signals across one side. live: per-row 0/1 at the ports.
@@ -107,16 +126,30 @@ export function reach(side, row) {
   return tr[tr.length - 1];
 }
 
+// spec: rows, cols, cls, and for a lesson: parts (allowed), focus (the new
+// part, made plentiful) and side (whether both sides must carry it).
 export function generateBoard(rng, spec) {
   const rows = spec.rows || 10;
   const cols = spec.cols || 4;
   const cls = spec.cls || 200;
-  const opts = { hidden: cls >= 400 ? 0.1 + (cls - 400) / 3000 : 0 };
+  let opts = { hidden: cls >= 400 ? 0.1 + (cls - 400) / 3000 : 0 };
+  const lesson = !!spec.parts;
+  if (lesson) {
+    const has = (t) => spec.parts.includes(t);
+    const boost = (t, p, big) => (has(t) ? (spec.focus === t ? big : p) : 0);
+    opts = {
+      hidden: 0,
+      pFork: boost('fork', 0.1, 0.3), pAnd: boost('and', 0.06, 0.3),
+      pBreak: boost('break', 0.08, 0.22), pInv: boost('inv', 0.06, 0.2), pLock: boost('lock', 0.05, 0.35),
+      pFree: boost('free', 0.4, 1),
+    };
+  }
+  const want = spec.focus === 'free' ? 1 : 2;
   // keep regenerating until both sides have enough useful wires
   let best = null;
-  for (let tries = 0; tries < 30; tries++) {
+  for (let tries = 0; tries < (lesson ? 150 : 30); tries++) {
     const sides = [makeSide(rng, rows, cols, opts), makeSide(rng, rows, cols, opts)];
-    const useful = sides.map((s, i) => {
+    const useful = sides.map((s) => {
       let n = 0;
       for (let r = 0; r < rows; r++) {
         const out = reach(s, r);
@@ -124,7 +157,15 @@ export function generateBoard(rng, spec) {
       }
       return n;
     });
-    const ok = useful.every((n) => n >= Math.ceil(rows * 0.5));
+    let ok = useful.every((n) => n >= Math.ceil(rows * 0.5));
+    if (lesson && spec.focus) {
+      // the new part has to be there to be learned: on your side when you
+      // don't choose, on both when you do
+      const need = spec.side ? sides : [sides[0]];
+      if (!need.every((s) => countPart(s, spec.focus) >= want)) ok = false;
+      // when you're learning to choose, make the choice worth making
+      if (spec.focus === 'break' && Math.abs(useful[0] - useful[1]) < 1) ok = false;
+    }
     best = { rows, cols, sides };
     if (ok) break;
   }

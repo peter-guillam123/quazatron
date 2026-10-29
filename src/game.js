@@ -18,6 +18,7 @@ import { Grid, T } from './world/grid.js';
 import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg } from './world/modules.js';
 import { FAMILIES } from './world/roster.js';
 import { HackSession } from './hack/session.js';
+import { LESSONS } from './hack/lessons.js';
 import { HackView } from './hack/view.js';
 import { Pickup } from './world/devices.js';
 import { makeRng, randomSeed } from './rng.js';
@@ -358,7 +359,8 @@ export class Game {
         <p>Each deck has a lift down, locked until you take its <b>◆ command droid</b>, by hack or by force.</p></div>
       <div><h3>The hack</h3>
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
-        <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p></div>
+        <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
+        <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
         <ul><li>Ram droids to dent them, and knock them off edges into the void.</li>
         <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
@@ -570,8 +572,10 @@ export class Game {
 
   startHack(target, opts = {}) {
     const spec = this.world.hackSpecFor(target);
-    const tutorial = !this.meta.tutorialHack && this.settings.hints;
-    this.session = new HackSession(this, target, spec, { ...opts, tutorial });
+    // until you've won a board of each kind, hacks are lessons
+    const i = this.meta.lesson || 0;
+    const lesson = LESSONS[i] || null;
+    this.session = new HackSession(this, target, spec, { ...opts, lesson, lessonIndex: i });
     this.state = 'hack';
     this.audio.setHack(true);
     this.renderer.zoomTarget = 0.72;
@@ -586,8 +590,12 @@ export class Game {
     this.audio.setHack(false);
     this.renderer.zoomTarget = 1;
     this.ui.el.hud.classList.remove('hacking');
-    this.meta.tutorialHack = true;
     this.meta.hacks = (this.meta.hacks || 0) + 1;
+    if (session.lesson) {
+      this.meta.lessonSeen = session.opts.lessonIndex;
+      if (won) this.meta.lesson = session.opts.lessonIndex + 1;
+    }
+    if (session.sawHidden) this.meta.seenHidden = true;
     saveMeta(this.meta);
     this.state = 'play';
     this.input.clear();

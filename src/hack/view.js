@@ -24,16 +24,19 @@ export class HackView {
     this.dpr = dpr; this.w = w; this.h = h;
   }
 
-  layout(rows) {
+  layout(rows, strip) {
     const W = Math.min(980, this.w - 32);
     const H = Math.min(640, this.h - 40);
     const x = (this.w - W) / 2, y = (this.h - H) / 2;
-    const top = 78, bottom = 74;
-    const boardY = y + top, boardH = H - top - bottom;
-    const rowH = boardH / rows;
+    const top = 78 + (strip ? 52 : 0), bottom = 74;
+    const room = H - top - bottom;
+    // small lesson boards keep a sensible row height and sit in the middle
+    const rowH = Math.min(room / rows, 62);
+    const boardH = rowH * rows;
+    const boardY = y + top + (room - boardH) / 2;
     const cw = Math.max(64, Math.min(96, W * 0.09));
     const cx = x + W / 2;
-    return { x, y, W, H, boardY, boardH, rowH, cw, cx };
+    return { x, y, W, H, boardY, boardH, rowH, cw, cx, stripY: y + 78 };
   }
 
   clear() {
@@ -49,7 +52,7 @@ export class HackView {
     ctx.clearRect(0, 0, this.w, this.h);
     const R = s.round;
     const B = R.board;
-    const L = this.layout(B.rows);
+    const L = this.layout(B.rows, !!s.callout);
     const colour = (side) => (side === s.playerSide ? s.youColour : s.themColour);
     const valColour = (side, v) => (v === 1 ? colour(side) : v === 2 ? colour(1 - side) : null);
 
@@ -88,6 +91,8 @@ export class HackView {
     ctx.fillStyle = tf < 0.25 ? '#ff5a5a' : '#e8edf5';
     ctx.fillRect(L.x + 22 + (L.W - 44) * (1 - tf) / 2, barY, (L.W - 44) * tf, 6);
     ctx.restore();
+
+    if (s.callout) this.drawCallout(s, L);
 
     // ---- both sides
     for (let side = 0; side < 2; side++) this.drawSide(s, L, side, colour, valColour);
@@ -156,8 +161,43 @@ export class HackView {
     // ---- phase overlays
     if (s.phase === 'choose') this.drawChoose(s, L, colour);
     if (s.phase === 'result') this.drawResult(s, L);
-    if (s.tutorial) this.drawTutorial(s, L);
     if (s.paused) this.drawPaused(s, L);
+  }
+
+  // The lesson: one line about the part that's new on this board.
+  drawCallout(s, L) {
+    const ctx = this.ctx;
+    const c = s.callout;
+    const x = L.x + 22, w = L.W - 44, y = L.stripY, h = 44;
+    ctx.save();
+    const lit = s.phase === 'choose' && s.fresh;
+    const pulse = lit && !this.reduced ? 0.55 + Math.sin(this.t * 4) * 0.25 : lit ? 0.7 : 0.3;
+    ctx.fillStyle = `rgba(46,242,255,${lit ? 0.09 : 0.05})`;
+    roundRect(ctx, x, y, w, h, 8); ctx.fill();
+    ctx.strokeStyle = `rgba(46,242,255,${pulse})`; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 15px "Chakra Petch", sans-serif';
+    ctx.fillStyle = s.youColour;
+    ctx.fillText(c.title, x + 14, y + h / 2);
+    const tw = ctx.measureText(c.title).width + 30;
+    ctx.font = '500 13px "IBM Plex Mono", monospace';
+    ctx.fillStyle = '#d6dce8';
+    const lines = wrap(ctx, c.line, w - tw - 14).slice(0, 2);
+    const lh = 17;
+    lines.forEach((ln, i) => ctx.fillText(ln, x + tw, y + h / 2 + (i - (lines.length - 1) / 2) * lh));
+    ctx.restore();
+  }
+
+  // A pulsing ring round the part a lesson is about.
+  spotlight(x, y, r) {
+    const ctx = this.ctx;
+    ctx.save();
+    const k = this.reduced ? 0.6 : 0.5 + Math.sin(this.t * 5) * 0.3;
+    ctx.strokeStyle = `rgba(255,255,255,${k})`;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
   }
 
   drawPaused(s, L) {
@@ -370,6 +410,24 @@ export class HackView {
       }
     }
 
+    // the lesson's new part, picked out while you look and for a moment after
+    const showFocus = s.focus && (s.phase === 'choose' ? (s.canSwap || you) : you && s.phase === 'play' && R.time < 3);
+    if (showFocus) {
+      for (let c = 0; c < S.cols; c++) {
+        const seen = new Set();
+        for (const comp of S.grid[c]) {
+          if (!comp || seen.has(comp)) continue;
+          seen.add(comp);
+          const match = s.focus === 'hidden' ? comp.hidden : comp.t === s.focus && !comp.hidden;
+          if (!match) continue;
+          const two = comp.t === 'fork' || comp.t === 'and';
+          const cy = two ? (rowY(comp.a) + rowY(comp.a + 1)) / 2 : rowY(comp.a);
+          this.spotlight(mirror(xs + c * sw + sw / 2), cy, two ? Math.min(L.rowH * 0.95, 34) : Math.min(L.rowH * 0.42, 17));
+        }
+      }
+      if (s.focus === 'free') for (let r = 0; r < B.rows; r++) if (S.ports[r].free) this.spotlight(mirror(xPort + 20), rowY(r) - 9, 11);
+    }
+
     // ports
     for (let r = 0; r < B.rows; r++) {
       const y = rowY(r);
@@ -405,26 +463,30 @@ export class HackView {
     ctx.font = '500 11.5px "IBM Plex Mono", monospace';
     ctx.textBaseline = 'middle';
     const y = L.y + L.H - 42;
-    const items = [
+    // only the parts on this board
+    const all = [
+      ['break', 'Cut: goes nowhere'],
       ['fork', 'Fork: two cells'],
       ['and', 'AND: needs both'],
       ['inv', 'Invert: their colour'],
       ['lock', 'Lock: stays lit'],
       ['free', 'Free wire'],
+      ['hidden', 'Hidden part'],
     ];
+    const items = all.filter(([k]) => !s.parts || s.parts.has(k));
     const widths = items.map(([, t]) => 22 + ctx.measureText(t).width);
     const total = widths.reduce((a, b) => a + b, 0) + 22 * (items.length - 1);
     let x = L.cx - total / 2;
     items.forEach(([k, label], i) => {
       this.glyph(k, x + 8, y);
-      ctx.fillStyle = '#8f98ab';
+      ctx.fillStyle = k === s.focus ? '#e8edf5' : '#8f98ab';
       ctx.textAlign = 'left';
       ctx.fillText(label, x + 20, y);
       x += widths[i] + 22;
     });
     ctx.fillStyle = '#c8cfdc';
     ctx.textAlign = 'center';
-    const keys = s.phase === 'choose' ? s.keys.choose : s.keys.play;
+    const keys = s.phase === 'choose' ? (s.canSwap ? s.keys.choose : s.keys.start) : s.keys.play;
     ctx.fillText(keys, L.cx, L.y + L.H - 18);
     ctx.restore();
   }
@@ -447,6 +509,13 @@ export class HackView {
     } else if (k === 'free') {
       ctx.font = '700 13px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
       ctx.fillText('∞', x, y);
+    } else if (k === 'break') {
+      ctx.beginPath(); ctx.moveTo(x - 8, y); ctx.lineTo(x - 3, y); ctx.moveTo(x - 3, y - 5); ctx.lineTo(x - 3, y + 5);
+      ctx.moveTo(x + 3, y - 5); ctx.lineTo(x + 3, y + 5); ctx.stroke();
+    } else if (k === 'hidden') {
+      ctx.strokeRect(x - 6, y - 7, 12, 14);
+      ctx.font = '700 11px "Chakra Petch", sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('?', x, y + 0.5);
     }
     ctx.restore();
   }
@@ -466,7 +535,8 @@ export class HackView {
     ctx.fillStyle = '#e8edf5';
     ctx.font = '700 15px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`Choose your side  ·  ${Math.ceil(s.chooseT)}`, L.cx, L.y + 64);
+    const clock = Number.isFinite(s.chooseT) ? `  ·  ${Math.max(1, Math.ceil(s.chooseT))}` : '';
+    ctx.fillText(s.canSwap ? `Choose your side${clock}` : 'Your wires are on the left', L.cx, L.y + 64);
     ctx.restore();
   }
 
@@ -487,32 +557,6 @@ export class HackView {
     ctx.font = '500 13px "IBM Plex Mono", monospace';
     ctx.fillStyle = '#c8cfdc';
     ctx.fillText(s.resultLine, L.cx, by + 66);
-    ctx.restore();
-  }
-
-  drawTutorial(s, L) {
-    const ctx = this.ctx;
-    const tip = s.tutorial;
-    ctx.save();
-    const bw = Math.min(560, L.W - 60);
-    ctx.font = '500 14px "IBM Plex Mono", monospace';
-    const lines = wrap(ctx, tip.text, bw - 40);
-    const bh = 54 + lines.length * 20;
-    const bx = L.cx - bw / 2, by = L.y + L.H / 2 - bh / 2;
-    ctx.fillStyle = 'rgba(8,10,16,0.97)';
-    roundRect(ctx, bx, by, bw, bh, 12); ctx.fill();
-    ctx.strokeStyle = s.youColour; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = s.youColour;
-    ctx.font = '700 15px "Chakra Petch", sans-serif';
-    ctx.textBaseline = 'top';
-    ctx.fillText(tip.title, bx + 20, by + 16);
-    ctx.fillStyle = '#d6dce8';
-    ctx.font = '500 14px "IBM Plex Mono", monospace';
-    lines.forEach((ln, i) => ctx.fillText(ln, bx + 20, by + 42 + i * 20));
-    ctx.fillStyle = '#8f98ab';
-    ctx.font = '500 12px "IBM Plex Mono", monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(tip.more, bx + bw - 20, by + bh - 22);
     ctx.restore();
   }
 }

@@ -10,7 +10,7 @@ import { resolveBodies } from './physics.js';
 import {
   deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup,
 } from './devices.js';
-import { FAMILIES, modulesOf, rowsFor, pulsersFor } from './roster.js';
+import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor } from './roster.js';
 import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
 import { Mainframe } from './mainframe.js';
@@ -552,7 +552,7 @@ export class World {
     const hurt = 1 - t.integrity / t.maxIntegrity;
     const pulsers = Math.max(1, pulsersFor(t.cls) + (t.command ? 1 : 0) - (hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0));
     return {
-      title: `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: 10,
+      title: `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
       stunned: t.stunned, hurt, command: t.command, family: t.family,
     };
   }
