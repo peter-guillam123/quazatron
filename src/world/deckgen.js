@@ -149,7 +149,7 @@ function layout(n, rng, opts) {
     cells[0].links.push(cells[1]); cells[1].links.push(cells[0]);
     return { cells, links: [[0, 1]] };
   }
-  const mainLen = [4, 5, 5, 6, 6][n - 1] + (n > 1 && rng.chance(0.4) ? 1 : 0);
+  const mainLen = [4, 4, 5, 5, 5][n - 1] + (n > 1 && rng.chance(0.3) ? 1 : 0);
   let cells = null;
   for (let attempt = 0; attempt < 200 && !cells; attempt++) {
     const path = [{ x: 0, z: 0 }];

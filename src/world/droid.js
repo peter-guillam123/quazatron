@@ -224,7 +224,9 @@ export class Droid {
 
     // movement
     const ds = this.stats.drive;
-    let speed = ds.speed;
+    // KLP-2 is a little quicker than the tower's droids, so it can catch a Mite
+    const top = ds.speed * (this.isPlayer ? TUNING.playerSpeed : 1);
+    let speed = top;
     if (this.shielding) speed *= 0.55;
     if (this.charge > 0 && !this.isPlayer) speed *= 0.5;
     if (this.hovering && this.mods.drive.id !== 'hover') speed *= 0.8;
@@ -242,7 +244,7 @@ export class Droid {
     } else {
       const inputMag = Math.hypot(it.mx, it.mz);
       const cur = Math.hypot(this.vel.x, this.vel.z);
-      let rate = inputMag > 0.05 ? ds.accel : ds.friction;
+      let rate = inputMag > 0.05 ? ds.accel * (this.isPlayer ? TUNING.playerSpeed : 1) : ds.friction;
       if (cur > speed * 1.1) rate = Math.max(12, ds.friction);          // knockback carries, briefly
       if (!this.grounded && !this.hovering) rate *= 0.15;                 // little control in the air
       const k = rate * dt;
@@ -255,7 +257,7 @@ export class Droid {
     let mdx = this.vel.x * dt, mdz = this.vel.z * dt;
     // KLP-2 won't roll itself off into the void. A ram, a stamp, a tractor
     // beam or a dash still can.
-    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && Math.hypot(this.vel.x, this.vel.z) <= ds.speed * 1.15 + 0.01) {
+    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && Math.hypot(this.vel.x, this.vel.z) <= top * 1.15 + 0.01) {
       const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
       if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * 0.06, this.pos.z)) { mdx = 0; this.vel.x = 0; }
       if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * 0.06)) { mdz = 0; this.vel.z = 0; }

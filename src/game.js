@@ -584,14 +584,14 @@ export class Game {
     g.t += dt;
     const from = p.pos.clone(); from.y += 0.25; from.x += Math.sin(p.facing) * 0.35; from.z += Math.cos(p.facing) * 0.35;
     const to = t.pos.clone(); to.y += (t.kind === 'droid' ? 0.4 * t.scale : 0.6);
-    const k = Math.min(1, g.t / 0.22);
+    const k = Math.min(1, g.t / 0.18);
     const end = from.clone().lerp(to, k);
     if (g.rib) w.fx.removeRibbon(g.rib);
     g.rib = w.fx.ribbon([from, end], PLAYER_COLOUR, 0.06, 1, { persist: true, bright: 2.5 });
     if (k >= 1 && !g.sparked) { g.sparked = true; w.fx.burst(to, PLAYER_COLOUR, 16, 2, 0.4, 0.1, 0); this.renderer.flash(PLAYER_HEX, 0.15); }
     p.syncModel(dt);
     if (t.syncModel) t.syncModel(dt);
-    if (g.t > 0.4) {
+    if (g.t > 0.32) {
       if (g.rib) w.fx.removeRibbon(g.rib);
       this.startHack(t, { ambush: g.ambush });
     }
