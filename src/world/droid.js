@@ -364,8 +364,7 @@ export class Droid {
     const k = Math.min(1, this.downT / 0.8);
     this.model.group.position.copy(this.pos);
     this.model.body.rotation.x = k * 0.35;
-    this.model.body.position.y = this.model.lift - k * 0.12;
     updateVertical(this.world.grid, this, dt);
-    this.model.update(dt, { speed: 0, facing: this.facing, dead: true, visibility: 1 });
+    this.model.update(dt, { speed: 0, facing: this.facing, dead: true, visibility: 1, bob: -k * 0.12 });
   }
 }

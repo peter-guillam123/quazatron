@@ -565,7 +565,9 @@ export class World {
       if (dist < reach && dist < bd) { bd = dist; best = d; }
     }
     for (const t of this.devices) {
-      if (!t.canHack || !t.canHack()) continue;
+      // the Mainframe is offered even while shielded, so you're told why it won't work
+      const hackable = t.kind === 'mainframe' ? !t.beaten : t.canHack && t.canHack();
+      if (!hackable) continue;
       if (Math.abs(t.y - p.pos.y) > 0.7) continue;
       const dist = Math.hypot(t.pos.x - p.pos.x, t.pos.z - p.pos.z) - (t.radius || 0.5) - p.radius;
       if (dist < reach && dist < bd) { bd = dist; best = t; }

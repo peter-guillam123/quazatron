@@ -505,7 +505,10 @@ export class Game {
       else if (t.stunned) sub = 'stunned: it will start late';
       else if (t.integrity < t.maxIntegrity * 0.66) sub = 'damaged: fewer pulsers';
       if (p.cloaked) sub = 'ambush from cloak';
-    } else if (t.kind === 'mainframe') name = 'the Mainframe';
+    } else if (t.kind === 'mainframe') {
+      name = 'the Mainframe';
+      if (!t.canHack()) sub = 'shielded: take down its relays first';
+    }
     else name = t.kind === 'archive' ? 'archive terminal' : t.kind === 'relay' ? 'relay' : t.kind;
     this.ui.setPrompt(`${key}Grapple ${name}${sub ? `<span class="sub">${sub}</span>` : ''}`, !!sub && sub.includes('shield'));
   }
