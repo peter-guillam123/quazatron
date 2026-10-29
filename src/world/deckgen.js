@@ -65,6 +65,8 @@ export function generateDeck(n, rng, opts = {}) {
     for (let j = 0; j < d; j++) {
       for (let i = 0; i < w; i++) {
         const c = r.map[j][i];
+        // claim the whole rectangle, holes included, so bridges never fill them
+        grid.room[grid.idx(ox + i, oz + j)] = index;
         if (c === ' ') continue;
         const x = ox + i, z = oz + j;
         const h = heights[j * w + i];
