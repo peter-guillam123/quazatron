@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About KLEPTO</title>
+<meta name="description" content="What KLEPTO is, how it was made, and a diary of building it.">
+<meta name="theme-color" content="#07080d">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/about.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html" aria-label="KLEPTO, play the game">KLEPTO</a>
+  <a class="play" href="index.html">Play</a>
+</header>
+
+<main>
+  <section class="intro">
+    <h1>About KLEPTO</h1>
+    <p class="lede">A small droid in a tower full of bigger ones. It can't win a fair fight, so it steals.</p>
+    <figure class="shot">
+      <img src="assets/about/deck.jpg" alt="KLP-2, a small white dome-headed droid, among dark pillars on a platform edged in glowing amber, next to a droid labelled 420. A prompt reads: Space, grapple Warden 420." width="1100" height="680" loading="lazy">
+    </figure>
+  </section>
+
+  <section>
+    <h2>What it is</h2>
+    <p>KLEPTO is a remake, of sorts, of <i>Quazatron</i>, which Steve Turner wrote for the ZX Spectrum and Hewson published in 1986. It was itself a Spectrum take on Andrew Braybrook's <i>Paradroid</i>. In both you play a weak droid that can latch on to other droids, beat them in a circuit-board duel and take something from them. In <i>Quazatron</i> that something was their parts.</p>
+    <p>I wanted to keep that idea, the isometric platforms and the duel, and build a deeper game around them. The droid you play is still called KLP-2, which is where the name comes from.</p>
+
+    <h3>How a run works</h3>
+    <ul>
+      <li>Five decks and then the Mainframe. Each deck is stitched together from hand-made rooms, so the layout changes every run but every room was designed.</li>
+      <li>KLP-2 starts with wheels and a bumper. It has three sockets, for a drive, an arm and a core, and there are nine parts to steal: thrusters, hover, treads, a laser, an arc coil, a tractor beam, a shield, a cloak and a phase core.</li>
+      <li>Every droid is built from the parts it carries, and it fights with them. What you see on a droid is what you can take from it. A part's grade comes from the class number of the droid you took it from.</li>
+      <li>Some rooms are sealed vaults that need a particular part: thrusters for a gap, treads for a heavy crate, phase for a force field. The way down never needs one, so a run can't jam.</li>
+      <li>Each deck's lift is locked until you take its command droid, by hack or by force.</li>
+      <li>When KLP-2 is destroyed the run ends. The droid archive stays, and any part you have ever stolen can come with you, at grade I, on the next run.</li>
+    </ul>
+
+    <h3>The hack</h3>
+    <figure class="shot">
+      <img src="assets/about/hack.jpg" alt="The hack board against a Warden, class 420: two circuit boards face each other across a column of cells, some cyan and some amber. Two of the opponent's wires glow amber; dotted outlines show which cells your selected wire would reach." width="1100" height="680" loading="lazy">
+    </figure>
+    <p>Grapple a droid and you're dropped into its circuits. Two sides of a board fight over a column of cells in the middle. You pick the side whose wires look better, then fire pulses down them. A powered cell turns your colour. Own more cells when the timer runs out and the droid is yours.</p>
+    <p>The wires carry parts that change the sums: forks that reach two cells, AND gates that need two pulses at once, inverts that paint your opponent's colour, locks that stay lit, and the odd free wire. Damage a droid before you grapple it and it fights back with fewer pulsers. Stun it and it starts late. Grapple it from a cloak and you ambush it.</p>
+
+    <h3>The colours</h3>
+    <p><i>Quazatron</i> on the Spectrum was mostly one colour on black, because the machine could only manage two colours in any 8 by 8 block of pixels. KLEPTO borrows that idea rather than the look. Each deck takes one ink from the Spectrum's palette as its hostile colour. KLP-2 is always cyan. As you hack and wreck the deck's machines, its light drifts from the hostile colour to cyan, so you can see how much of it you've claimed.</p>
+    <p>There is also a <b>1986 mode</b> in the settings, which draws the game the way the Spectrum would have had to: 192 lines, black paper and one bright ink in each 8 by 8 block. Where KLP-2's cyan meets a magenta wall, one of them has to give. That's attribute clash.</p>
+  </section>
+
+  <section>
+    <h2>How it's made</h2>
+    <p>I don't write code. I described what I wanted to Claude, Anthropic's AI model, working in Claude Code, and it did the typing, the testing and a good deal of the design. My part was the brief, the decisions and the fussing.</p>
+    <ul>
+      <li>It's built with <a href="https://threejs.org">three.js</a> in plain JavaScript, with no build step. It runs as static files.</li>
+      <li>There are no image files in the game. Floors, walls and displays are drawn on canvases when it loads; droids are put together from simple shapes.</li>
+      <li>Every sound is made in the browser with the Web Audio API, including a small score for each deck that gets busier when you're in a fight.</li>
+      <li>The fonts are Chakra Petch and IBM Plex, both under the Open Font License, served from this site.</li>
+      <li>It's desktop only, played with a keyboard or a gamepad. The movement and the timed hack both want quick, precise input, and touch controls would have been a poor copy. A controller paired to a phone will work.</li>
+      <li>The menus are real buttons, so they work by keyboard, gamepad and screen reader, and the game announces what happens. It follows your system's reduced motion setting, and there are options to take less damage and slow the hack timer. The action itself still needs sight and quick hands, and I won't pretend otherwise.</li>
+      <li>Your settings, the archive and your records are kept in your browser and go nowhere else.</li>
+    </ul>
+  </section>
+
+  <section class="diary">
+    <h2>Diary</h2>
+    <p class="note">Newest first.</p>
+
+    <article class="entry">
+      <p class="date"><time datetime="2026-10-29">29 October 2026</time></p>
+      <h3>More rooms, and a second pair of eyes</h3>
+      <p>Thirteen more rooms, so a run doesn't keep showing you the same ten. Each deck now leans towards rooms of its own: Freight gets a loading bay and a sump full of crates, Reactor gets coolant channels of live floor, Security gets a watchtower and a row of cells behind force fields.</p>
+      <p>Then a separate Claude reviewed the code cold, without being told how any of it was meant to work. It found eleven bugs. The worst: starting a new run after dying handed you back the dead droid, with one point of integrity. All fixed, and the fixes checked in a browser.</p>
+      <p>Smaller things from the same round: you can pause a hack, the camera zooms on <b>+</b> and <b>-</b>, droids turn their visors to watch you, a controller rumbles when you hit something, and winning a hack pulls a stream of light out of the machine and into KLP-2.</p>
+    </article>
+
+    <article class="entry milestone">
+      <p class="date"><time datetime="2026-10-29">29 October 2026</time> <span class="tag">Milestone</span></p>
+      <h3>First playable run</h3>
+      <p>The first version that goes from the title screen to the Mainframe and back. Five decks plus the finale, fifteen families of droid, nine parts, firmware upgrades, vaults, an archive that lasts between runs, and the hack.</p>
+      <p>The hack got the most attention, since it's the heart of the thing. The original's boards were fun but opaque, so this one shows you which cells a wire will reach before you fire, and each cell carries a small arrow pointing at its owner so the board still reads without colour. A headless test pits a decent player against droids of every class: the cheap ones lose more than eight times in ten, the officers on deck 5 still win about three times in ten.</p>
+      <p>Before calling it playable, Claude wrote a bot that plays whole runs with no graphics, at speed. It found that about one deck in eleven had a lift you couldn't reach, and that KLP-2 rolled off edges far too easily. Both are fixed. Every change now gets checked against 1,800 generated decks, and KLP-2 won't drive itself off a ledge, though a ram can still put it over.</p>
+      <p>Droids came out better than I expected: little enamel domes with a lit visor and their class number on the front, like the originals, but carrying whatever they've got bolted on. A Courier has thrusters on its back. A Warden has shield fins. You learn what a part does by being on the wrong end of it first.</p>
+    </article>
+
+    <article class="entry">
+      <p class="date"><time datetime="2026-10-29">29 October 2026</time></p>
+      <h3>The brief, and three decisions</h3>
+      <p>I asked for <i>Quazatron</i>, much improved: the isometric movement and the grappling kept, the rest made deeper and better looking, with powers you take from the machines you hack and puzzles that need the right ones.</p>
+      <p><b>A roguelite.</b> Halfway through the brief it struck me that this could be a roguelite, and it fits unusually well, because the game was always about starting weak and stealing your way up. The risk with procedural levels is a puzzle you can't solve with what you've got, so the puzzles moved into optional vaults, and the generator makes sure the part that opens each vault is walking around somewhere on the same deck.</p>
+      <p><b>Desktop only.</b> I worried it wouldn't work on a phone, and it doesn't really. Better to say so plainly than ship a cramped virtual joystick.</p>
+      <p><b>KLEPTO.</b> <i>Quazatron</i> is still someone else's name, so this one is named after its hero.</p>
+    </article>
+  </section>
+
+  <section class="credits">
+    <h2>Credits</h2>
+    <p><i>Quazatron</i> by Steve Turner, Graftgold, published by Hewson, 1986. <i>Paradroid</i> by Andrew Braybrook, Graftgold, published by Hewson, 1985. KLEPTO borrows their ideas, not their code or graphics, with thanks.</p>
+    <p>Made with three.js. Fonts: Chakra Petch by Cadson Demak, IBM Plex by IBM.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="play" href="index.html">Play KLEPTO</a>
+</footer>
+</body>
+</html>
