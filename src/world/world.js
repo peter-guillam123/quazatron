@@ -678,6 +678,12 @@ export class World {
     for (const b of this.bolts) this.root.remove(b.mesh);
     for (const d of this.droids) d.model.dispose();
     this.level.dispose();
+    // device materials belong to this deck; geometry is shared and stays
+    const keep = new Set([...boltMats.values()]);
+    const mats = new Set();
+    this.root.traverse((o) => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => mats.add(m)); });
+    for (const m of mats) if (!keep.has(m)) m.dispose();
+    for (const m of Object.values(this.mats)) if (m && m.dispose) m.dispose();
     this.renderer.scene.remove(this.root);
   }
 }

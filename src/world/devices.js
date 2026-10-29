@@ -391,7 +391,9 @@ export class Conduit extends Device {
 }
 
 // ------------------------------------------------------------------ hackable consoles
-function screenTexture(color) {
+let screenTex = null;
+function screenTexture() {
+  if (screenTex) return screenTex;
   const c = document.createElement('canvas');
   c.width = 64; c.height = 64;
   const g = c.getContext('2d');
@@ -402,9 +404,9 @@ function screenTexture(color) {
     g.beginPath(); g.moveTo(4, y); g.lineTo(18 + (i * 7) % 20, y); g.lineTo(26 + (i * 5) % 14, y + 4); g.lineTo(60, y + 4); g.stroke();
   }
   g.fillStyle = '#fff'; g.fillRect(28, 26, 8, 12);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  screenTex = new THREE.CanvasTexture(c);
+  screenTex.colorSpace = THREE.SRGBColorSpace;
+  return screenTex;
 }
 
 export class Terminal extends Device {

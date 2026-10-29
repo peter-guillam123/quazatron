@@ -318,6 +318,7 @@ export class Game {
       check('hints', 'Hints', 'Short tips the first time things happen.'),
       check('assist', 'Assist', 'Take a little over half the damage.'),
       check('slowHack', 'Slower hacks', 'Hack timers run half as long again.'),
+      check('gridControls', 'Grid controls', 'Up moves along the floor grid (up and right on screen) instead of straight up the screen.'),
       check('retro', '1986 mode', 'Two colours per 8 by 8 block, like a ZX Spectrum.'),
     ].join('');
     document.querySelectorAll('#settings-body input').forEach((el) => {
@@ -453,7 +454,12 @@ export class Game {
   controlPlayer(dt) {
     const w = this.world, p = w.player, inp = this.input;
     if (!p || !p.alive) return;
-    const mv = inp.move();
+    let mv = inp.move();
+    // optional: turn the controls an eighth so "up" runs along the grid
+    if (this.settings.gridControls) {
+      const c = Math.SQRT1_2;
+      mv = { x: (mv.x + mv.y) * c, y: (mv.y - mv.x) * c };
+    }
     const v = this.renderer.screenToWorld(mv.x, mv.y);
     p.intent.mx = v.x; p.intent.mz = v.z;
     p.intent.arm = inp.held('arm');
