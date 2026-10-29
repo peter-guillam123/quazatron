@@ -50,7 +50,7 @@ export const MODULES = {
   laser: {
     slot: 'arm', name: 'Laser',
     line: 'Bolts that travel in a straight line. Hits switches across gaps.',
-    use: 'Press or hold to fire. Bolts trip targets and receivers, and bounce off shields.',
+    use: 'Press or hold to fire. Bolts trip targets across gaps and bounce off raised shields.',
     stats: (g) => ({ speed: 13, damage: 6 + 1.6 * g, cost: 6, cooldown: 0.34 - 0.012 * g, range: 11 }),
   },
   arc: {

@@ -45,7 +45,9 @@ These run in Node with no browser:
 - `node tests/sim.mjs` sends a simple bot through whole runs with no
   rendering, to catch crashes and see where the damage comes from.
 
-`tests/hack-board.html` (served locally) lets two AIs play a hack board so
+With a local server running, `node tests/smoke.cjs` drives the real game
+in headless Chromium through a hack, a salvage and a lift ride, and fails on
+any page error. `tests/hack-board.html` lets two AIs play a hack board so
 the drawing can be checked by eye.
 
 ## How it's built
