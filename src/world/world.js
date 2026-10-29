@@ -416,7 +416,10 @@ export class World {
     const mid = atk.pos.clone().lerp(vic.pos, 0.5); mid.y += 0.3;
     this.fx.burst(mid, 0xffffff, 10 + Math.floor(mult * 4), 3, 0.35, 0.09, 6);
     this.audio.play('ram', { at: mid, pitch: 1 / Math.sqrt(atk.mass) });
-    if (atk.isPlayer || vic.isPlayer) this.shake(atk, Math.min(0.5, 0.12 * mult + speed * 0.03));
+    if (atk.isPlayer || vic.isPlayer) {
+      this.shake(atk, Math.min(0.5, 0.12 * mult + speed * 0.03));
+      if (mult >= 1.5 || dmg > 14) this.game.hitStop = Math.min(0.09, 0.03 + dmg * 0.002);
+    }
     if (atk.dash) { atk.dash = null; atk.vel.x *= 0.2; atk.vel.z *= 0.2; }
   }
 

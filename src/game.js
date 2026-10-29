@@ -113,7 +113,10 @@ export class Game {
     if (this.world) {
       const w = this.world;
       const p = w.player;
-      if (this.state === 'play') {
+      if (this.state === 'play' && this.hitStop > 0) {
+        // a heartbeat's pause on a big hit
+        this.hitStop -= dt;
+      } else if (this.state === 'play') {
         this.controlPlayer(dt);
         w.update(dt);
         this.run.stats.time += dt;
@@ -577,6 +580,9 @@ export class Game {
     this.input.clear();
     if (won) {
       this.renderer.flash(PLAYER_HEX, 0.35);
+      const from = t.pos.clone(); from.y += t.kind === 'droid' ? 0.5 * t.scale : 0.7;
+      const to = p.pos.clone(); to.y += 0.45;
+      w.fx.stream(from, to, PLAYER_COLOUR, 46);
       const heal = (t.kind === 'droid' ? 0.12 : 0.04) + (this.hasPerk('siphon') ? 0.25 : 0);
       p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * heal);
       p.energy = p.maxEnergy;

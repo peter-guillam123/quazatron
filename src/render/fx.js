@@ -66,6 +66,7 @@ export class Fx {
     this.pNext = (this.pNext + 1) % MAX_P;
     p.x = x; p.y = y; p.z = z; p.vx = vx; p.vy = vy; p.vz = vz;
     p.life = life; p.max = life; p.size = size; p.grav = grav; p.drag = drag;
+    p.home = null;
     const c = color.isColor ? color : new THREE.Color(color);
     p.r = c.r; p.g = c.g; p.b = c.b;
   }
@@ -79,6 +80,19 @@ export class Fx {
       const s = speed * (0.4 + Math.random() * 0.8);
       const r = Math.sqrt(1 - u * u);
       this.emit(pos.x, pos.y, pos.z, Math.cos(a) * r * s, Math.abs(u) * s * 0.9 + 0.5, Math.sin(a) * r * s, c, life * (0.6 + Math.random() * 0.6), size * (0.6 + Math.random() * 0.8), grav);
+    }
+  }
+
+  // A stream of light from one point into another, like data being pulled out.
+  stream(from, to, color, n = 40) {
+    if (this.reduced) n = Math.ceil(n / 2);
+    const c = new THREE.Color(color).multiplyScalar(2.2);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 1.5 + Math.random() * 2;
+      this.emit(from.x, from.y, from.z, Math.cos(a) * s, 1 + Math.random() * 2, Math.sin(a) * s, c, 0.9 + Math.random() * 0.5, 0.11, 0, 0.5);
+      const p = this.parts[(this.pNext + MAX_P - 1) % MAX_P];
+      p.home = { x: to.x, y: to.y, z: to.z, delay: i * 0.012 };
     }
   }
 
@@ -159,6 +173,18 @@ export class Fx {
       const p = this.parts[i];
       if (p.life <= 0) { this.pSize[i] = 0; continue; }
       p.life -= dt;
+      if (p.home) {
+        // steer towards the target, harder as time runs out
+        const h = p.home;
+        if (h.delay > 0) h.delay -= dt;
+        else {
+          const k = 22 * (1 - p.life / p.max) + 4;
+          p.vx += ((h.x - p.x) * k - p.vx * 2) * dt;
+          p.vy += ((h.y - p.y) * k - p.vy * 2) * dt;
+          p.vz += ((h.z - p.z) * k - p.vz * 2) * dt;
+          if (Math.hypot(h.x - p.x, h.y - p.y, h.z - p.z) < 0.15) p.life = Math.min(p.life, 0.05);
+        }
+      }
       const f = Math.exp(-p.drag * dt);
       p.vx *= f; p.vz *= f; p.vy = p.vy * f - p.grav * dt;
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;

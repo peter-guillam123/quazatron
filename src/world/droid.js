@@ -11,6 +11,7 @@ import { ABILITIES } from './abilities.js';
 import { FAMILIES, integrityFor } from './roster.js';
 
 let nextId = 1;
+const DUST = new THREE.Color(0.22, 0.22, 0.26);
 
 export class Droid {
   constructor(world, o) {
@@ -289,6 +290,14 @@ export class Droid {
       if (Math.hypot(this.pos.x - cx, this.pos.z - cz) < 0.35 && w.grid.block[w.grid.idx(tx0, tz0)] === 0) this.lastSafe.set(cx, this.pos.y, cz);
     }
     if (this.pos.y < VOID_Y) w.onFellIntoVoid(this);
+
+    // a little dust when rolling fast
+    const sp = Math.hypot(this.vel.x, this.vel.z);
+    if (this.grounded && !this.hovering && sp > 3 && Math.random() < dt * sp * 2.2 && (this.isPlayer || (w.player && this.pos.distanceTo(w.player.pos) < 10))) {
+      const f = this.forward();
+      w.fx.emit(this.pos.x - f.x * 0.3 + (Math.random() - 0.5) * 0.3, this.pos.y + 0.05, this.pos.z - f.z * 0.3 + (Math.random() - 0.5) * 0.3,
+        -this.vel.x * 0.1, 0.3 + Math.random() * 0.3, -this.vel.z * 0.1, DUST, 0.5, 0.16, -0.4, 2.5);
+    }
 
     this.syncModel(dt);
   }
