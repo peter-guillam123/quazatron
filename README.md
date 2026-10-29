@@ -6,8 +6,11 @@ to a droid, beat it in a circuit-board duel and steal one of its parts:
 thrusters, a laser, a cloak and six more. Each part changes how you fight
 and which sealed vaults you can open. Five decks, then the Mainframe.
 
+**Play it at https://peter-guillam123.github.io/quazatron/**
+
 Desktop only, played with a keyboard or a gamepad. There's an
-[About page](about.html) with the story of how it was made.
+[About page](https://peter-guillam123.github.io/quazatron/about.html) with
+the story of how it was made.
 
 ## Controls
 

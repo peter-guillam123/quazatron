@@ -20,7 +20,9 @@ beats them in a circuit-board duel and steals their parts.
   from the ZX Spectrum palette, and the deck shifts towards cyan as you claim it.
 - No build step. Static ES modules; three.js is vendored into `vendor/` from
   npm (`pnpm install && pnpm vendor` after changing the version in package.json).
-- Hosting: GitHub Pages via GitHub Actions, deployed from `main`.
+- Hosting: GitHub Pages via GitHub Actions, deployed from `main`. Public, live at
+  https://peter-guillam123.github.io/quazatron/ with a card on the
+  peter-guillam123.github.io index.
 
 ## Layout
 

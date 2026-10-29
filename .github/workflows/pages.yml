@@ -28,6 +28,8 @@ jobs:
           cp -r index.html about.html css src vendor assets _site/ 2>/dev/null || true
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
