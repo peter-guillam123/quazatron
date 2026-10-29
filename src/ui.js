@@ -22,7 +22,7 @@ export class UI {
       deck: $('#hud-deck'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
-      fade: $('#fade'), deckCard: $('#deck-card'),
+      fade: $('#fade'), deckCard: $('#deck-card'), scrap: $('#hud-scrap'), banner: $('#banner'),
     };
     this.mm = this.el.minimap.getContext('2d');
 
@@ -144,7 +144,25 @@ export class UI {
     this.announce(this.el.hint.textContent);
   }
 
+  // A big word across the screen, for ring-outs and the like.
+  banner(title, sub = '') {
+    const b = this.el.banner;
+    b.firstElementChild.textContent = title;
+    b.lastElementChild.textContent = sub;
+    b.hidden = true;
+    void b.offsetWidth;
+    b.hidden = false;
+    clearTimeout(this.bannerT);
+    this.bannerT = setTimeout(() => { b.hidden = true; }, 1900);
+  }
+
   // ------------------------------------------------------------------ HUD
+  setScrap(n, bump = false) {
+    const el = this.el.scrap;
+    el.querySelector('b').textContent = String(n);
+    if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  }
+
   showHud(on) { this.el.hud.hidden = !on; if (!on) this.clearLabels(); }
 
   setDeck(deck, n) {
@@ -344,6 +362,22 @@ export class UI {
       <span class="card-head">${esc(p.name)}</span>
       <span class="line">${esc(p.line)}</span>
     </button>`;
+  }
+
+  fab(items, scrap, focus) {
+    $('#fab-lede').textContent = `You have ${scrap} scrap.`;
+    $('#fab-list').innerHTML = items.map((i) => {
+      const short = i.ok && i.cost > scrap;
+      const off = !i.ok || short;
+      const cost = !i.ok ? '' : short ? `${i.cost} scrap · need ${i.cost - scrap} more` : `${i.cost} scrap`;
+      return `<button class="fab-item" data-act="buy" data-id="${i.id}"${off ? ' disabled' : ''}>
+        <span class="fab-name">${i.icon ? iconSvg(i.icon, 20) : ''}${esc(i.name)}</span>
+        <span class="fab-line">${esc(i.line)}</span>
+        <span class="fab-cost">${cost}</span>
+      </button>`;
+    }).join('');
+    this.show('fab', focus ? { focus: `[data-id="${focus}"]:not([disabled])` } : {});
+    if (focus && !$(`#fab-list [data-id="${focus}"]:not([disabled])`)) requestAnimationFrame(() => { const b = this.focusables()[0]; if (b) b.focus(); });
   }
 
   offer({ title, lede, cards, extra }) {

@@ -7,7 +7,7 @@ import { DECKS } from '../config.js';
 import { FAMILIES, familiesForRange } from './roster.js';
 import { STEALABLE } from './modules.js';
 
-const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M']);
+const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M', 'B']);
 
 export function generateDeck(n, rng, opts = {}) {
   const deck = DECKS[n - 1];

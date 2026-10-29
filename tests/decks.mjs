@@ -33,7 +33,7 @@ for (let seed = 1; seed <= SEEDS; seed++) {
     const blocked = new Set();
     // switched doors and fields open from a terminal in the same room, so
     // they count as passable; permanent fields don't
-    const solid = 'fcCtxTAgRM';
+    const solid = 'fcCtxTAgRMB';
     for (const t of b.things) if (solid.includes(t.t)) blocked.add(t.z * g.w + t.x);
     // the Mainframe fills a 3x3 block
     for (const t of b.things) if (t.t === 'M') for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) blocked.add((t.z + dz) * g.w + t.x + dx);
@@ -53,7 +53,7 @@ for (let seed = 1; seed <= SEEDS; seed++) {
     const problems = [];
     for (const t of b.things) {
       if (b.rooms[t.room] && b.rooms[t.room].role === 'vault') continue;
-      if ('LTAR'.includes(t.t) && !near(t.x, t.z)) problems.push(`${t.t} in ${b.rooms[t.room].id}`);
+      if ('LTARB'.includes(t.t) && !near(t.x, t.z)) problems.push(`${t.t} in ${b.rooms[t.room].id}`);
       // the Mainframe is grappled from the ring of floor around its block
       if (t.t === 'M') {
         let ok = false;

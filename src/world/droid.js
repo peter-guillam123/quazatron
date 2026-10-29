@@ -160,6 +160,7 @@ export class Droid {
       amount *= 0.15;
     }
     amount *= this.world.damageScale(this, src);
+    if (src.by && src.by !== this) this.lastHit = { by: src.by, t: this.world.time };
     this.integrity -= amount;
     this.damageTaken += amount;
     this.model.hit();
@@ -298,6 +299,12 @@ export class Droid {
       const cx = tx0 + 0.5, cz = tz0 + 0.5;
       if (Math.hypot(this.pos.x - cx, this.pos.z - cz) < 0.35 && w.grid.block[w.grid.idx(tx0, tz0)] === 0) this.lastSafe.set(cx, this.pos.y, cz);
     }
+    // over an edge with nothing underneath: it's going
+    if (!this.doomed && !this.grounded && !this.hovering && this.airborne <= 0 && this.groundY === null && this.vy < -2) {
+      this.doomed = true;
+      w.onDoomed(this);
+    }
+    if (this.groundY !== null) this.doomed = false;
     if (this.pos.y < VOID_Y) w.onFellIntoVoid(this);
 
     // a little dust when rolling fast

@@ -15,12 +15,13 @@ import { DECKS, PLAYER_COLOUR, PLAYER_HEX, TUNING, LEVEL_H } from './config.js';
 import { generateDeck } from './world/deckgen.js';
 import { World } from './world/world.js';
 import { Grid, T } from './world/grid.js';
-import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg } from './world/modules.js';
+import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg, roman } from './world/modules.js';
 import { FAMILIES } from './world/roster.js';
 import { HackSession } from './hack/session.js';
 import { LESSONS } from './hack/lessons.js';
 import { HackView } from './hack/view.js';
 import { Pickup } from './world/devices.js';
+import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
@@ -117,12 +118,15 @@ export class Game {
     if (this.world) {
       const w = this.world;
       const p = w.player;
+      // a ring-out plays out slowly
+      let wdt = dt;
+      if (this.slowT > 0 && this.state === 'play') { this.slowT -= dt; wdt = dt * 0.3; }
       if (this.state === 'play' && this.hitStop > 0) {
         // a heartbeat's pause on a big hit
         this.hitStop -= dt;
       } else if (this.state === 'play') {
-        this.controlPlayer(dt);
-        w.update(dt);
+        this.controlPlayer(wdt);
+        w.update(wdt);
         this.run.stats.time += dt;
       } else if (this.state === 'grapple') {
         this.updateGrapple(dt);
@@ -287,6 +291,10 @@ export class Game {
       case 'offer':
         this.onOffer(act, el);
         break;
+      case 'fab':
+        if (act === 'buy') this.buyFab(el.dataset.id);
+        else if (act === 'back') { this.fab = null; this.resume(); }
+        break;
       case 'end':
         if (act === 'again') this.newRun();
         else if (act === 'title' || act === 'back') this.toTitle();
@@ -362,10 +370,14 @@ export class Game {
         <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
         <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
-        <ul><li>Ram droids to dent them, and knock them off edges into the void.</li>
+        <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>
         <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
         <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
+      <div><h3>Scrap</h3>
+        <p>Wrecked droids burst into scrap, which KLP-2 picks up as it rolls past. Win a hack and you can strip the droid for scrap instead of taking a part.</p>
+        <p>Spend it at a <b>fabricator</b>, near each deck's lift: repairs, better grades of the parts you have, and firmware.</p>
+        <p>Win a hack by four cells or more and it's a clean hack: take two parts.</p></div>
       <div><h3>Parts</h3>
         <p>Three sockets: drive, arm and core. Taking a part drops the old one at your feet, so you can swap back. A part's grade comes from the class of the droid you took it from.</p>
         <p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p></div>
@@ -392,8 +404,8 @@ export class Game {
     this.run = {
       seed: randomSeed(), deck: 1, mods,
       integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
-      perks: [], lastGaspUsed: false, newStolen: [],
-      stats: { hacked: 0, destroyed: 0, voided: 0, parts: 0, time: 0, reflects: 0, decks: 0 },
+      perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0,
+      stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0 },
       tutorial: !this.meta.tutorialDone && this.settings.hints,
     };
     this.disposeTitleScene();
@@ -420,6 +432,7 @@ export class Game {
     this.renderer.follow(w.player.pos, 0, true);
     this.ui.setDeck(w.deck, n);
     this.ui.buildSockets(w.player);
+    this.ui.setScrap(this.run.scrap);
     this.ui.showHud(true);
     this.audio.startMusic(w.deck.music);
     this.run.stats.decks = Math.max(this.run.stats.decks, n);
@@ -495,6 +508,10 @@ export class Game {
       else this.ui.setPrompt(`${key}Lift locked<span class="sub">needs the ◆ command droid's clearance</span>`, true);
       return;
     }
+    if (it.kind === 'fabricator') {
+      this.ui.setPrompt(`${key}Use the fabricator<span class="sub">${this.run.scrap} scrap</span>`);
+      return;
+    }
     if (it.kind === 'pickup') {
       const k = it.target;
       if (k.what.type === 'module') this.ui.setPrompt(`${key}Take ${moduleLabel(k.what.mod)}`);
@@ -528,6 +545,7 @@ export class Game {
       return;
     }
     if (it.kind === 'pickup') { this.usePickup(it.target); return; }
+    if (it.kind === 'fabricator') { this.openFab(it.target); return; }
     this.tryGrapple(it.target);
   }
 
@@ -617,19 +635,15 @@ export class Game {
           if (m && !MODULES[m.id].starter) offers.push({ id: m.id, grade: m.grade });
         }
         this.powerDown(t);
-        if (offers.length) {
-          this.offerState = { kind: 'salvage', offers };
-          const first = !this.meta.stolen || !Object.keys(this.meta.stolen).length;
-          this.ui.offer({
-            title: `${FAMILIES[t.family].name} ${t.cls} is yours`,
-            lede: first ? 'Take one part. It goes in the matching socket; anything it replaces drops at your feet.' : 'Take one part, or leave them.',
-            cards: offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot])),
-            extra: '<button data-act="leave">Take nothing</button>',
-          });
-          this.state = 'menu';
-        } else {
-          this.toast(`${FAMILIES[t.family].name} ${t.cls} wiped. Nothing worth taking.`);
+        // win by four or more and it's a clean hack: two parts, or a bonus
+        const clean = session.roundsTotal === 1 && session.margin >= 4;
+        if (clean && offers.length < 2) {
+          w.scrap.burst(t.pos, scrapFor(t.cls), { pull: 2 });
+          this.toast('Clean hack. Bonus scrap.');
         }
+        this.offerState = { kind: 'salvage', offers, target: t, picks: clean && offers.length >= 2 ? 2 : 1, taken: 0, strip: scrapFor(t.cls) + 2 };
+        this.showSalvage();
+        this.state = 'menu';
       } else {
         t.onHackWin();
         if (t.kind === 'terminal') this.toast('Terminal hacked.');
@@ -652,6 +666,28 @@ export class Game {
       }
     }
     this.ui.refreshSockets(p);
+  }
+
+  showSalvage() {
+    const o = this.offerState, t = o.target, p = this.world.player;
+    const name = `${FAMILIES[t.family].name} ${t.cls}`;
+    let title, lede;
+    if (o.taken) {
+      title = 'One more part';
+      lede = 'A clean hack: take a second part, or stop there.';
+    } else {
+      title = o.picks > 1 ? `Clean hack. ${name} is yours` : `${name} is yours`;
+      const first = !Object.keys(this.meta.stolen || {}).length;
+      if (!o.offers.length) lede = 'Nothing worth fitting. Strip it for scrap.';
+      else if (o.picks > 1) lede = 'You won by four cells or more, so take two parts. Or strip it for scrap.';
+      else if (first) lede = 'Take a part. It goes in the matching socket, and anything it replaces drops at your feet. Or strip the droid for scrap.';
+      else lede = 'Take a part, or strip it for scrap.';
+    }
+    this.ui.offer({
+      title, lede,
+      cards: o.offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot])),
+      extra: o.taken ? '<button data-act="leave">Done</button>' : `<button data-act="strip">Strip it for ${o.strip} scrap</button>`,
+    });
   }
 
   powerDown(d) {
@@ -728,7 +764,7 @@ export class Game {
     const picks = rng.shuffle(pool.slice()).slice(0, 3);
     this.offerState = { kind: 'perk', pickup, source };
     this.ui.offer({
-      title: source === 'archive' ? 'Archive unlocked' : source === 'claim' ? 'Deck claimed' : 'Firmware chip',
+      title: source === 'archive' ? 'Archive unlocked' : source === 'claim' ? 'Deck claimed' : source === 'fab' ? 'Fabricator' : 'Firmware chip',
       lede: 'Pick one upgrade. It lasts for the rest of the run.',
       cards: picks.map((id) => this.ui.perkCard(id)),
     });
@@ -742,11 +778,22 @@ export class Game {
     if (act === 'take') {
       this.equip({ id: el.dataset.id, grade: +el.dataset.grade });
       if (o.kind === 'cache' && o.pickup) this.world.removePickup(o.pickup);
+      if (o.kind === 'salvage') {
+        o.taken += 1;
+        o.offers = o.offers.filter((m) => m.id !== el.dataset.id);
+        if (o.taken < o.picks && o.offers.length) { this.showSalvage(); return; }
+      }
     } else if (act === 'perk') {
       this.addPerk(el.dataset.id);
       if (o.pickup) this.world.removePickup(o.pickup);
-    } else if (act === 'back' && o.kind === 'perk') {
-      return; // a perk choice can't be skipped by accident
+    } else if (act === 'strip') {
+      const t = o.target;
+      this.world.scrap.burst(t.pos, o.strip, { pull: 2 });
+      this.world.fx.burst(t.pos.clone().setY(t.pos.y + 0.4), 0xffe2a8, 18, 3, 0.5, 0.1, 4);
+      this.audio.play('crate', { at: t.pos });
+      t.downT = Math.max(t.downT || 0, 3.2);
+    } else if (act === 'back' && (o.kind === 'perk' || (o.kind === 'salvage' && !o.taken))) {
+      return; // a choice that can't be skipped by accident
     }
     this.offerState = null;
     this.ui.hide();
@@ -762,6 +809,91 @@ export class Game {
     this.audio.play('unlock');
     this.toast(`Firmware: ${PERKS[id].name}`);
     this.ui.refreshSockets(p);
+  }
+
+  // ------------------------------------------------------------------ scrap and the fabricator
+  addScrap(n, chain = 0, quiet = false) {
+    if (!this.run) return;
+    this.run.scrap += n;
+    this.run.stats.scrap += n;
+    if (!quiet) this.audio.play('scrap', { pitch: 1 + Math.min(chain, 16) * 0.045 });
+    this.ui.setScrap(this.run.scrap, true);
+  }
+
+  ringOut(d, by) {
+    const now = this.world.time;
+    this.koStreak = now - (this.koLast ?? -99) < 6 ? (this.koStreak || 1) + 1 : 1;
+    this.koLast = now;
+    this.run.stats.ringouts += 1;
+    const n = scrapFor(d.cls) * 2;
+    const word = ['', '', 'Double', 'Triple', 'Quadruple'][this.koStreak] || `${this.koStreak} in a row:`;
+    const title = this.koStreak > 1 ? `${word} ring out` : 'Ring out';
+    const who = by.isPlayer ? '' : ` · ${FAMILIES[by.family].name} did it`;
+    this.ui.banner(title, `+${n} scrap${who}`);
+    this.slowT = this.reducedMotion ? 0.3 : 0.75;
+    this.audio.play('ringout');
+    this.input.rumble(0.6, 220);
+    this.renderer.flash('#ffffff', 0.18);
+    this.ui.announce(`${title}. ${FAMILIES[d.family].name} ${d.cls} knocked into the void. ${n} scrap.`);
+  }
+
+  openFab(f) {
+    this.state = 'menu';
+    this.fab = f;
+    this.ui.setPrompt(null);
+    this.showFab();
+    this.hintOnce('fab', 'Scrap comes from wrecked droids. Knock one into the void and you get double.', 7);
+  }
+
+  fabItems() {
+    const r = this.run, p = this.world.player;
+    const deck = Math.min(5, r.deck);
+    const items = [];
+    const missing = p.maxIntegrity - p.integrity;
+    const fix = Math.round(Math.min(missing, p.maxIntegrity * 0.35));
+    items.push({ id: 'repair', name: 'Repair', line: missing > 0.5 ? `Patch up ${fix} integrity.` : 'You’re in one piece.', cost: 5 + 2 * deck, ok: missing > 0.5 });
+    for (const slot of SLOTS) {
+      const m = p.mods[slot];
+      if (!m || MODULES[m.id].starter) continue;
+      items.push({
+        id: `up-${slot}`, name: `Upgrade ${MODULES[m.id].name}`, icon: m.id,
+        line: m.grade < 9 ? `Mk ${roman(m.grade)} to Mk ${roman(m.grade + 1)}.` : 'Already Mk IX, as good as it gets.',
+        cost: 8 + 3 * m.grade, ok: m.grade < 9,
+      });
+    }
+    const left = PERK_IDS.filter((id) => !r.perks.includes(id)).length;
+    items.push({ id: 'firmware', name: 'Firmware', line: left ? 'Pick one of three upgrades for the rest of the run.' : 'Nothing left to install.', cost: 24 + 12 * r.fabPerks, ok: left > 0 });
+    return items;
+  }
+
+  showFab(focus) {
+    this.ui.fab(this.fabItems(), this.run.scrap, focus);
+  }
+
+  buyFab(id) {
+    const r = this.run, p = this.world.player;
+    const item = this.fabItems().find((i) => i.id === id);
+    if (!item || !item.ok || item.cost > r.scrap) { this.audio.play('empty'); return; }
+    r.scrap -= item.cost;
+    this.ui.setScrap(r.scrap);
+    this.audio.play('buy');
+    if (id === 'repair') {
+      p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.35);
+      this.world.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
+      this.toast('Repaired');
+    } else if (id.startsWith('up-')) {
+      const slot = id.slice(3);
+      p.mods[slot] = { id: p.mods[slot].id, grade: p.mods[slot].grade + 1 };
+      p.refresh();
+      this.ui.refreshSockets(p);
+      this.toast(`${moduleLabel(p.mods[slot])} fitted`);
+    } else if (id === 'firmware') {
+      r.fabPerks += 1;
+      this.fab = null;
+      this.offerFirmware('fab');
+      return;
+    }
+    this.showFab(id);
   }
 
   // ------------------------------------------------------------------ world callbacks
@@ -931,7 +1063,7 @@ export class Game {
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
-      ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
+      ['Ring-outs', st.ringouts], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     document.getElementById('end-unlocks').textContent = r.newStolen.length
       ? `New starting parts: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.`

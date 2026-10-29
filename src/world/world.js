@@ -8,8 +8,9 @@ import { Droid } from './droid.js';
 import { Brain } from './ai.js';
 import { resolveBodies } from './physics.js';
 import {
-  deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup,
+  deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup, Fabricator,
 } from './devices.js';
+import { ScrapField, scrapFor } from './scrap.js';
 import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor } from './roster.js';
 import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
@@ -63,6 +64,7 @@ export class World {
     this.roomNow = -1;
     this.chars = new Map();
     for (const t of build.things) this.chars.set(`${t.x},${t.z}`, t.t);
+    this.scrap = new ScrapField(this);
 
     this.makeDevices(build.things);
     this.makeDroids(build.droids);
@@ -95,6 +97,7 @@ export class World {
         case 'g': dev = new Turret(this, t); break;
         case '+': dev = new Repair(this, t); break;
         case 'L': dev = new Lift(this, t); this.lift = dev; break;
+        case 'B': dev = new Fabricator(this, t); break;
         case 'M': dev = new Mainframe(this, t); this.mainframe = dev; break;
         case 'm': dev = new Pickup(this, t, { type: 'cache', offer: t.offer }); this.pickups.push(dev); break;
         case '$': dev = new Pickup(this, t, { type: 'chip' }); this.pickups.push(dev); break;
@@ -391,6 +394,11 @@ export class World {
 
   // Two bodies met. Was it a ram?
   onImpact(a, b, speed, nx, nz) {
+    // a shove from KLP-2's side counts towards a ring-out, however gentle
+    if (a.team !== b.team) {
+      if (a.team === 'k') b.lastHit = { by: a, t: this.time };
+      if (b.team === 'k') a.lastHit = { by: b, t: this.time };
+    }
     if (speed < TUNING.ramSpeed) return;
     // whoever was moving into the other is the rammer
     const va = a.vel.x * nx + a.vel.z * nz;
@@ -453,6 +461,7 @@ export class World {
     if (d.isPlayer) { this.game.playerDied(src); return; }
     d.alive = false;
     this.explode(d.pos.clone().setY(d.pos.y + 0.4), this.deck.ink, 1 + d.scale * 0.4);
+    this.scrap.burst(d.pos, scrapFor(d.cls));
     this.removeDroid(d);
     this.claimEvent('droid', d);
     this.game.stat('destroyed');
@@ -484,12 +493,29 @@ export class World {
       return;
     }
     d.alive = false;
+    const ko = d.koBy || this.ringOutBy(d);
     this.removeDroid(d);
     this.claimEvent('droid', d);
     this.game.stat('voided');
     this.game.archiveSee(d, 'destroyed');
-    this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
+    if (ko) this.game.addScrap(scrapFor(d.cls) * 2, 0, true);
+    else this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
     if (d.command) this.grantClearance('void');
+  }
+
+  // Who put this droid over the edge, if it was us: someone on KLP-2's side
+  // hit, rammed or pulled it in the last few seconds.
+  ringOutBy(d) {
+    const h = d.lastHit;
+    if (!h || this.time - h.t > 3 || !h.by || h.by.team !== 'k') return null;
+    return h.by;
+  }
+
+  // A droid has gone over an edge with nothing below it.
+  onDoomed(d) {
+    if (d.isPlayer) return;
+    const by = this.ringOutBy(d);
+    if (by) { d.koBy = by; this.game.ringOut(d, by); }
   }
 
   onLanding(d, impact) {
@@ -588,6 +614,14 @@ export class World {
     return best;
   }
 
+  fabNear(p) {
+    for (const f of this.devices) {
+      if (f.kind !== 'fabricator') continue;
+      if (Math.hypot(f.pos.x - p.pos.x, f.pos.z - p.pos.z) < 1.2 && Math.abs(f.y - p.pos.y) < 0.4) return f;
+    }
+    return null;
+  }
+
   onLift(p) {
     const l = this.lift;
     if (!l) return false;
@@ -601,6 +635,8 @@ export class World {
     if (this.onLift(p)) return { kind: 'lift', ready: this.clearance };
     const k = this.pickupNear(p);
     if (k) return { kind: 'pickup', target: k };
+    const f = this.fabNear(p);
+    if (f) return { kind: 'fabricator', target: f };
     const t = this.grappleTarget(p);
     if (t) return { kind: 'grapple', target: t };
     return null;
@@ -654,8 +690,8 @@ export class World {
     this.updateBolts(dt);
     for (const dev of this.devices) dev.update(dt);
     for (const k of this.pickups) k.update(dt);
-    if (this.channelDirty) this.evaluateChannels();
-    else this.evaluateChannels();
+    this.scrap.update(dt);
+    this.evaluateChannels();
 
     // which room are we in?
     const p = this.player;
@@ -688,6 +724,7 @@ export class World {
   dispose() {
     for (const b of this.bolts) this.root.remove(b.mesh);
     for (const d of this.droids) d.model.dispose();
+    this.scrap.dispose();
     this.level.dispose();
     // device materials belong to this deck; geometry is shared and stays
     const keep = new Set([...boltMats.values()]);

@@ -301,6 +301,21 @@ export class Audio {
         this.osc('sine', 400, 1400, t, 0.2, d, 0.18);
         this.osc('square', 140, 90, t + 0.22, 0.08, d, 0.2);
         break;
+      case 'scrap':
+        if (!(d = O(0.32, 0.15))) return;
+        this.osc('triangle', 1500 * p, 2100 * p, t, 0.06, d, 0.16);
+        break;
+      case 'buy':
+        if (!(d = O(0.6, 0.3))) return;
+        this.noise(t, 0.12, d, 0.3, 'bandpass', 2400, 900, 3);
+        [0, 7, 12].forEach((n, i) => this.osc('square', NOTE(79 + n), null, t + 0.05 + i * 0.05, 0.12, d, 0.08));
+        break;
+      case 'ringout':
+        if (!(d = O(0.85, 0.5))) return;
+        this.osc('sine', 1400, 160, t, 0.75, d, 0.25, 0.01);
+        [0, 4, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(76 + n), null, t + 0.12 + i * 0.07, 0.4, d, 0.16));
+        this.noise(t + 0.1, 0.5, d, 0.25, 'bandpass', 3000, 6000, 2);
+        break;
       case 'pickup':
         if (!(d = O(0.6, 0.4))) return;
         [0, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(76 + n), null, t + i * 0.05, 0.25, d, 0.18));
