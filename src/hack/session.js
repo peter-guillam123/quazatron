@@ -5,6 +5,7 @@ import { HackAI } from './ai.js';
 import { HIDDEN_LESSON } from './lessons.js';
 import { makeRng, randomSeed } from '../rng.js';
 import { PLAYER_HEX } from '../config.js';
+import { hackSkill } from '../world/roster.js';
 
 export class HackSession {
   constructor(game, target, spec, opts = {}) {
@@ -95,7 +96,7 @@ export class HackSession {
     if (this.opts.ambush) delay += this.opts.ambush;
     if (g.hasPerk('firststrike')) delay += 1.5;
     if (L) delay += L.delay;
-    const skill = Math.min(0.95, s.cls / 1000 + 0.1, L ? L.skill : 1);
+    const skill = Math.min(hackSkill(s.cls), L ? L.skill : 1);
     this.ai = new HackAI(this.round, es, skill, { delay });
     this.phase = 'play';
     this.updatePreview();

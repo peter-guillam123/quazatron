@@ -123,6 +123,12 @@ export function pulsersFor(cls) {
   return 3 + Math.floor(cls / 250);
 }
 
+// How sharp a droid is in the hack, 0 to 1. Small droids are slower on
+// the uptake; from class 500 it's the old straight line.
+export function hackSkill(cls) {
+  return Math.min(0.95, cls / 1000 + 0.1 * Math.min(1, cls / 500));
+}
+
 // Small droids are quick to hack; officers take longer.
 export function timerFor(cls) {
   return cls < 200 ? 7.5 : cls < 400 ? 8.5 : 10;

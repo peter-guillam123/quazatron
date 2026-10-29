@@ -12,6 +12,7 @@ const { MODULES, SLOTS } = await import('../src/world/modules.js');
 const { generateBoard, HackRound, reach } = await import('../src/hack/board.js');
 const { HackAI } = await import('../src/hack/ai.js');
 const { TUNING } = await import('../src/config.js');
+const { hackSkill } = await import('../src/world/roster.js');
 
 const noop = () => {};
 const RUNS = +process.argv[2] || 3;
@@ -91,7 +92,7 @@ function hackOutcome(spec, playerPulsers, rng) {
   const pulsers = []; pulsers[ps] = playerPulsers; pulsers[1 - ps] = spec.pulsers;
   const round = new HackRound(board, { timer: spec.timer, pulsers });
   const you = new HackAI(round, ps, 0.5, { rng, delay: 0.5 });
-  const them = new HackAI(round, 1 - ps, Math.min(0.95, spec.cls / 1000 + 0.1), { rng, delay: spec.stunned ? 2.7 : 0.6 });
+  const them = new HackAI(round, 1 - ps, hackSkill(spec.cls), { rng, delay: spec.stunned ? 2.7 : 0.6 });
   while (!round.over) { you.update(1 / 20); them.update(1 / 20); round.update(1 / 20); }
   return round.result[ps] > round.result[1 - ps];
 }
