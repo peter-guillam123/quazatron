@@ -257,27 +257,32 @@ export class HackView {
     ctx.fillStyle = colour(side);
     const lx = mirror(x0 + 4);
     ctx.fillText(you ? 'YOU' : 'THEM', lx, L.y + 64);
-    const pips = R.pulsers[side];
-    const total = Math.max(pips, s.startPulsers[side]);
+    // one dot per pulse: filled while you have it, hollow once fired. Shown
+    // from the start, so you know what you've got while you pick a side.
+    const before = s.phase === 'choose';
+    const pips = before ? (s.expected ? (you ? s.expected.you : s.expected.them) : 0) : R.pulsers[side];
+    const total = before ? pips : Math.max(pips, s.startPulsers[side]);
+    const step = 16, rad = 5.5, y = L.y + 64;
+    const at = (i) => (side === 0 ? lx + 46 + i * step : lx - 46 - i * step);
     for (let i = 0; i < total; i++) {
-      const px = side === 0 ? lx + 44 + i * 13 : lx - 44 - i * 13;
-      ctx.beginPath(); ctx.arc(px, L.y + 64, 4.2, 0, Math.PI * 2);
-      if (i < pips) { ctx.fillStyle = colour(side); ctx.fill(); } else { ctx.strokeStyle = DIM2; ctx.lineWidth = 1.2; ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(at(i), y, rad, 0, Math.PI * 2);
+      if (i < pips) { ctx.fillStyle = colour(side); ctx.fill(); } else { ctx.strokeStyle = DIM2; ctx.lineWidth = 1.4; ctx.stroke(); }
     }
     // pulsers knocked out by dents, crossed through
-    const broken = !you && s.phase !== 'choose' ? s.dented || 0 : 0;
+    const broken = !you ? s.dented || 0 : 0;
     for (let i = total; i < total + broken; i++) {
-      const px = side === 0 ? lx + 44 + i * 13 : lx - 44 - i * 13;
-      ctx.strokeStyle = '#ff8a7a'; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(px, L.y + 64, 4.2, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(px - 3.5, L.y + 60.5); ctx.lineTo(px + 3.5, L.y + 67.5); ctx.stroke();
+      ctx.strokeStyle = '#ff8a7a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(at(i), y, rad, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(at(i) - 4.5, y - 4.5); ctx.lineTo(at(i) + 4.5, y + 4.5); ctx.stroke();
     }
-    if (R.freeFirst[side]) {
-      ctx.fillStyle = colour(side);
-      ctx.font = '500 11px "IBM Plex Mono", monospace';
-      const fx = side === 0 ? lx + 52 + total * 13 : lx - 52 - total * 13;
-      ctx.fillText('+1 free', fx, L.y + 64);
-    }
+    // the count in words, and a flash when you try to fire with none left
+    const recent = you && s.emptyAt != null && R.time - s.emptyAt < 0.7;
+    const flash = recent && (this.reduced || Math.sin((R.time - s.emptyAt) * 28) > 0);
+    ctx.font = '600 12px "IBM Plex Mono", monospace';
+    const free = R.freeFirst[side] ? ' + 1 free' : '';
+    ctx.fillStyle = flash ? '#ff8a7a' : pips || R.freeFirst[side] ? colour(side) : '#ff8a7a';
+    const words = pips || free ? `${pips} left${free}` : 'none left';
+    ctx.fillText(words, at(total + broken) + (side === 0 ? -rad + 4 : rad - 4), y + 0.5);
     ctx.restore();
 
     // which segments a travelling pulse has reached

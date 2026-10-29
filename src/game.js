@@ -392,6 +392,7 @@ export class Game {
         <p>Each deck has a lift down, locked until you take its <b>◆ command droid</b>, by hack or by force.</p></div>
       <div><h3>The hack</h3>
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
+        <p>The dots next to YOU are your pulses, one per shot, with the number left beside them. Theirs are on the other side.</p>
         <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
         <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
         <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
