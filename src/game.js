@@ -52,6 +52,7 @@ export class Game {
     window.addEventListener('pointerdown', unlock);
     this.input.on((what) => {
       if (what === 'blur' && this.state === 'play') this.pause();
+      if (what === 'blur' && this.state === 'hack' && this.session) this.session.paused = true;
       if (what === 'pad' && !document.getElementById('screen-phone').hidden) this.toTitle();
     });
   }

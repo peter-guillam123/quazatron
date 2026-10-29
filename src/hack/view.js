@@ -157,6 +157,23 @@ export class HackView {
     if (s.phase === 'choose') this.drawChoose(s, L, colour);
     if (s.phase === 'result') this.drawResult(s, L);
     if (s.tutorial) this.drawTutorial(s, L);
+    if (s.paused) this.drawPaused(s, L);
+  }
+
+  drawPaused(s, L) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,7,12,0.82)';
+    roundRect(ctx, L.x, L.y, L.W, L.H, 14);
+    ctx.fill();
+    ctx.fillStyle = '#e8edf5';
+    ctx.font = '700 24px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Paused', L.cx, L.y + L.H / 2 - 12);
+    ctx.font = '500 13px "IBM Plex Mono", monospace';
+    ctx.fillStyle = '#9aa3b5';
+    ctx.fillText(s.game.input.lastDevice === 'pad' ? 'Start or A to carry on' : 'Esc or Space to carry on', L.cx, L.y + L.H / 2 + 18);
+    ctx.restore();
   }
 
   drawSide(s, L, side, colour, valColour) {

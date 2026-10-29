@@ -104,6 +104,15 @@ export class HackSession {
   update(dt) {
     const input = this.game.input;
     const audio = this.game.audio;
+    if (input.hit('pause')) {
+      this.paused = !this.paused;
+      audio.play(this.paused ? 'uiBack' : 'uiSelect');
+      this.game.announce(this.paused ? 'Hack paused. Press Escape to carry on.' : 'Hack resumed.');
+    }
+    if (this.paused) {
+      if (input.hit('grapple') || input.hit('confirm')) { this.paused = false; audio.play('uiSelect'); }
+      return;
+    }
     if (this.tutorial) {
       if (input.hit('grapple') || input.hit('confirm') || input.hit('arm')) { this.tutorial = null; audio.play('uiSelect'); this.nextTutorial(this.phase); }
       return;
