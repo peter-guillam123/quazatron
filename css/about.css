@@ -1,0 +1,58 @@
+@font-face { font-family: 'Chakra Petch'; font-weight: 700; font-display: swap; src: url('../assets/fonts/ChakraPetch-700.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-display: swap; src: url('../assets/fonts/IBMPlexMono-400.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans'; font-weight: 400 600; font-display: swap; src: url('../assets/fonts/IBMPlexSans.woff2') format('woff2'); }
+
+:root {
+  --bg: #07080d;
+  --panel: #0d0f17;
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #dfe4ee;
+  --muted: #98a1b3;
+  --you: #2ef2ff;
+  --ink: #ff3ad8;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0; color: var(--text); background: var(--bg);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 17px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--you); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--you); outline-offset: 3px; border-radius: 3px; }
+
+.top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: rgba(7, 8, 13, 0.88); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.logo { font-family: 'Chakra Petch', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: 0.12em; color: #fff; text-decoration: none; text-shadow: 2px 0 0 rgba(46, 242, 255, 0.7), -2px 0 0 rgba(255, 58, 216, 0.7); }
+.play { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 18px; border: 1px solid var(--you); border-radius: 8px; color: var(--you); text-decoration: none; font-family: 'Chakra Petch', sans-serif; font-weight: 700; letter-spacing: 0.05em; }
+.play:hover { background: rgba(46, 242, 255, 0.1); }
+
+main { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+h1, h2, h3 { font-family: 'Chakra Petch', sans-serif; font-weight: 700; line-height: 1.2; color: #fff; }
+h1 { font-size: clamp(34px, 7vw, 52px); margin: 28px 0 8px; letter-spacing: 0.02em; }
+h2 { font-size: 28px; margin: 56px 0 12px; }
+h3 { font-size: 20px; margin: 30px 0 8px; }
+.lede { font-size: 20px; color: var(--muted); margin: 0 0 24px; }
+p { margin: 0 0 14px; }
+ul { padding-left: 22px; margin: 0 0 16px; }
+li { margin-bottom: 8px; }
+b { color: #fff; font-weight: 600; }
+
+.shot { margin: 24px 0; }
+.shot img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); background: #000; }
+
+.diary .note { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 14px; }
+.entry { border-left: 2px solid var(--line); padding: 2px 0 6px 20px; margin: 26px 0; }
+.entry h3 { margin-top: 4px; }
+.entry.milestone { border-left-color: var(--you); }
+.date { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--muted); margin: 0; }
+.tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 4px; background: var(--you); color: #001014; font-size: 12px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.credits { color: var(--muted); font-size: 15px; }
+.foot { text-align: center; padding: 30px 20px 60px; border-top: 1px solid var(--line); }
+
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  .lede { font-size: 18px; }
+  h2 { margin-top: 44px; }
+}
