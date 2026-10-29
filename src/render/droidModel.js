@@ -259,6 +259,11 @@ export class DroidModel {
     if (this.coilBall) this.coilBall.scale.setScalar(1 + (info.charge || 0) * 1.2 + Math.sin(this.t * 20) * 0.05 * (info.charge || 0));
     if (this.tractorCore) this.tractorCore.scale.setScalar(1 + (info.charge || 0) * 1.5);
     if (this.bubble) this.bubble.visible = !!info.shielding;
+    // the visor turns to watch what the droid is watching
+    if (this.visor) {
+      const look = Math.max(-0.9, Math.min(0.9, info.look || 0));
+      this.visor.rotation.y += (look - this.visor.rotation.y) * Math.min(1, dt * 6);
+    }
 
     // telegraph: the visor and accents brighten before an attack
     const base = info.dead ? 0.15 : 2.4;

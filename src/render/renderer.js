@@ -62,7 +62,8 @@ export class Renderer {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(22, 1, 1, 400);
     this.camDir = new THREE.Vector3(1, 1.32, 1).normalize();
-    this.camDist = 31;
+    this.camDist = 28;
+    this.userZoom = 1;
     this.camTarget = new THREE.Vector3();
     this.camLook = new THREE.Vector3();
     this.shake = 0;
@@ -108,7 +109,7 @@ export class Renderer {
     else this.camTarget.lerp(target, 1 - Math.exp(-dt * 5));
     this.zoom += (this.zoomTarget - this.zoom) * (1 - Math.exp(-dt * 3));
     this.camLook.copy(this.camTarget);
-    const dist = this.camDist * this.zoom;
+    const dist = this.camDist * this.zoom * this.userZoom;
     this.camera.position.copy(this.camTarget).addScaledVector(this.camDir, dist);
     if (this.shake > 0 && !this.reducedMotion) {
       const s = this.shake * this.shake * 0.35;

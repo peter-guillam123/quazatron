@@ -339,7 +339,14 @@ export class Droid {
     let vis = 1;
     if (this.cloaked) vis = this.isPlayer ? 0.28 : 0.06 + (this.revealT || 0) * 0.5;
     if (this.phasing) vis = Math.min(vis, 0.45);
+    let look = 0;
+    const p = this.world.player;
+    if (!this.isPlayer && p && this.brain && this.brain.state === 'chase') {
+      const a = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z) - this.facing;
+      look = Math.atan2(Math.sin(a), Math.cos(a));
+    }
     m.update(dt, {
+      look,
       speed: Math.hypot(this.vel.x, this.vel.z),
       facing: this.facing,
       charge: this.charge,

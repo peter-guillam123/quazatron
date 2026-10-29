@@ -69,6 +69,7 @@ export class Game {
     const rm = this.reducedMotion;
     this.renderer.reducedMotion = rm || !s.shake;
     this.renderer.retro = !!s.retro;
+    this.renderer.userZoom = s.zoom || 1;
     this.fx.setReduced(rm);
     this.hackView.reduced = rm;
     document.body.classList.toggle('reduced', rm);
@@ -345,6 +346,7 @@ export class Game {
         <dt><kbd>K</kbd> or <kbd>X</kbd></dt><dd>Use your drive part (dash, hover, stamp)</dd>
         <dt><kbd>L</kbd> or <kbd>C</kbd></dt><dd>Use your core part (shield, cloak, phase)</dd>
         <dt>${L('loadout')}</dt><dd>Parts and firmware</dd>
+        <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Zoom in and out</dd>
         <dt>${L('pause')}</dt><dd>Pause</dd>
       </dl><p>A gamepad works too: left stick, A grapple, X arm, B drive, Y core.</p></div>
       <div><h3>The idea</h3>
@@ -470,6 +472,11 @@ export class Game {
     p.intent.core = inp.held('core');
     if (p.modId('arm') !== 'tractor') p.intent.aim = null;
     if (inp.hit('grapple')) this.interact();
+    if (inp.hit('zoomIn') || inp.hit('zoomOut')) {
+      const z = Math.max(0.7, Math.min(1.4, (this.settings.zoom || 1) * (inp.hit('zoomIn') ? 0.9 : 1.1)));
+      this.settings.zoom = Math.round(z * 100) / 100;
+      this.saveSettings();
+    }
     if (inp.hit('loadout')) { this.state = 'menu'; this.ui.loadout(p, this.run.perks, this.playerPulsers()); this.ui.stack = []; }
     else if (inp.hit('pause')) this.pause();
   }

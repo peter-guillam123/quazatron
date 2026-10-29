@@ -12,6 +12,8 @@ const KEYS = {
   core: ['KeyL', 'KeyC'],
   loadout: ['Tab', 'KeyI'],
   pause: ['Escape', 'KeyP'],
+  zoomIn: ['Equal', 'NumpadAdd'],
+  zoomOut: ['Minus', 'NumpadSubtract'],
   confirm: ['Enter', 'Space', 'NumpadEnter'],
   back: ['Escape', 'Backspace'],
 };

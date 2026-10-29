@@ -20,6 +20,7 @@ Desktop only, played with a keyboard or a gamepad. There's an
 | Core part (shield, cloak, phase) | L or C | Y |
 | Parts and firmware | Tab or I | Back |
 | Pause | Esc or P | Start |
+| Zoom | + and - | |
 
 In a hack: up and down pick a wire, Space fires; left and right pick a side
 before it starts.
