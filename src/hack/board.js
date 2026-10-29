@@ -135,7 +135,13 @@ export function pathOf(side, row) {
   }
   // a cut-off path shows how far it gets, but no cells
   for (let c = stop + 1; c < path.length; c++) path[c].fill(0);
-  return { path, cells: stop < side.cols ? null : path[side.cols] };
+  // did it reach an AND gate, which needs a second wire?
+  let and = false;
+  for (let c = 0; c < Math.min(stop + 1, side.cols); c++) for (let r = 0; r < side.rows; r++) {
+    const comp = side.grid[c][r];
+    if (path[c][r] && comp && comp.t === 'and' && !comp.hidden) and = true;
+  }
+  return { path, cells: stop < side.cols ? null : path[side.cols], and };
 }
 
 // What a single port reaches, ignoring everything else: rows painted, and how.

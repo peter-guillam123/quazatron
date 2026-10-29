@@ -358,6 +358,7 @@ export class Game {
       check('hints', 'Hints', 'Short tips the first time things happen.'),
       check('assist', 'Assist', 'Take a little over half the damage.'),
       check('slowHack', 'Slower hacks', 'Hack timers run half as long again.'),
+      check('wireHints', 'Wire hints', 'In a hack, colour each of your wires by where it lands: your colour, theirs, or grey for nowhere. Always on while you’re learning the parts.'),
       check('gridControls', 'Grid controls', 'Up moves along the floor grid (up and right on screen) instead of straight up the screen.'),
       check('retro', '1986 mode', 'Two colours per 8 by 8 block, like a ZX Spectrum.'),
     ].join('');
@@ -393,6 +394,7 @@ export class Game {
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
         <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
         <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
+        <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
         <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
         <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>
