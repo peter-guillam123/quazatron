@@ -172,6 +172,9 @@ export class Game {
               if (d.isPlayer || !d.family || d.cloaked || this.meta.archive[d.family]) continue;
               if (d.pos.distanceTo(p.pos) < 9) this.archiveSee(d, 'seen');
             }
+            // the first sight of this deck's bounty
+            const b = w.bounty;
+            if (b && !b.spotted && b.alive && b.team === 'h' && !b.cloaked && b.pos.distanceTo(p.pos) < 10 && w.canSee(p.pos, b.pos)) this.bountySpotted(b);
           }
         }
       }
@@ -918,6 +921,27 @@ export class Game {
     this.ui.announce(`${title}. ${FAMILIES[d.family].name} ${d.cls} knocked into the void. ${n} scrap.`);
   }
 
+  // The bounty comes into view: a gold banner, a column of light over it,
+  // and its room marked on the map.
+  bountySpotted(b) {
+    b.spotted = true;
+    const w = this.world;
+    const name = `${FAMILIES[b.family].name} ${b.cls}`;
+    this.ui.banner('Bounty spotted', `${b.bounty}, ${name} · better parts, scrap and a firmware chip`, 'gold');
+    this.audio.play('bounty');
+    w.bountyBeamT = 2.6;
+    w.fx.ring(b.pos, 0xffc24a, 2.6, 0.9);
+    w.fx.burst(b.pos.clone().setY(b.pos.y + 0.6), 0xffc24a, 24, 2.5, 0.8, 0.12, -1);
+    this.input.rumble(0.3, 120);
+    const el = this.ui.el.bounty;
+    el.classList.remove('spotted'); void el.offsetWidth; el.classList.add('spotted');
+    this.ui.announce(`Bounty spotted: ${b.bounty}, a ${name}. It carries better parts. Hack it or wreck it for scrap and a firmware chip.`);
+    // the tip waits for the banner to clear
+    setTimeout(() => {
+      if (this.state === 'play' && this.world === w) this.hintOnce('bounty', 'A bounty: the droid in the gold ring. Its parts are two grades better than its class. Hack it to take one, or wreck it.', 7);
+    }, 3200);
+  }
+
   // A bounty is down: scrap, a firmware chip, and a cheer.
   bountyClaimed(d, how) {
     if (d.bountyDone) return;
@@ -932,7 +956,7 @@ export class Game {
     chip.pos.set(at.x, at.y + 0.45, at.z);
     w.pickups.push(chip);
     setTimeout(() => {
-      this.ui.banner('Bounty claimed', `${d.bounty} · +${n} scrap and a firmware chip`);
+      this.ui.banner('Bounty claimed', `${d.bounty} · +${n} scrap and a firmware chip`, 'gold');
       this.audio.play('unlock');
     }, how === 'hacked' ? 0 : 500);
     this.ui.announce(`Bounty claimed: ${d.bounty}. ${n} scrap, and a firmware chip by your side.`);

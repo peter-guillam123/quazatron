@@ -153,15 +153,17 @@ export class UI {
   }
 
   // A big word across the screen, for ring-outs and the like.
-  banner(title, sub = '') {
+  banner(title, sub = '', tone = '') {
     const b = this.el.banner;
+    b.classList.toggle('gold', tone === 'gold');
     b.firstElementChild.textContent = title;
     b.lastElementChild.textContent = sub;
     b.hidden = true;
     void b.offsetWidth;
     b.hidden = false;
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.hidden = true; }, 1900);
+    // gold news (a bounty) stays up long enough to read the line under it
+    this.bannerT = setTimeout(() => { b.hidden = true; }, tone === 'gold' ? 3200 : 1900);
   }
 
   // ------------------------------------------------------------------ HUD
@@ -250,7 +252,7 @@ export class UI {
       cl.classList.toggle('ok', world.clearance);
     }
     const b = world.bounty;
-    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `★ Bounty claimed: ${b.bounty}` : `★ Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}`;
+    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `★ Bounty claimed: ${b.bounty}` : `★ Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}${b.spotted ? '' : ', not yet found'}`;
     if (this.el.bounty.textContent !== bt) this.el.bounty.textContent = bt;
     this.el.bounty.classList.toggle('done', !!b && (b.bountyDone || b.team === 'k'));
     // sockets: cooldowns and active states
@@ -380,6 +382,12 @@ export class UI {
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     }
+    const b = world.bounty;
+    let bountyRoom = -1;
+    if (b && b.spotted && b.alive && b.team === 'h' && !b.bountyDone) {
+      const bx = Math.floor(b.pos.x), bz = Math.floor(b.pos.z);
+      if (world.grid.inside(bx, bz)) bountyRoom = world.grid.room[world.grid.idx(bx, bz)];
+    }
     for (const r of rooms) {
       if (!known(r)) continue;
       const [x, y] = C(r);
@@ -396,6 +404,8 @@ export class UI {
       else if (r.role === 'archive' && r.visited) { ctx.fillStyle = '#ffffff'; ctx.fillText('A', x, y); }
       else if (r.role === 'repair' && r.visited) { ctx.fillStyle = PLAYER_HEX; ctx.fillText('+', x, y); }
       else if (r.role === 'boss') { ctx.fillStyle = ink; ctx.fillText('999', x, y); }
+      // the bounty, once you've seen it
+      if (r.index === bountyRoom) { ctx.font = '700 11px "IBM Plex Mono", monospace'; ctx.fillStyle = '#ffcf6e'; ctx.fillText('★', x + s * 0.28, y - s * 0.28); }
     }
     // the player, placed within the current cell
     const p = world.player;

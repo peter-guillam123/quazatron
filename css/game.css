@@ -78,6 +78,8 @@ button, .button { font: inherit; }
 .hud-bounty { font-size: 12px; color: #ffcf6e; margin-top: 3px; }
 .hud-bounty:empty { display: none; }
 .hud-bounty.done { color: var(--muted); }
+.hud-bounty.spotted { animation: spotted 1.6s ease-out; }
+@keyframes spotted { 0%, 30%, 60% { color: #fff4dc; text-shadow: 0 0 12px #ffcf6e; } 15%, 45%, 100% { color: #ffcf6e; text-shadow: none; } }
 
 .hud-map { position: absolute; right: 16px; top: 14px; padding: 6px; line-height: 0; }
 #minimap { width: 168px; height: 168px; }
@@ -108,10 +110,12 @@ button, .button { font: inherit; }
 .toast.out { opacity: 0; transition: opacity 0.4s; }
 @keyframes toast-in { from { transform: translateX(20px); opacity: 0; } }
 
-.banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; animation: banner 1.9s ease-out forwards; }
+.banner { position: absolute; left: 50%; top: 33%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; animation: banner 1.9s ease-out forwards; }
 .banner-h { white-space: nowrap; font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 56px); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; line-height: 1;
   text-shadow: 0 0 2px #fff, 3px 0 0 rgba(46, 242, 255, 0.75), -3px 0 0 rgba(255, 226, 168, 0.6), 0 0 30px rgba(46, 242, 255, 0.5); }
 .banner-sub { margin-top: 8px; font-size: 15px; color: #ffe2a8; letter-spacing: 0.06em; }
+.banner.gold { animation-duration: 3.2s; }
+.banner.gold .banner-h { color: #fff4dc; text-shadow: 0 0 2px #fff, 3px 0 0 rgba(255, 207, 110, 0.75), -3px 0 0 rgba(255, 140, 60, 0.5), 0 0 34px rgba(255, 190, 80, 0.6); }
 @keyframes banner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } 10% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -60%); } }
 body.reduced .banner { animation: none; }
 
