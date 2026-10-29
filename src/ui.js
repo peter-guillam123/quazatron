@@ -19,7 +19,7 @@ export class UI {
     this.hintT = 0;
     this.el = {
       hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'),
-      deck: $('#hud-deck'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
+      deck: $('#hud-deck'), gang: $('#hud-gang'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
       fade: $('#fade'), deckCard: $('#deck-card'), scrap: $('#hud-scrap'), banner: $('#banner'),
@@ -242,6 +242,14 @@ export class UI {
       const active = (slot === 'drive' && (p.hovering || p.dash)) || (slot === 'core' && (p.shielding || p.cloaked || p.phasing)) || (slot === 'arm' && p.mod.arm.target);
       d.classList.toggle('active', !!active);
     }
+    // the gang, with a little bar each
+    const gang = world.allies();
+    const key = gang.map((d) => `${d.cls}:${Math.round((d.integrity / d.maxIntegrity) * 20)}`).join(',');
+    if (key !== this.gangKey) {
+      this.gangKey = key;
+      this.el.gang.innerHTML = gang.map((d) => `<span class="ally" title="${esc(FAMILIES[d.family].name)} ${d.cls}">${d.cls}<i style="width:${Math.round((d.integrity / d.maxIntegrity) * 100)}%"></i></span>`).join('');
+      this.el.gang.setAttribute('aria-label', gang.length ? `Gang: ${gang.map((d) => `${FAMILIES[d.family].name} ${d.cls}`).join(', ')}` : '');
+    }
     // hint timer
     if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) this.el.hint.classList.remove('on'); }
   }
@@ -280,7 +288,8 @@ export class UI {
       el.style.top = `${out.y}px`;
       const txt = String(d.cls);
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
-      el.classList.toggle('cmd', d.command);
+      el.classList.toggle('cmd', d.command && d.team !== 'k');
+      el.classList.toggle('ally', d.team === 'k');
       const hp = d.integrity / d.maxIntegrity;
       el.lastChild.style.visibility = hp < 0.999 ? 'visible' : 'hidden';
       el.lastChild.firstChild.style.width = `${hp * 100}%`;
@@ -352,6 +361,20 @@ export class UI {
       <span class="line">${esc(def.line)}</span>
       <span class="use">${esc(def.use)}</span>
       <span class="swap">${swap}</span>
+    </button>`;
+  }
+
+  turnCard(d, gang, max) {
+    const F = FAMILIES[d.family];
+    const parts = [d.mods.drive && d.mods.drive.id !== 'wheels' ? d.mods.drive : null, d.mods.arm, d.mods.core].filter(Boolean).map((m) => MODULES[m.id].name.toLowerCase());
+    const weak = gang.length >= max ? gang.slice().sort((a, b) => a.cls - b.cls)[0] : null;
+    const note = weak ? `Gang full: ${esc(FAMILIES[weak.family].name)} ${weak.cls} goes home` : `Gang: ${gang.length} of ${max}`;
+    return `<button class="card turn" data-act="turn">
+      <span class="slot-tag">Your gang</span>
+      <span class="card-head">${iconSvg('gang', 26)}Turn it</span>
+      <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift down with you.</span>
+      <span class="use">${parts.length ? `It keeps its ${esc(parts.join(' and '))}.` : 'It has only its bumper, but it will use it.'}</span>
+      <span class="swap">${note}</span>
     </button>`;
   }
 

@@ -316,6 +316,15 @@ export class Audio {
         [0, 4, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(76 + n), null, t + 0.12 + i * 0.07, 0.4, d, 0.16));
         this.noise(t + 0.1, 0.5, d, 0.25, 'bandpass', 3000, 6000, 2);
         break;
+      case 'turn':
+        if (!(d = O(0.7, 0.5))) return;
+        this.osc('sine', 200, 900, t, 0.35, d, 0.2, 0.05);
+        [0, 4, 7, 11, 14].forEach((n, i) => this.osc('triangle', NOTE(67 + n), null, t + 0.2 + i * 0.05, 0.3, d, 0.14));
+        break;
+      case 'allyLost':
+        if (!(d = O(0.6, 0.4))) return;
+        [7, 4, 0].forEach((n, i) => this.osc('triangle', NOTE(64 + n), null, t + i * 0.12, 0.3, d, 0.14));
+        break;
       case 'pickup':
         if (!(d = O(0.6, 0.4))) return;
         [0, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(76 + n), null, t + i * 0.05, 0.25, d, 0.18));

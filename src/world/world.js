@@ -71,6 +71,7 @@ export class World {
     this.makePlayer(run);
     this.claimTotal = this.droids.filter((d) => !d.isPlayer).length
       + this.devices.filter((d) => d.kind === 'turret' || d.kind === 'terminal' || d.kind === 'archive').length;
+    for (const g of run.gang || []) this.spawnAlly(g);
     this.evaluateChannels();
   }
 
@@ -141,6 +142,49 @@ export class World {
     this.player = p;
     this.game.attachPlayerGhost(p);
   }
+
+  // One of KLP-2's gang, arriving on a new deck beside it.
+  spawnAlly(g) {
+    const p = this.player;
+    const at = this.freeSpotNear(p.pos, 1.4) || p.pos.clone();
+    const d = new Droid(this, {
+      family: g.family, cls: g.cls, command: g.command, x: at.x, z: at.z, y: at.y,
+      mods: modulesOf(g.family, g.cls), accent: PLAYER_COLOUR, team: 'k', facing: p.facing,
+    });
+    d.integrity = Math.max(1, d.maxIntegrity * (g.hp ?? 1));
+    d.brain = new Brain(d, this);
+    d.brain.state = 'follow';
+    this.root.add(d.model.group);
+    this.droids.push(d);
+    return d;
+  }
+
+  // Somewhere flat and empty near a point, for a droid to appear.
+  freeSpotNear(pos, r) {
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + 0.4, rr = r * (1 + Math.floor(i / 8) * 0.6);
+      const x = pos.x + Math.sin(a) * rr, z = pos.z + Math.cos(a) * rr;
+      const g = this.grid.groundAt(x, z);
+      const tx = Math.floor(x), tz = Math.floor(z);
+      if (g === null || Math.abs(g - pos.y) > 0.3 || this.grid.block[this.grid.idx(tx, tz)] !== 0 || this.grid.typeAt(tx, tz) === T.HAZARD) continue;
+      if (this.droids.some((o) => o.alive && Math.hypot(o.pos.x - x, o.pos.z - z) < 0.8)) continue;
+      return new THREE.Vector3(x, g, z);
+    }
+    return null;
+  }
+
+  // A gang member left behind blinks back to KLP-2's side.
+  warpToPlayer(d) {
+    const p = this.player;
+    const at = this.freeSpotNear(p.pos, 1.3);
+    if (!at) return;
+    this.fx.burst(d.pos.clone().setY(d.pos.y + 0.4), PLAYER_COLOUR, 14, 2, 0.5, 0.1, 0);
+    d.pos.copy(at); d.vel.x = d.vel.z = 0; d.vy = 0;
+    d.lastSafe.copy(at);
+    this.fx.burst(d.pos.clone().setY(d.pos.y + 0.4), PLAYER_COLOUR, 14, 2, 0.5, 0.1, 0);
+  }
+
+  allies() { return this.droids.filter((d) => d.team === 'k' && !d.isPlayer && d.alive && d.state === 'active'); }
 
   spawnDroid(family, cls, x, z, opts = {}) {
     const g = this.grid.groundAt(x, z) ?? 0;
@@ -279,23 +323,18 @@ export class World {
       for (const o of this.hostilesOf(d)) if (o.kind === 'droid') consider(o, 'droid');
       for (const c of this.crates) if (!c.removed && !c.heavy) consider(c, 'crate');
       for (const p of this.pickups) consider(p, 'pickup');
-    } else if (this.player && this.player.alive && !this.player.cloaked) {
-      consider(this.player, 'droid');
+    } else {
+      const t = d.brain && d.brain.target;
+      if (t && t.kind === 'droid' && t.alive && !t.cloaked) consider(t, 'droid');
     }
     return best;
   }
 
   turretTarget(t) {
     const range = 8.5;
-    if (t.team === 'h') {
-      const p = this.player;
-      if (!p || !p.alive || p.state !== 'active' || p.cloaked) return null;
-      if (p.pos.distanceTo(t.pos) > range) return null;
-      return this.canSee(t.pos.clone().setY(t.y + 0.3), p.pos) ? p : null;
-    }
     let best = null, bd = range;
     for (const d of this.droids) {
-      if (d.team === t.team || !d.alive || d.state !== 'active') continue;
+      if (d.team === t.team || !d.alive || d.state !== 'active' || d.cloaked) continue;
       const dist = d.pos.distanceTo(t.pos);
       if (dist < bd && this.canSee(t.pos.clone().setY(t.y + 0.3), d.pos)) { bd = dist; best = d; }
     }
@@ -439,6 +478,8 @@ export class World {
       if (src.kind === 'bolt' && src.by && !src.by.isPlayer) k *= 0.75;
       if (this.game.settings.assist) k *= 0.55;
       if (this.game.hasPerk('plating')) k *= 0.8;
+    } else if (d.team === 'k') {
+      k *= 0.7;   // the gang is a little tougher than it looks
     } else if (src.by && src.by.isPlayer) {
       if (this.game.hasPerk('overcharge')) k *= 1.25;
     }
@@ -460,6 +501,12 @@ export class World {
   onDestroyed(d, src) {
     if (d.isPlayer) { this.game.playerDied(src); return; }
     d.alive = false;
+    if (d.team === 'k') {
+      this.explode(d.pos.clone().setY(d.pos.y + 0.4), PLAYER_COLOUR, 0.8 + d.scale * 0.3);
+      this.removeDroid(d);
+      this.game.allyLost(d, 'destroyed');
+      return;
+    }
     this.explode(d.pos.clone().setY(d.pos.y + 0.4), this.deck.ink, 1 + d.scale * 0.4);
     this.scrap.burst(d.pos, scrapFor(d.cls));
     this.removeDroid(d);
@@ -493,6 +540,7 @@ export class World {
       return;
     }
     d.alive = false;
+    if (d.team === 'k') { this.removeDroid(d); this.game.allyLost(d, 'void'); return; }
     const ko = d.koBy || this.ringOutBy(d);
     this.removeDroid(d);
     this.claimEvent('droid', d);

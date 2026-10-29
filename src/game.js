@@ -21,10 +21,12 @@ import { HackSession } from './hack/session.js';
 import { LESSONS } from './hack/lessons.js';
 import { HackView } from './hack/view.js';
 import { Pickup } from './world/devices.js';
+import { Brain } from './world/ai.js';
 import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
+const GANG_MAX = 3;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export class Game {
@@ -374,6 +376,8 @@ export class Game {
         <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
         <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
+      <div><h3>Your gang</h3>
+        <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
       <div><h3>Scrap</h3>
         <p>Wrecked droids burst into scrap, which KLP-2 picks up as it rolls past. Win a hack and you can strip the droid for scrap instead of taking a part.</p>
         <p>Spend it at a <b>fabricator</b>, near each deck's lift: repairs, better grades of the parts you have, and firmware.</p>
@@ -404,7 +408,7 @@ export class Game {
     this.run = {
       seed: randomSeed(), deck: 1, mods,
       integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
-      perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0,
+      perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0, gang: [],
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0 },
       tutorial: !this.meta.tutorialDone && this.settings.hints,
     };
@@ -453,6 +457,8 @@ export class Game {
     if (!p || !this.run) return;
     this.run.integrity = Math.max(1, p.integrity);
     this.run.mods = { drive: p.mods.drive, arm: p.mods.arm, core: p.mods.core };
+    // the gang rides down too
+    this.run.gang = this.world.allies().map((d) => ({ family: d.family, cls: d.cls, command: d.command, hp: d.integrity / d.maxIntegrity }));
   }
 
   disposeWorld() {
@@ -678,16 +684,54 @@ export class Game {
     } else {
       title = o.picks > 1 ? `Clean hack. ${name} is yours` : `${name} is yours`;
       const first = !Object.keys(this.meta.stolen || {}).length;
-      if (!o.offers.length) lede = 'Nothing worth fitting. Strip it for scrap.';
-      else if (o.picks > 1) lede = 'You won by four cells or more, so take two parts. Or strip it for scrap.';
-      else if (first) lede = 'Take a part. It goes in the matching socket, and anything it replaces drops at your feet. Or strip the droid for scrap.';
-      else lede = 'Take a part, or strip it for scrap.';
+      if (!o.offers.length) lede = 'Nothing worth fitting. Turn it to your side, or strip it for scrap.';
+      else if (o.picks > 1) lede = 'You won by four cells or more, so take two parts. Or turn it, or strip it for scrap.';
+      else if (first) lede = 'Take a part: it goes in the matching socket, and anything it replaces drops at your feet. Or turn the droid to your side, or strip it for scrap.';
+      else lede = 'Take a part, turn it to your side, or strip it for scrap.';
     }
+    const cards = o.offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot]));
+    if (!o.taken) cards.push(this.ui.turnCard(t, this.world.allies(), GANG_MAX));
     this.ui.offer({
-      title, lede,
-      cards: o.offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot])),
+      title, lede, cards,
       extra: o.taken ? '<button data-act="leave">Done</button>' : `<button data-act="strip">Strip it for ${o.strip} scrap</button>`,
     });
+  }
+
+  // A hacked droid comes back on, cyan, and joins KLP-2's gang.
+  turnDroid(d) {
+    const w = this.world;
+    const gang = w.allies();
+    if (gang.length >= GANG_MAX) {
+      // the weakest goes home to make room
+      const weak = gang.sort((a, b) => a.cls - b.cls)[0];
+      w.fx.burst(weak.pos.clone().setY(weak.pos.y + 0.4), PLAYER_COLOUR, 20, 2, 0.6, 0.1, -1);
+      w.removeDroid(weak);
+      weak.alive = false;
+      this.toast(`${FAMILIES[weak.family].name} ${weak.cls} goes home.`);
+    }
+    d.state = 'active';
+    d.alive = true;
+    d.solid = true;
+    d.team = 'k';
+    d.downT = 0;
+    d.vel.x = d.vel.z = 0;
+    d.integrity = Math.max(d.integrity, d.maxIntegrity * 0.6);
+    d.model.body.rotation.x = 0;
+    d.setAccent(PLAYER_COLOUR);
+    d.brain = new Brain(d, w);
+    d.brain.state = 'follow';
+    d.lastHit = null;
+    w.fx.ring(d.pos, PLAYER_COLOUR, 1.4, 0.5);
+    w.fx.burst(d.pos.clone().setY(d.pos.y + 0.5), PLAYER_COLOUR, 24, 2.5, 0.6, 0.1, 1);
+    this.audio.play('turn', { at: d.pos });
+    this.run.stats.turned = (this.run.stats.turned || 0) + 1;
+    this.toast(`${FAMILIES[d.family].name} ${d.cls} joins your gang.`);
+    this.hintOnce('gang', 'Your gang follows you, fights for you and rides the lift with you. Up to three at a time.', 7);
+  }
+
+  allyLost(d, how) {
+    this.toast(how === 'void' ? `${FAMILIES[d.family].name} ${d.cls} fell into the void.` : `${FAMILIES[d.family].name} ${d.cls} was wrecked.`);
+    this.audio.play('allyLost', { at: d.pos });
   }
 
   powerDown(d) {
@@ -786,6 +830,8 @@ export class Game {
     } else if (act === 'perk') {
       this.addPerk(el.dataset.id);
       if (o.pickup) this.world.removePickup(o.pickup);
+    } else if (act === 'turn') {
+      this.turnDroid(o.target);
     } else if (act === 'strip') {
       const t = o.target;
       this.world.scrap.burst(t.pos, o.strip, { pull: 2 });
@@ -861,6 +907,11 @@ export class Game {
         cost: 8 + 3 * m.grade, ok: m.grade < 9,
       });
     }
+    const gang = this.world.allies();
+    if (gang.length) {
+      const hurt = gang.filter((d) => d.integrity < d.maxIntegrity - 0.5).length;
+      items.push({ id: 'gang', name: 'Patch up the gang', line: hurt ? `Repair all ${gang.length === 1 ? 'of your gang' : `${gang.length} of your gang`} in full.` : 'Your gang is in one piece.', cost: 4 + 2 * gang.length, ok: hurt > 0 });
+    }
     const left = PERK_IDS.filter((id) => !r.perks.includes(id)).length;
     items.push({ id: 'firmware', name: 'Firmware', line: left ? 'Pick one of three upgrades for the rest of the run.' : 'Nothing left to install.', cost: 24 + 12 * r.fabPerks, ok: left > 0 });
     return items;
@@ -881,6 +932,12 @@ export class Game {
       p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.35);
       this.world.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
       this.toast('Repaired');
+    } else if (id === 'gang') {
+      for (const d of this.world.allies()) {
+        d.integrity = d.maxIntegrity;
+        this.world.fx.burst(d.pos.clone().setY(d.pos.y + 0.5), PLAYER_COLOUR, 14, 2, 0.7, 0.1, -1);
+      }
+      this.toast('Gang repaired');
     } else if (id.startsWith('up-')) {
       const slot = id.slice(3);
       p.mods[slot] = { id: p.mods[slot].id, grade: p.mods[slot].grade + 1 };
@@ -1063,7 +1120,7 @@ export class Game {
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
-      ['Ring-outs', st.ringouts], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
+      ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
     document.getElementById('end-unlocks').textContent = r.newStolen.length
       ? `New starting parts: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.`

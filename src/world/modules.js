@@ -122,6 +122,7 @@ export const ICONS = {
   cloak: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><path d="M4 20L20 4"/>',
   phase: '<path d="M12 3l3 9-3 9-3-9z"/><path d="M5 12h3M16 12h3" stroke-dasharray="1.5 1.5"/>',
   empty: '<circle cx="12" cy="12" r="7" stroke-dasharray="2 3"/>',
+  gang: '<circle cx="8" cy="9" r="3.2"/><circle cx="16.5" cy="9" r="3.2"/><path d="M2.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M12.6 15.2c1-.8 2.4-1.2 3.9-1.2 2.7 0 4.9 1.8 5.5 5"/>',
 };
 
 export function iconSvg(id, size = 24) {
