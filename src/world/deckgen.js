@@ -25,7 +25,8 @@ export function generateDeck(n, rng, opts = {}) {
       cands = cands.filter((r) => !r.solves.length || r.solves.some((m) => available.has(m)));
     }
     const fresh = cands.filter((r) => !used.has(r.id));
-    const pool = rng.shuffle((fresh.length ? fresh : cands).slice());
+    // rooms themed for this deck go in the pool three times over
+    const pool = rng.shuffle((fresh.length ? fresh : cands).flatMap((r) => (r.theme === n ? [r, r, r] : [r])));
     let chosen = null;
     for (const r of pool) {
       const ks = rng.shuffle([0, 1, 2, 3]);
