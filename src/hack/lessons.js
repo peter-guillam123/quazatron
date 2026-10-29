@@ -16,7 +16,7 @@ export const LESSONS = [
   {
     id: 'wires', rows: 4, parts: [], side: false, enemy: 1, skill: 0.1, delay: 2.2, timer: 8,
     title: 'The hack',
-    line: 'Fire pulses down your wires to turn the cells in the middle cyan. Own more of them when the clock runs out.',
+    line: 'Fire pulses down your wires to turn the cells in the middle cyan. Each dot by YOU is one pulse. Own more cells when the clock runs out.',
   },
   {
     id: 'fork', rows: 5, parts: ['fork'], focus: 'fork', side: false, enemy: 2, skill: 0.15, delay: 1.6, timer: 9,

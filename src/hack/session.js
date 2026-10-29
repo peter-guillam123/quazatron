@@ -33,6 +33,8 @@ export class HackSession {
     this.late = spec.stunned ? 'stunned' : opts.ambush ? 'ambushed' : null;
     // arrows coloured by where each wire lands: while learning, or by choice
     this.hints = !!L || !!game.settings.wireHints;
+    // what each side will start with, shown while you pick a side
+    this.expected = { you: game.playerPulsers(), them: this.enemyPulsers };
     this.done = false;
     this.lastTick = 99;
     this.updateKeys();
@@ -71,6 +73,8 @@ export class HackSession {
     else this.chooseT = this.roundIndex === 0 ? 6 : 4;
     this.playerSide = 0;
     this.cursor = Math.floor(this.rows / 2);
+    this.emptyAt = null;
+    this.toldEmpty = false;
     this.introT = 0;
     // an inert round so the board can be drawn while choosing
     this.round = new HackRound(this.board, { timer: s.timer, pulsers: [0, 0] });
@@ -146,8 +150,20 @@ export class HackSession {
       if (input.hit('up')) { this.cursor = (this.cursor + R.rows - 1) % R.rows; this.updatePreview(); audio.play('uiMove'); }
       if (input.hit('down')) { this.cursor = (this.cursor + 1) % R.rows; this.updatePreview(); audio.play('uiMove'); }
       if (input.hit('grapple') || input.hit('arm')) {
-        if (R.fire(this.playerSide, this.cursor)) audio.play('pulse', { pitch: 1 + (R.rows - this.cursor) * 0.03 });
-        else audio.play('empty');
+        if (R.fire(this.playerSide, this.cursor)) {
+          audio.play('pulse', { pitch: 1 + (R.rows - this.cursor) * 0.03 });
+          const left = R.pulsers[this.playerSide];
+          if (left === 0 && !this.toldEmpty) {
+            this.toldEmpty = true;
+            const free = this.board.sides[this.playerSide].ports.some((p) => p.free);
+            this.game.announce(`That was your last pulse.${free ? ' Free wires still fire.' : ''}`);
+          }
+        } else if (!R.busy(this.playerSide, this.cursor)) {
+          // nothing left to fire with: say so, on screen and out loud
+          audio.play('empty');
+          this.emptyAt = R.time;
+          this.game.announce('No pulses left.');
+        } else audio.play('empty');
       }
       this.ai.update(dt);
       R.update(dt);
