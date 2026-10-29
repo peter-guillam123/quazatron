@@ -87,6 +87,14 @@ export class HackView {
     const sub = s.roundsTotal > 1 ? `ROUND ${s.roundIndex + 1} OF ${s.roundsTotal}  ·  YOU ${s.wins[0]} – ${s.wins[1]} THEM` : s.subtitle;
     ctx.textAlign = 'right';
     ctx.fillText(sub, L.x + L.W - 22, L.y + 24);
+    // what you did to it before the hack, in the header where it's read
+    const notes = [];
+    if (s.dented) notes.push(`DENTED: ${s.dented} PULSER${s.dented > 1 ? 'S' : ''} DOWN`);
+    if (s.late) notes.push(`${s.late.toUpperCase()}: STARTS LATE`);
+    if (notes.length) {
+      ctx.fillStyle = '#ff8a7a';
+      ctx.fillText(`${notes.join('  ·  ')}  ·  `, L.x + L.W - 22 - ctx.measureText(sub).width, L.y + 24);
+    }
     ctx.textAlign = 'left';
     // timer bar
     const tf = s.phase === 'choose' ? 1 : Math.max(0, 1 - R.time / R.timer);
@@ -255,6 +263,14 @@ export class HackView {
       const px = side === 0 ? lx + 44 + i * 13 : lx - 44 - i * 13;
       ctx.beginPath(); ctx.arc(px, L.y + 64, 4.2, 0, Math.PI * 2);
       if (i < pips) { ctx.fillStyle = colour(side); ctx.fill(); } else { ctx.strokeStyle = DIM2; ctx.lineWidth = 1.2; ctx.stroke(); }
+    }
+    // pulsers knocked out by dents, crossed through
+    const broken = !you && s.phase !== 'choose' ? s.dented || 0 : 0;
+    for (let i = total; i < total + broken; i++) {
+      const px = side === 0 ? lx + 44 + i * 13 : lx - 44 - i * 13;
+      ctx.strokeStyle = '#ff8a7a'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(px, L.y + 64, 4.2, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px - 3.5, L.y + 60.5); ctx.lineTo(px + 3.5, L.y + 67.5); ctx.stroke();
     }
     if (R.freeFirst[side]) {
       ctx.fillStyle = colour(side);
@@ -447,6 +463,20 @@ export class HackView {
       if (s.focus === 'free') for (let r = 0; r < B.rows; r++) if (S.ports[r].free) this.spotlight(mirror(xPort + 20), rowY(r) - 9, 11);
     }
 
+    // wire hints: each arrow coloured by where its wire lands, while you're
+    // learning, or always if you ask for them in the settings
+    const hinted = s.hints && (s.phase === 'choose' ? (s.canSwap || you) : you && s.phase === 'play');
+    const hint = (r) => {
+      const P = pathOf(S, r);
+      if (!P.cells) return { fill: '#5d6578', mark: '?' };
+      const mine = P.cells.filter((v) => v === 1).length, theirs = P.cells.filter((v) => v === 2).length;
+      if (mine && theirs) return { fill: colour(side), edge: colour(1 - side) };
+      if (mine) return { fill: colour(side) };
+      if (theirs) return { fill: colour(1 - side) };
+      if (P.and) return { fill: '#5d6578', mark: '&' };
+      return { fill: '#2a2f3a', edge: '#454d5f' };
+    };
+
     // ports
     for (let r = 0; r < B.rows; r++) {
       const y = rowY(r);
@@ -455,12 +485,20 @@ export class HackView {
       const sel = you && s.cursor === r && s.phase === 'play';
       const px = mirror(xPort);
       const dir = side === 0 ? 1 : -1;
-      ctx.fillStyle = busy ? colour(side) : sel ? '#ffffff' : '#5d6578';
+      const h = hinted && !busy ? hint(r) : null;
+      ctx.fillStyle = busy ? colour(side) : sel ? '#ffffff' : h ? h.fill : '#5d6578';
       ctx.shadowColor = colour(side); ctx.shadowBlur = busy || sel ? 12 : 0;
       ctx.beginPath();
       ctx.moveTo(px + dir * 8, y); ctx.lineTo(px - dir * 6, y - 7); ctx.lineTo(px - dir * 6, y + 7); ctx.closePath();
       ctx.fill();
       ctx.shadowBlur = 0;
+      if (h && !sel) {
+        if (h.edge) { ctx.strokeStyle = h.edge; ctx.lineWidth = 1.6; ctx.stroke(); }
+        if (h.mark) {
+          ctx.fillStyle = '#c8cfdc'; ctx.font = '700 11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(h.mark, px - dir * 14, y + 0.5);
+        }
+      }
       if (port.free) {
         ctx.fillStyle = colour(side); ctx.font = '700 13px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('∞', px + dir * 20, y - 9);

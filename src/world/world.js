@@ -635,8 +635,12 @@ export class World {
     if (t.kind !== 'droid') return t.hackSpec();
     const F = FAMILIES[t.family];
     const hurt = 1 - t.integrity / t.maxIntegrity;
-    const pulsers = Math.max(1, pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0) - (hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0));
+    // a dented droid hacks back with fewer pulsers
+    const full = pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0);
+    const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
+    const pulsers = Math.max(1, full - dent);
     return {
+      fullPulsers: full, dent,
       title: t.bounty ? `${t.bounty}, ${F.name} ${t.cls}` : `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
       stunned: t.stunned, hurt, command: t.command, family: t.family,
     };

@@ -21,6 +21,12 @@ beats them in a circuit-board duel and steals their parts.
   hacks (win by 4+: two parts), turning droids into a gang of up to three,
   speech bubbles, a named bounty per generated deck, today's tower (seeded
   by the date, first go counts, shareable squares).
+- Hack difficulty slope: lesson boards carry 2-3 of the new part and 4-6
+  parts in all; ordinary boards follow `partsBudget(cls)` in
+  `src/hack/board.js` below class 500 and are untouched from 500 up (their
+  balance relies on the old generator's habits). Dents (a third, two thirds
+  of integrity) cost the droid pulsers and are shown on the board. Wire hints
+  colour each port by where it lands: on in lessons, or via the setting.
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken

@@ -135,7 +135,13 @@ export function pathOf(side, row) {
   }
   // a cut-off path shows how far it gets, but no cells
   for (let c = stop + 1; c < path.length; c++) path[c].fill(0);
-  return { path, cells: stop < side.cols ? null : path[side.cols] };
+  // did it reach an AND gate, which needs a second wire?
+  let and = false;
+  for (let c = 0; c < Math.min(stop + 1, side.cols); c++) for (let r = 0; r < side.rows; r++) {
+    const comp = side.grid[c][r];
+    if (path[c][r] && comp && comp.t === 'and' && !comp.hidden) and = true;
+  }
+  return { path, cells: stop < side.cols ? null : path[side.cols], and };
 }
 
 // What a single port reaches, ignoring everything else: rows painted, and how.
@@ -146,48 +152,88 @@ export function reach(side, row) {
   return tr[tr.length - 1];
 }
 
+const KINDS = ['fork', 'and', 'break', 'inv', 'lock', 'free'];
+
+// Every part on one side, free wires included.
+export function partCount(side) {
+  return KINDS.reduce((n, t) => n + countPart(side, t), 0);
+}
+
+// How busy a droid's side of the board can be, by its class: four parts on
+// a Mite, rising to the full mix (eleven to thirteen) from class 500, where
+// the board is left as it always was. Rows grow with class too (roster.js).
+export function partsBudget(cls) {
+  return cls < 200 ? 4 : cls < 300 ? 6 : cls < 400 ? 7 : cls < 500 ? 9 : null;
+}
+
 // spec: rows, cols, cls, and for a lesson: parts (allowed), focus (the new
-// part, made plentiful) and side (whether both sides must carry it).
+// part) and side (whether both sides must carry it).
 export function generateBoard(rng, spec) {
   const rows = spec.rows || 10;
   const cols = spec.cols || 4;
   const cls = spec.cls || 200;
-  let opts = { hidden: cls >= 400 ? 0.1 + (cls - 400) / 3000 : 0 };
   const lesson = !!spec.parts;
+  let opts, budget;
   if (lesson) {
+    // the new part two or three times, the ones you know now and then
     const has = (t) => spec.parts.includes(t);
-    const boost = (t, p, big) => (has(t) ? (spec.focus === t ? big : p) : 0);
+    const p = (t, focus) => (has(t) ? (spec.focus === t ? focus : 0.035) : 0);
     opts = {
       hidden: 0,
-      pFork: boost('fork', 0.1, 0.3), pAnd: boost('and', 0.06, 0.3),
-      pBreak: boost('break', 0.08, 0.22), pInv: boost('inv', 0.06, 0.2), pLock: boost('lock', 0.05, 0.35),
-      pFree: boost('free', 0.4, 1),
+      pFork: p('fork', 0.15), pAnd: p('and', 0.13), pBreak: p('break', 0.13), pInv: p('inv', 0.13), pLock: p('lock', 0.22),
+      pFree: has('free') ? (spec.focus === 'free' ? 1 : 0.3) : 0,
+    };
+    budget = rows <= 6 ? 5 : 6;
+  } else {
+    // the usual mix, thinned to the budget for the smaller droids
+    budget = spec.budget !== undefined ? spec.budget : partsBudget(cls);
+    const k = budget ? Math.min(1, budget / (rows * 1.04)) : 1;
+    // smaller droids lean on forks, the friendly part, and go easy on AND
+    // gates, the hardest to read
+    const mix = budget ? { fork: 0.16, and: 0.03, break: 0.08, inv: 0.06, lock: 0.05 } : { fork: 0.11, and: 0.07, break: 0.09, inv: 0.07, lock: 0.05 };
+    opts = {
+      hidden: cls >= 400 ? 0.1 + (cls - 400) / 3000 : 0,
+      pFork: mix.fork * k, pAnd: mix.and * k, pBreak: mix.break * k, pInv: mix.inv * k, pLock: mix.lock * k, pFree: 0.45,
     };
   }
   const want = spec.focus === 'free' ? 1 : 2;
-  // keep regenerating until both sides have enough useful wires
-  let best = null;
-  for (let tries = 0; tries < (lesson ? 150 : 30); tries++) {
+  // make boards until one fits; failing that, keep the closest. Officers'
+  // boards (no budget) keep their old habit: thirty goes, then the last one,
+  // which is often a messier board. Their hacks are balanced around it.
+  const messy = !lesson && !budget;
+  let best = null, bestCost = Infinity;
+  for (let tries = 0; tries < (lesson ? 200 : messy ? 30 : 80) && bestCost > 0; tries++) {
     const sides = [makeSide(rng, rows, cols, opts), makeSide(rng, rows, cols, opts)];
-    const useful = sides.map((s) => {
+    const useful = sides.map((sd) => {
       let n = 0;
-      for (let r = 0; r < rows; r++) {
-        const out = reach(s, r);
-        if (out.some((x) => x === 1)) n++;
-      }
+      for (let r = 0; r < rows; r++) if (reach(sd, r).some((x) => x === 1)) n++;
       return n;
     });
-    let ok = useful.every((n) => n >= Math.ceil(rows * 0.5));
-    if (lesson && spec.focus) {
-      // the new part has to be there to be learned: on your side when you
-      // don't choose, on both when you do
+    let cost = 0;
+    // enough wires on each side that reach a cell cleanly
+    for (const n of useful) cost += Math.max(0, Math.ceil(rows * 0.5) - n) * 3;
+    if (lesson) {
+      // the new part has to be there to be learned, on your side when you
+      // don't choose and on both when you do, but not swamping the board
       const need = spec.side ? sides : [sides[0]];
-      if (!need.every((s) => countPart(s, spec.focus) >= want)) ok = false;
+      for (const sd of need) {
+        const n = spec.focus ? countPart(sd, spec.focus) : 0;
+        if (spec.focus) cost += Math.max(0, want - n) * 4 + Math.max(0, n - 3) * 2;
+        cost += Math.max(0, partCount(sd) - budget) * 2;
+      }
       // when you're learning to choose, make the choice worth making
-      if (spec.focus === 'break' && Math.abs(useful[0] - useful[1]) < 1) ok = false;
+      if (spec.focus === 'break' && Math.abs(useful[0] - useful[1]) < 1) cost += 3;
+    } else {
+      // a ceiling, not a target: the two sides should still differ, or
+      // picking the better one stops mattering
+      if (budget) {
+        for (const sd of sides) cost += Math.max(0, partCount(sd) - budget - 1);
+        // simple boards need one side to be the better pick, or reading
+        // the board stops paying
+        if (Math.abs(useful[0] - useful[1]) < 1) cost += 2;
+      }
     }
-    best = { rows, cols, sides };
-    if (ok) break;
+    if (cost < bestCost || messy) { bestCost = cost; best = { rows, cols, sides }; }
   }
   // cells start split evenly, in a random order
   const owners = [];

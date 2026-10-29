@@ -358,6 +358,7 @@ export class Game {
       check('hints', 'Hints', 'Short tips the first time things happen.'),
       check('assist', 'Assist', 'Take a little over half the damage.'),
       check('slowHack', 'Slower hacks', 'Hack timers run half as long again.'),
+      check('wireHints', 'Wire hints', 'In a hack, colour each of your wires by where it lands: your colour, theirs, or grey for nowhere. Always on while you’re learning the parts.'),
       check('gridControls', 'Grid controls', 'Up moves along the floor grid (up and right on screen) instead of straight up the screen.'),
       check('retro', '1986 mode', 'Two colours per 8 by 8 block, like a ZX Spectrum.'),
     ].join('');
@@ -393,10 +394,11 @@ export class Game {
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
         <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
         <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
+        <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
         <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
         <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>
-        <li>A damaged droid hacks back with fewer pulsers. A stunned one starts late.</li>
+        <li>Ram a droid before you grapple it. Dent it by a third and it hacks back with one pulser fewer, by two thirds and it's two. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
         <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
       <div><h3>Bounties</h3>
@@ -559,7 +561,7 @@ export class Game {
       const p = this.world.player;
       if (t.shielding && t.inFront({ x: t.pos.x - p.pos.x, z: t.pos.z - p.pos.z }, t.stats.core.arc)) sub = 'its shield is up';
       else if (t.stunned) sub = 'stunned: it will start late';
-      else if (t.integrity < t.maxIntegrity * 0.66) sub = 'damaged: fewer pulsers';
+      else if (t.integrity < t.maxIntegrity * 0.66) sub = 'dented: it hacks back weaker';
       if (p.cloaked) sub = 'ambush from cloak';
     } else if (t.kind === 'mainframe') {
       name = 'the Mainframe';

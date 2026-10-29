@@ -3,7 +3,7 @@
 import { generateBoard, HackRound, reach } from '../src/hack/board.js';
 import { HackAI } from '../src/hack/ai.js';
 import { makeRng } from '../src/rng.js';
-import { rowsFor, pulsersFor, timerFor } from '../src/world/roster.js';
+import { rowsFor, pulsersFor, timerFor, hackSkill } from '../src/world/roster.js';
 import { LESSONS } from '../src/hack/lessons.js';
 
 function sideScore(side) {
@@ -26,7 +26,7 @@ function play(cls, playerPulsers, playerSkill, seed) {
   pulsers[es] = pulsersFor(cls);
   const round = new HackRound(board, { timer: timerFor(cls), pulsers });
   const you = new HackAI(round, ps, playerSkill, { rng, delay: 0.4 });
-  const them = new HackAI(round, es, Math.min(0.95, cls / 1000 + 0.1), { rng });
+  const them = new HackAI(round, es, hackSkill(cls), { rng });
   const dt = 1 / 30;
   while (!round.over) { you.update(dt); them.update(dt); round.update(dt); }
   const [a, b] = [round.result[ps], round.result[es]];
