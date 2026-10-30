@@ -6,6 +6,7 @@ import { HIDDEN_LESSON } from './lessons.js';
 import { makeRng, randomSeed } from '../rng.js';
 import { PLAYER_HEX } from '../config.js';
 import { hackSkill } from '../world/roster.js';
+import { line } from '../lines.js';
 
 export class HackSession {
   constructor(game, target, spec, opts = {}) {
@@ -118,6 +119,18 @@ export class HackSession {
     this.phase = 'play';
     this.updatePreview();
     g.audio.play('hackStart');
+    this.lead = 0;
+    this.heckle('hackStart', true);
+  }
+
+  // The opponent's running commentary, in its family's voice.
+  heckle(kind, force = false) {
+    const t = this.target;
+    const now = this.round ? this.round.time : 0;
+    if (!force && this.said && now - this.said.t < 2.4) return;
+    const fam = t && t.kind === 'droid' ? t.family : null;
+    const text = line(kind, fam);
+    if (text) this.said = { text, t: now, kind };
   }
 
   updatePreview() {
@@ -172,6 +185,15 @@ export class HackSession {
         if (e.type === 'fire' && e.side !== this.playerSide) audio.play('pulse', { pitch: 0.7 });
         if (e.type === 'flip') audio.play(e.owner === this.playerSide ? 'flipYou' : 'flipThem', { row: e.row });
         if (e.type === 'contest') audio.play('contest');
+      }
+      // when the lead changes hands, the opponent has something to say
+      const n = R.count();
+      const lead = Math.sign(n[this.playerSide] - n[1 - this.playerSide]);
+      if (lead !== this.lead && lead !== 0) this.heckle(lead > 0 ? 'hackBehind' : 'hackAhead');
+      this.lead = lead;
+      if (R.pulsers[this.playerSide] === 0 && !this.saidEmpty && !this.board.sides[this.playerSide].ports.some((p) => p.free)) {
+        this.saidEmpty = true;
+        this.heckle('hackEmpty');
       }
       const left = R.timer - R.time;
       if (left < 3.5 && Math.ceil(left) !== this.lastTick) { this.lastTick = Math.ceil(left); audio.play('tick'); }

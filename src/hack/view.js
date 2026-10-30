@@ -1,10 +1,13 @@
-// Draws the hack board on a 2D canvas over the game. Lit wires glow in the
-// colour they paint; each cell carries a chevron pointing at its owner, so
-// the board reads without relying on colour alone.
+// Draws the hack board on a 2D canvas over the game: a circuit board, with
+// copper traces that glow in the colour they paint once lit, pulses that
+// run down them like comets, and cells like glass capsules that fill with
+// light. Each cell also carries a chevron pointing at its owner, so the
+// board reads without relying on colour alone. Faces either side: KLP-2,
+// and the droid you're inside, which has opinions.
 import { reach, evalSide, pathOf } from './board.js';
 
-const DIM = '#2c3240';
-const DIM2 = '#454d5f';
+const DIM = '#4a3624';     // an unlit copper trace
+const DIM2 = '#6b5038';
 // Colours marked with a ~ are the faint trail of the wire you've selected,
 // drawn before you fire, not a live pulse.
 const GHOST = '~';
@@ -17,6 +20,9 @@ export class HackView {
     this.ctx = canvas.getContext('2d');
     this.reduced = false;
     this.t = 0;
+    this.bootT = 1;        // how far the board has drawn itself in
+    this.resultAge = 0;
+    this.tally = null;     // the tug-of-war bar, eased
   }
 
   resize() {
@@ -33,7 +39,7 @@ export class HackView {
     const W = Math.min(980, this.w - 32);
     const H = Math.min(640, this.h - 40);
     const x = (this.w - W) / 2, y = (this.h - H) / 2;
-    const top = 78 + (strip ? 52 : 0), bottom = 74;
+    const top = 94 + (strip ? 52 : 0), bottom = 74;
     const room = H - top - bottom;
     // small lesson boards keep a sensible row height and sit in the middle
     const rowH = Math.min(room / rows, 62);
@@ -41,7 +47,7 @@ export class HackView {
     const boardY = y + top + (room - boardH) / 2;
     const cw = Math.max(64, Math.min(96, W * 0.09));
     const cx = x + W / 2;
-    return { x, y, W, H, boardY, boardH, rowH, cw, cx, stripY: y + 78 };
+    return { x, y, W, H, boardY, boardH, rowH, cw, cx, stripY: y + 94 };
   }
 
   clear() {
@@ -60,21 +66,23 @@ export class HackView {
     const L = this.layout(B.rows, !!s.callout);
     const colour = (side) => (side === s.playerSide ? s.youColour : s.themColour);
     const valColour = (side, v) => (v === 1 ? colour(side) : v === 2 ? colour(1 - side) : null);
+    // a new board draws itself in from the edges
+    if (B !== this.lastBoard) { this.lastBoard = B; this.bootT = this.reduced ? 1 : 0; this.tally = null; }
+    this.bootT = Math.min(1, this.bootT + dt / 0.75);
+    this.resultAge = s.phase === 'result' ? this.resultAge + dt : 0;
 
-    // ---- panel
+    // ---- panel: a circuit board
     ctx.save();
-    ctx.fillStyle = 'rgba(5,7,12,0.95)';
-    roundRect(ctx, L.x, L.y, L.W, L.H, 14);
-    ctx.fill();
+    ctx.drawImage(this.substrate(L), L.x, L.y, L.W, L.H);
     const grad = ctx.createLinearGradient(L.x, 0, L.x + L.W, 0);
     grad.addColorStop(0, colour(0)); grad.addColorStop(0.5, 'rgba(255,255,255,0.15)'); grad.addColorStop(1, colour(1));
     ctx.strokeStyle = grad; ctx.lineWidth = 1.5;
     roundRect(ctx, L.x + 0.5, L.y + 0.5, L.W - 1, L.H - 1, 14);
     ctx.stroke();
-    // faint grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.035)'; ctx.lineWidth = 1;
-    for (let gx = L.x + 20; gx < L.x + L.W; gx += 20) { ctx.beginPath(); ctx.moveTo(gx, L.y + 4); ctx.lineTo(gx, L.y + L.H - 4); ctx.stroke(); }
     ctx.restore();
+
+    // ---- faces either side, if there's room
+    this.drawFaces(s, L, colour);
 
     // ---- header
     ctx.save();
@@ -96,20 +104,29 @@ export class HackView {
       ctx.fillText(`${notes.join('  ·  ')}  ·  `, L.x + L.W - 22 - ctx.measureText(sub).width, L.y + 24);
     }
     ctx.textAlign = 'left';
-    // timer bar
-    const tf = s.phase === 'choose' ? 1 : Math.max(0, 1 - R.time / R.timer);
-    const barY = L.y + 44;
-    ctx.fillStyle = '#1a1f2a';
-    ctx.fillRect(L.x + 22, barY, L.W - 44, 6);
-    ctx.fillStyle = tf < 0.25 ? '#ff5a5a' : '#e8edf5';
-    ctx.fillRect(L.x + 22 + (L.W - 44) * (1 - tf) / 2, barY, (L.W - 44) * tf, 6);
     ctx.restore();
+    // who's winning, right now: a tug of war across the top
+    this.drawTally(s, L, colour);
+    // the timer: a fuse burning in from both ends
+    const tf = s.phase === 'choose' ? 1 : Math.max(0, 1 - R.time / R.timer);
+    this.drawFuse(L, tf);
+    if (s.phase === 'play') this.drawClock(L, R.timer - R.time, tf);
 
     if (s.callout) this.drawCallout(s, L);
 
     // ---- the selected wire's path, worked out fresh each frame as locks light
     const ghost = s.phase === 'play' && s.cursor != null ? pathOf(B.sides[s.playerSide], s.cursor) : null;
     const preview = ghost ? ghost.cells : s.preview;
+
+    // ---- a new board draws itself in, from the edges to the middle
+    const boot = 1 - (1 - this.bootT) ** 3;
+    const half = (L.W / 2) * boot;
+    if (boot < 1) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(L.x, L.y, half, L.H); ctx.rect(L.x + L.W - half, L.y, half, L.H);
+      ctx.clip();
+    }
 
     // ---- both sides
     for (let side = 0; side < 2; side++) this.drawSide(s, L, side, colour, valColour, side === s.playerSide ? ghost : null);
@@ -119,11 +136,16 @@ export class HackView {
       const cell = B.cells[r];
       const y = L.boardY + r * L.rowH;
       const x0 = L.cx - L.cw / 2 + 6, w = L.cw - 12, h = L.rowH - 6;
+      const rad = Math.min(h / 2, 11);
       ctx.save();
       const flash = Math.max(0, 1 - cell.flipT * 4);
+      // the glass
+      ctx.fillStyle = 'rgba(8,12,18,0.92)';
+      roundRect(ctx, x0, y + 3, w, h, rad); ctx.fill();
+      ctx.save();
+      roundRect(ctx, x0 + 2.5, y + 5.5, w - 5, h - 5, rad - 2); ctx.clip();
       if (cell.contested) {
         // striped, both colours
-        ctx.beginPath(); ctx.rect(x0, y + 3, w, h); ctx.clip();
         const off = this.reduced ? 0 : (this.t * 14) % 16;
         for (let i = -2; i < w / 8 + 4; i++) {
           ctx.fillStyle = i % 2 ? colour(0) : colour(1);
@@ -134,12 +156,17 @@ export class HackView {
           ctx.fill();
         }
       } else {
+        // light pours in from the owner's side when it flips
         const c = colour(cell.owner);
-        ctx.shadowColor = c; ctx.shadowBlur = 10 + flash * 20;
-        ctx.fillStyle = c;
-        ctx.globalAlpha = 0.78 + flash * 0.22;
-        roundRect(ctx, x0, y + 3, w, h, 4);
-        ctx.fill();
+        const fill = this.reduced ? 1 : Math.min(1, 0.15 + cell.flipT * 5);
+        const fw = (w - 5) * fill;
+        const fx = cell.owner === 0 ? x0 + 2.5 : x0 + w - 2.5 - fw;
+        const g = ctx.createLinearGradient(0, y + 5, 0, y + 3 + h);
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.22, c); g.addColorStop(1, c);
+        ctx.shadowColor = c; ctx.shadowBlur = 12 + flash * 22;
+        ctx.globalAlpha = 0.8 + flash * 0.2;
+        ctx.fillStyle = g;
+        ctx.fillRect(fx, y + 5.5, fw, h - 5);
         // chevron towards the owner
         ctx.shadowBlur = 0; ctx.globalAlpha = 0.85;
         ctx.fillStyle = '#05070c';
@@ -148,6 +175,19 @@ export class HackView {
         ctx.beginPath();
         ctx.moveTo(mx + dir * k, my); ctx.lineTo(mx - dir * k * 0.4, my - k); ctx.lineTo(mx - dir * k * 0.4, my + k);
         ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      // a highlight along the top of the glass, and its rim
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      roundRect(ctx, x0 + rad * 0.6, y + 5, w - rad * 1.2, Math.max(2, h * 0.16), 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(200,220,235,0.28)'; ctx.lineWidth = 1.2;
+      roundRect(ctx, x0, y + 3, w, h, rad); ctx.stroke();
+      // a splash when it changes hands
+      if (flash > 0 && !cell.contested && !this.reduced) {
+        const sp = 1 - flash;
+        ctx.strokeStyle = colour(cell.owner); ctx.globalAlpha = flash * 0.8; ctx.lineWidth = 2;
+        roundRect(ctx, x0 - sp * 8, y + 3 - sp * 5, w + sp * 16, h + sp * 10, rad + sp * 5); ctx.stroke();
       }
       ctx.restore();
       // preview: which cells the selected wire reaches
@@ -159,6 +199,31 @@ export class HackView {
         ctx.stroke();
         ctx.restore();
       }
+    }
+
+    if (boot < 1) {
+      ctx.restore();
+      // the edge of the reveal, as a bright scan line on each side
+      ctx.save();
+      ctx.fillStyle = 'rgba(200,255,250,0.6)';
+      ctx.fillRect(L.x + half - 1, L.boardY - 8, 2, L.boardH + 16);
+      ctx.fillRect(L.x + L.W - half - 1, L.boardY - 8, 2, L.boardH + 16);
+      ctx.restore();
+    }
+
+    // ---- at the end, the winner's colour washes out over the board
+    if (s.phase === 'result' && !this.reduced) {
+      const col = s.roundWon === 1 ? s.youColour : s.roundWon === 0 ? s.themColour : '#e8edf5';
+      const rr = this.resultAge * 900;
+      ctx.save();
+      roundRect(ctx, L.x, L.y, L.W, L.H, 14); ctx.clip();
+      ctx.globalCompositeOperation = 'lighter';
+      const cy = L.boardY + L.boardH / 2;
+      const wave = ctx.createRadialGradient(L.cx, cy, Math.max(0, rr - 140), L.cx, cy, rr + 1);
+      wave.addColorStop(0, hexA(col, 0)); wave.addColorStop(0.75, hexA(col, 0.22)); wave.addColorStop(1, hexA(col, 0));
+      ctx.fillStyle = wave;
+      ctx.fillRect(L.x, L.y, L.W, L.H);
+      ctx.restore();
     }
 
     // ---- counts under the column
@@ -179,6 +244,259 @@ export class HackView {
     if (s.phase === 'choose') this.drawChoose(s, L, colour);
     if (s.phase === 'result') this.drawResult(s, L);
     if (s.paused) this.drawPaused(s, L);
+  }
+
+  // The board itself: dark substrate, faint etched traces and vias, drawn
+  // once for each size and kept.
+  substrate(L) {
+    const key = `${Math.round(L.W)}x${Math.round(L.H)}x${this.dpr}`;
+    if (this.subKey === key) return this.subCanvas;
+    const c = this.subCanvas || document.createElement('canvas');
+    c.width = Math.round(L.W * this.dpr); c.height = Math.round(L.H * this.dpr);
+    const g = c.getContext('2d');
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const W = L.W, H = L.H;
+    roundRect(g, 0, 0, W, H, 14);
+    g.save();
+    g.clip();
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#081014'); bg.addColorStop(1, '#05090c');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // etched traces, faint, with 45 degree bends, and the odd via
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 0; i < 70; i++) {
+      let x = rnd() * W, y = rnd() * H;
+      g.strokeStyle = `rgba(120, 170, 160, ${0.035 + rnd() * 0.04})`;
+      g.lineWidth = 1 + rnd() * 1.5;
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 3; k++) {
+        const len = 20 + rnd() * 70, dir = Math.floor(rnd() * 8) * Math.PI / 4;
+        x += Math.cos(dir) * len; y += Math.sin(dir) * len;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+      g.fillStyle = 'rgba(160, 190, 180, 0.07)';
+      g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fill();
+    }
+    // a soft light in the middle, where the cells are
+    const glow = g.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W * 0.6);
+    glow.addColorStop(0, 'rgba(255,255,255,0.045)'); glow.addColorStop(1, 'rgba(0,0,0,0.25)');
+    g.fillStyle = glow; g.fillRect(0, 0, W, H);
+    g.restore();
+    // mounting holes
+    for (const [x, y] of [[14, 14], [W - 14, 14], [14, H - 14], [W - 14, H - 14]]) {
+      g.fillStyle = '#020405'; g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(160, 130, 90, 0.5)'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.stroke();
+    }
+    this.subCanvas = c; this.subKey = key;
+    return c;
+  }
+
+  // Cells owned, as a tug of war: your colour pushing in from your side.
+  drawTally(s, L, colour) {
+    const ctx = this.ctx;
+    const R = s.round;
+    const rows = R.board.rows;
+    const n = R.count();
+    const want = [n[0] / rows, n[1] / rows];
+    if (!this.tally) this.tally = want.slice();
+    const k = this.reduced ? 1 : Math.min(1, 0.15);
+    this.tally[0] += (want[0] - this.tally[0]) * k;
+    this.tally[1] += (want[1] - this.tally[1]) * k;
+    const x = L.x + 22, w = L.W - 44, y = L.y + 40, h = 9;
+    ctx.save();
+    ctx.fillStyle = '#121822';
+    roundRect(ctx, x, y, w, h, 4); ctx.fill();
+    ctx.save();
+    roundRect(ctx, x, y, w, h, 4); ctx.clip();
+    const a = w * this.tally[0], b = w * this.tally[1];
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = colour(0); ctx.fillStyle = colour(0); ctx.fillRect(x, y, a, h);
+    ctx.shadowColor = colour(1); ctx.fillStyle = colour(1); ctx.fillRect(x + w - b, y, b, h);
+    ctx.shadowBlur = 0;
+    // a bright seam where they meet
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    if (a > 1) ctx.fillRect(x + a - 1.5, y, 2, h);
+    if (b > 1) ctx.fillRect(x + w - b - 0.5, y, 2, h);
+    ctx.restore();
+    // the half-way mark: get past it and you're winning
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(L.cx - 0.75, y - 3, 1.5, h + 6);
+    ctx.restore();
+  }
+
+  drawFuse(L, tf) {
+    const ctx = this.ctx;
+    const x = L.x + 22, w = L.W - 44, y = L.y + 54;
+    ctx.save();
+    ctx.fillStyle = '#1a1f2a';
+    ctx.fillRect(x, y, w, 2);
+    const hot = tf < 0.25;
+    const len = w * tf, x0 = L.cx - len / 2, x1 = L.cx + len / 2;
+    ctx.fillStyle = hot ? '#ff5a5a' : '#c9b48a';
+    ctx.fillRect(x0, y, len, 2);
+    // a spark at each burning end
+    if (tf > 0 && tf < 1) {
+      for (const ex of [x0, x1]) {
+        const f = this.reduced ? 1 : 0.7 + Math.random() * 0.6;
+        ctx.shadowColor = hot ? '#ff7a5a' : '#ffd890'; ctx.shadowBlur = 10 * f;
+        ctx.fillStyle = '#fff3d0';
+        ctx.beginPath(); ctx.arc(ex, y + 1, 2.4 * f, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Seconds left, big, between the two pulse counts.
+  drawClock(L, left, tf) {
+    const ctx = this.ctx;
+    const x = L.cx, y = L.y + 74, r = 15;
+    const hot = tf < 0.25;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,7,12,0.9)';
+    ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#2a3140'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = hot ? '#ff5a5a' : '#e8edf5';
+    ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * tf); ctx.stroke();
+    ctx.fillStyle = hot ? '#ff8a7a' : '#e8edf5';
+    ctx.font = '700 14px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.max(0, Math.ceil(left))), x, y + 0.5);
+    ctx.restore();
+  }
+
+  // KLP-2 on its side of the board, the opponent on theirs, each with a face
+  // that shows how it's going. Outside the panel when the window is wide
+  // enough; otherwise only the opponent's remarks show, over its side.
+  drawFaces(s, L, colour) {
+    const R = s.round;
+    const room = (this.w - L.W) / 2;
+    const n = R.count();
+    const you = s.playerSide, them = 1 - you;
+    const lead = n[you] - n[them];
+    const playing = s.phase === 'play';
+    const result = s.phase === 'result';
+    const moodFor = (side) => {
+      const mine = side === you ? lead : -lead;
+      if (result) return s.roundWon === -1 ? 'worried' : (s.roundWon === 1) === (side === you) ? 'smug' : 'shocked';
+      if (!playing) return 'neutral';
+      return mine >= 2 ? 'smug' : mine <= -2 ? 'worried' : 'neutral';
+    };
+    const t = s.target;
+    const shape = t && t.kind === 'droid' ? (t.model && t.model.spec.shape) || 'squat' : t && t.kind === 'mainframe' ? 'eye' : 'terminal';
+    const big = room >= 130;
+    const size = big ? Math.min(110, room - 30) : 0;
+    const y = L.y + L.H * 0.42;
+    for (const side of [0, 1]) {
+      const cx = side === 0 ? L.x - room / 2 : L.x + L.W + room / 2;
+      if (big) {
+        this.face(cx, y, size, {
+          colour: colour(side), shape: side === you ? 'player' : shape, mood: moodFor(side),
+          label: side === you ? 'KLP-2' : (t && t.kind === 'droid' ? (t.bounty || `${s.spec.family ? s.spec.family.toUpperCase() : ''} ${t.cls}`) : s.spec.title).trim(),
+        });
+      }
+      // the opponent's remark
+      if (side === them && s.said && R.time - s.said.t < 2.6) {
+        const bx = big ? cx : (side === 0 ? L.x + 150 : L.x + L.W - 150);
+        const by = big ? y - size * 0.62 - 10 : L.y + 96;
+        this.bubble(bx, by, s.said.text, colour(side), big ? Math.min(room - 12, 220) : 260, R.time - s.said.t);
+      }
+    }
+  }
+
+  face(cx, cy, size, o) {
+    const ctx = this.ctx;
+    const t = this.t;
+    const k = size / 100;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(k, k);
+    // a glow behind, in its colour
+    const glow = ctx.createRadialGradient(0, 0, 10, 0, 0, 62);
+    glow.addColorStop(0, hexA(o.colour, o.mood === 'smug' ? 0.32 : 0.18)); glow.addColorStop(1, hexA(o.colour, 0));
+    ctx.fillStyle = glow; ctx.fillRect(-62, -62, 124, 124);
+    const bob = this.reduced ? 0 : Math.sin(t * 2.2) * 1.5 + (o.mood === 'worried' ? Math.sin(t * 30) * 0.8 : 0);
+    ctx.translate(0, bob);
+    // shell: proportions by shape
+    const dims = { player: [34, 26, 30], squat: [36, 20, 34], tall: [28, 34, 26], wide: [44, 20, 24], orb: [36, 0, 36], eye: [0, 0, 0], terminal: [36, 30, 0] }[o.shape] || [34, 24, 30];
+    const [rw, bh, dh] = dims;
+    if (o.shape === 'eye') {
+      ctx.strokeStyle = hexA(o.colour, 0.6); ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(0, 0, 20 + i * 10, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.fillStyle = o.colour; ctx.shadowColor = o.colour; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.arc(o.mood === 'worried' ? Math.sin(t * 9) * 4 : 0, 0, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      this.faceLabel(cx, cy + size * 0.6, o);
+      return;
+    }
+    const shell = ctx.createLinearGradient(0, -40, 0, 40);
+    shell.addColorStop(0, '#9aa3b2'); shell.addColorStop(1, '#3a404c');
+    ctx.fillStyle = shell;
+    if (o.shape === 'terminal') {
+      roundRect(ctx, -rw, -28, rw * 2, 52, 8); ctx.fill();
+      ctx.fillStyle = '#05070a'; roundRect(ctx, -rw + 6, -22, rw * 2 - 12, 34, 5); ctx.fill();
+    } else {
+      roundRect(ctx, -rw, 4, rw * 2, bh + 6, 8); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 6, rw * 0.96, dh || rw, 0, Math.PI, 0); ctx.fill();
+    }
+    // the visor, and the eyes on it
+    const vy = o.shape === 'terminal' ? -5 : -6;
+    ctx.fillStyle = '#05070a';
+    roundRect(ctx, -rw * 0.8, vy - 9, rw * 1.6, 18, 8); ctx.fill();
+    ctx.fillStyle = o.colour; ctx.strokeStyle = o.colour; ctx.shadowColor = o.colour; ctx.shadowBlur = 10;
+    ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+    const blink = Math.sin(t * 1.3 + (o.shape === 'player' ? 0 : 2)) > 0.985;
+    for (const ex of [-rw * 0.38, rw * 0.38]) {
+      ctx.beginPath();
+      if (blink) { ctx.moveTo(ex - 6, vy); ctx.lineTo(ex + 6, vy); ctx.stroke(); }
+      else if (o.mood === 'smug') { ctx.arc(ex, vy + 3, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+      else if (o.mood === 'worried') { ctx.arc(ex, vy + 1, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.moveTo(ex - 6, vy - 7 - (ex < 0 ? -2 : 2)); ctx.lineTo(ex + 6, vy - 7 + (ex < 0 ? -2 : 2)); ctx.stroke(); }
+      else if (o.mood === 'shocked') { ctx.arc(ex, vy, 5.5, 0, Math.PI * 2); ctx.stroke(); }
+      else { roundRect(ctx, ex - 5, vy - 4, 10, 8, 3); ctx.fill(); }
+    }
+    ctx.shadowBlur = 0;
+    // a bead of sweat when it's losing
+    if (o.mood === 'worried' && !this.reduced) {
+      const sy = ((t * 30) % 24);
+      ctx.fillStyle = 'rgba(150, 210, 255, 0.85)';
+      ctx.beginPath(); ctx.ellipse(rw * 0.9, -14 + sy, 2.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    this.faceLabel(cx, cy + size * 0.6, o);
+  }
+
+  faceLabel(cx, y, o) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '700 12px "Chakra Petch", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = o.colour;
+    ctx.fillText(o.label.toUpperCase(), cx, y);
+    ctx.restore();
+  }
+
+  // A speech bubble on the canvas, for the opponent's remarks.
+  bubble(x, y, text, col, maxW, age) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '600 12.5px "IBM Plex Mono", monospace';
+    const lines = wrap(ctx, text, maxW - 20).slice(0, 3);
+    const w = Math.min(maxW, Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20), h = lines.length * 16 + 12;
+    const pop = this.reduced ? 1 : Math.min(1, age * 8);
+    ctx.globalAlpha = age > 2.2 ? Math.max(0, (2.6 - age) / 0.4) : 1;
+    ctx.translate(x, y);
+    ctx.scale(0.85 + 0.15 * pop, 0.85 + 0.15 * pop);
+    ctx.fillStyle = 'rgba(6,8,13,0.95)';
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    roundRect(ctx, -w / 2, -h, w, h, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(0, 7); ctx.lineTo(6, 0); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-6, 0.5); ctx.lineTo(0, 7); ctx.lineTo(6, 0.5); ctx.stroke();
+    ctx.fillStyle = '#f2f5fa'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    lines.forEach((l, i) => ctx.fillText(l, 0, -h + 14 + i * 16));
+    ctx.restore();
   }
 
   // The lesson: one line about the part that's new on this board.
@@ -256,13 +574,13 @@ export class HackView {
     ctx.textAlign = side === 0 ? 'left' : 'right';
     ctx.fillStyle = colour(side);
     const lx = mirror(x0 + 4);
-    ctx.fillText(you ? 'YOU' : 'THEM', lx, L.y + 64);
+    ctx.fillText(you ? 'YOU' : 'THEM', lx, L.y + 74);
     // one dot per pulse: filled while you have it, hollow once fired. Shown
     // from the start, so you know what you've got while you pick a side.
     const before = s.phase === 'choose';
     const pips = before ? (s.expected ? (you ? s.expected.you : s.expected.them) : 0) : R.pulsers[side];
     const total = before ? pips : Math.max(pips, s.startPulsers[side]);
-    const step = 16, rad = 5.5, y = L.y + 64;
+    const step = 16, rad = 5.5, y = L.y + 74;
     const at = (i) => (side === 0 ? lx + 46 + i * step : lx - 46 - i * step);
     for (let i = 0; i < total; i++) {
       ctx.beginPath(); ctx.arc(at(i), y, rad, 0, Math.PI * 2);
@@ -320,7 +638,17 @@ export class HackView {
         ctx.shadowBlur = 0;
         ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.55; ctx.lineWidth = 1;
         ctx.stroke(); ctx.globalAlpha = 1;
+        // light running along it, towards the cells
+        if (!this.reduced) {
+          ctx.setLineDash([3, 10]);
+          ctx.lineDashOffset = -this.t * 55;
+          ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1.8;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
       } else {
+        // unlit: a copper trace on the board
+        ctx.strokeStyle = '#0d0a07'; ctx.lineWidth = width + 2.5; ctx.stroke();
         ctx.strokeStyle = DIM; ctx.lineWidth = width; ctx.stroke();
       }
     };
@@ -482,6 +810,27 @@ export class HackView {
       return { fill: '#2a2f3a', edge: '#454d5f' };
     };
 
+    // each pulse on its way, as a comet at its leading edge
+    for (const p of partial) {
+      const span = xe - xs + 46 + L.cw / 2;
+      const hx = Math.min(L.cx - L.cw / 2 + 2, xs - 46 + p.k * span);
+      const col = hx < xs ? 0 : hx > xe ? S.cols : Math.min(S.cols, Math.floor((hx - xs) / sw) + ((hx - xs) % sw > sw / 2 ? 1 : 0));
+      for (let r = 0; r < B.rows; r++) {
+        const v = p.tr[col] && p.tr[col][r];
+        if (!v) continue;
+        const c = valColour(side, v);
+        const x = mirror(hx), y = rowY(r), back = side === 0 ? -1 : 1;
+        const tail = ctx.createLinearGradient(x + back * 34, y, x, y);
+        tail.addColorStop(0, hexA(c, 0)); tail.addColorStop(1, hexA(c, 0.9));
+        ctx.strokeStyle = tail; ctx.lineWidth = 5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x + back * 34, y); ctx.lineTo(x, y); ctx.stroke();
+        ctx.shadowColor = c; ctx.shadowBlur = 16;
+        ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
     // ports
     for (let r = 0; r < B.rows; r++) {
       const y = rowY(r);
@@ -625,7 +974,7 @@ export class HackView {
     ctx.font = '700 15px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const clock = Number.isFinite(s.chooseT) ? `  ·  ${Math.max(1, Math.ceil(s.chooseT))}` : '';
-    ctx.fillText(s.canSwap ? `Choose your side${clock}` : 'Your wires are on the left', L.cx, L.y + 64);
+    ctx.fillText(s.canSwap ? `Choose your side${clock}` : 'Your wires are on the left', L.cx, L.y + 74);
     ctx.restore();
   }
 
@@ -661,6 +1010,11 @@ function wrap(ctx, text, width) {
     out.push(line);
   }
   return out;
+}
+
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
