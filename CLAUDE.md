@@ -46,6 +46,12 @@ beats them in a circuit-board duel and steals their parts.
   by priority and marks once-only lines heard in `meta.heard`); portraits are
   drawn in `src/story/portrait.js`. `START=70 node tests/sim.mjs` runs the
   bot at a given starting strength.
+- Hack presentation (`src/hack/view.js`): a cached circuit-board substrate,
+  copper traces that glow and flow when lit, comet pulses, glass capsule
+  cells (a fresh board's cells start settled, `flipT: 9`), a tug-of-war tally,
+  a fuse and clock, faces either side when the window is wide enough, and
+  family heckles from `session.heckle()` (lines `hackStart`, `hackAhead`,
+  `hackBehind`, `hackEmpty`). The reveal is keyed on the board, not the round.
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken
