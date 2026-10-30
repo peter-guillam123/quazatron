@@ -202,10 +202,22 @@
 </section>
 
 <section class="screen panel-screen" id="screen-end" hidden aria-labelledby="end-h">
-  <div class="panel wide">
+  <div class="panel wide gazette scroll">
+    <header class="gz-mast">
+      <p class="gz-ears"><span id="gz-edition"></span><span id="gz-date"></span><span>Price: 2 scrap</span></p>
+      <p class="gz-title">The Tower Gazette</p>
+    </header>
     <h2 id="end-h"></h2>
     <p class="lede" id="end-lede"></p>
-    <dl class="stats" id="end-stats"></dl>
+    <div class="gz-cols">
+      <div class="gz-copy" id="gz-body"></div>
+      <aside class="gz-side" aria-label="The run in numbers">
+        <h3>In numbers</h3>
+        <dl class="stats" id="end-stats"></dl>
+        <p class="gz-weather"><b>Weather</b> <span id="gz-weather"></span></p>
+      </aside>
+    </div>
+    <p class="gz-classified"><b>Classified</b> <span id="gz-classified"></span></p>
     <p class="unlocks" id="end-unlocks"></p>
     <div class="share" id="end-share" hidden>
       <pre id="share-text" aria-hidden="true"></pre>

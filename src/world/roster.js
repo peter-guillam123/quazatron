@@ -73,6 +73,13 @@ export const FAMILIES = {
     drive: 'thrusters', arm: 'arc', core: 'phase', temper: 'hunter',
     blurb: 'Runs a deck. Moves through its own force fields like they were curtains.',
   },
+  // not a family so much as a rival: the KLP before you. Never generated;
+  // the game sends it in on a deck of its choosing.
+  klp1: {
+    name: 'KLP-1', role: 'The first of you', shape: 'player', min: 300, max: 999, rival: true,
+    drive: 'thrusters', arm: 'laser', core: 'shield', temper: 'skirmish',
+    blurb: 'The KLP before you. Nan built it and sent it down the chute, and it never came back up as itself. It steals parts too.',
+  },
   archon: {
     name: 'Archon', role: 'Executive', shape: 'orb', min: 800, max: 980,
     drive: 'hover', arm: 'laser', core: 'shield', temper: 'sniper',
@@ -101,7 +108,7 @@ export function rareMods(mods) {
 }
 
 export function familiesForRange(lo, hi) {
-  return FAMILY_ORDER.filter((k) => FAMILIES[k].max >= lo && FAMILIES[k].min <= hi);
+  return FAMILY_ORDER.filter((k) => !FAMILIES[k].rival && FAMILIES[k].max >= lo && FAMILIES[k].min <= hi);
 }
 
 export function modulesOf(familyId, cls) {
