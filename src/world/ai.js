@@ -1,6 +1,7 @@
 // How the tower's droids behave. A droid's parts decide its tactics: a
 // laser keeps its distance, an arc coil closes in, a tractor pulls, a shield
-// faces you. Every attack is telegraphed by the droid's lights brightening.
+// faces you. Every attack is telegraphed: the droid's lights brighten and a
+// warning is painted on the floor, which stops turning just before it hits.
 import { FAMILIES } from './roster.js';
 import { T } from './grid.js';
 
@@ -93,6 +94,7 @@ export class Brain {
     this.hitT = Math.max(0, this.hitT - dt);
     this.cool -= dt; this.driveCool -= dt; this.fleeT -= dt; this.strafeT -= dt;
     this.shieldRest = Math.max(0, this.shieldRest - dt);
+    this.dodgeCool = Math.max(0, (this.dodgeCool || 0) - dt);
 
     // ---- perception, a few times a second
     this.lookT -= dt;
@@ -148,6 +150,10 @@ export class Brain {
       const a = this.attack;
       a.t += dt;
       d.charge = Math.min(1, a.t / a.dur);
+      // aim follows the target until just before the attack, then holds
+      const locked = a.t >= a.dur - Math.min(0.22, a.dur * 0.45);
+      if (!locked) a.ang = Math.atan2(dx, dz);
+      this.drawWarning(a, dist, locked);
       if (a.slot === 'arm' && d.modId('arm') === 'tractor') {
         it.arm = true;
         if (a.t > a.dur + 1.4 || dist > d.stats.arm.range * 1.2) { this.attack = null; d.charge = 0; this.cool = 2.4; }
@@ -156,16 +162,16 @@ export class Brain {
       if (a.t >= a.dur) {
         if (a.slot === 'arm') {
           // a little aiming error on the cheaper models
-          const err = (Math.random() - 0.5) * Math.max(0.02, 0.22 - this.grade * 0.022);
-          const ang = Math.atan2(dx, dz) + err;
+          const err = (Math.random() - 0.5) * Math.max(0.02, 0.16 - this.grade * 0.016);
+          const ang = a.ang + err;
           it.aim = { x: Math.sin(ang), z: Math.cos(ang) };
           d.facing = ang;
           it.arm = true;
-          it.mx = ux * 0.01; it.mz = uz * 0.01;
+          it.mx = Math.sin(ang) * 0.01; it.mz = Math.cos(ang) * 0.01;
           this.cool = this.armCooldown();
         } else {
           it.drive = true;
-          it.mx = ux; it.mz = uz;
+          it.mx = Math.sin(a.ang); it.mz = Math.cos(a.ang);
           this.driveCool = 2.5 + Math.random() * 2;
         }
         this.attack = null;
@@ -188,6 +194,15 @@ export class Brain {
     let mx = 0, mz = 0;
     const arm = d.modId('arm');
     const drive = d.modId('drive');
+    // a sharp-eyed droid on wheels sometimes swerves out of a bolt's way
+    if (drive === 'wheels' && !this.ally && (temper === 'sniper' || temper === 'skirmish') && this.dodgeCool <= 0 && w.boltThreat(d)) {
+      this.dodgeCool = 1.6;
+      if (Math.random() < 0.1 + this.grade * 0.04) {
+        it.drive = true;
+        it.mx = -uz * this.strafe; it.mz = ux * this.strafe;
+        return;
+      }
+    }
     if (temper === 'timid' || this.fleeT > 0) {
       mx = -ux; mz = -uz;
     } else if (arm === 'laser') {
@@ -253,8 +268,36 @@ export class Brain {
   }
 
   begin(slot, dur) {
-    this.attack = { slot, t: 0, dur: Math.max(0.25, dur) };
-    this.w.audio.play('telegraph', { at: this.d.pos, pitch: slot === 'drive' ? 0.7 : 1 });
+    const d = this.d, t = this.target;
+    const a = { slot, t: 0, dur: Math.max(0.25, dur), ang: t ? Math.atan2(t.pos.x - d.pos.x, t.pos.z - d.pos.z) : d.facing };
+    this.attack = a;
+    this.w.audio.play('telegraph', { at: d.pos, pitch: slot === 'drive' ? 0.7 : 1 });
+    // the tower's droids paint a warning on the floor; your gang doesn't need one
+    if (!this.ally && this.w.tele) {
+      const id = d.modId(slot);
+      const disc = id === 'arc' || id === 'treads';
+      a.tele = this.w.tele.add(d, a, disc ? 'disc' : 'lane', d.accent);
+    }
+  }
+
+  drawWarning(a, dist, locked) {
+    const t = a.tele;
+    if (!t) return;
+    const d = this.d;
+    const k = Math.min(1, a.t / a.dur);
+    const y = d.groundY ?? d.pos.y;
+    const id = d.modId(a.slot);
+    if (t.kind === 'disc') {
+      const r = a.slot === 'drive' ? d.stats.drive.radius : d.stats.arm.range;
+      this.w.tele.disc(t, d.pos.x, y, d.pos.z, r, k, locked);
+      return;
+    }
+    let len, wide;
+    if (a.slot === 'drive') { const s = d.stats.drive; len = s.dashSpeed * s.dashTime + 0.9; wide = d.radius * 2.2; }
+    else if (id === 'laser') { len = Math.min(d.stats.arm.range, dist + 2); wide = 0.18; }
+    else if (id === 'tractor') { len = Math.min(d.stats.arm.range, dist + 0.6); wide = 0.55; }
+    else { len = 2.4; wide = d.radius * 2; }
+    this.w.tele.lane(t, d.pos.x, y, d.pos.z, a.ang, len, wide, k, locked);
   }
 
   patrol(dt) {

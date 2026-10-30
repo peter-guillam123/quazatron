@@ -137,7 +137,43 @@ export function generateDeck(n, rng, opts = {}) {
     }
   }
 
+  // ---- a caged prize in each fighting room, opened by dealing with its droids.
+  // Drawn last, so a seed's layout and droids don't change.
+  if (!induction && n <= 5) {
+    const taken = new Set(things.map((t) => `${t.x},${t.z}`));
+    for (const room of rooms) {
+      if (room.role !== 'combat' || !droids.some((d) => d.room === room.index)) continue;
+      const r = rng();
+      room.prize = r < 0.4 ? 'bale' : r < 0.62 ? 'kit' : r < 0.86 ? 'cache' : 'chip';
+      room.prizeAt = prizeSpot(grid, room, taken);
+      if (!room.prizeAt) { room.prize = null; continue; }
+      taken.add(`${room.prizeAt.x},${room.prizeAt.z}`);
+      if (room.prize === 'cache') {
+        const grade = Math.max(1, Math.floor(deck.classes[1] / 100));
+        room.prizeOffer = rng.shuffle(STEALABLE.slice()).slice(0, 2).map((id) => ({ id, grade }));
+      }
+    }
+  }
+
   return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL, signs, induction };
+}
+
+// The open floor tile nearest the middle of a room, with flat floor round it.
+function prizeSpot(grid, room, taken) {
+  let best = null, bd = Infinity;
+  for (let z = room.oz; z < room.oz + room.d; z++) {
+    for (let x = room.ox; x < room.ox + room.w; x++) {
+      if (grid.room[grid.idx(x, z)] !== room.index || grid.typeAt(x, z) !== T.FLOOR || taken.has(`${x},${z}`)) continue;
+      let ok = true;
+      for (let dz = -1; dz <= 1 && ok; dz++) for (let dx = -1; dx <= 1 && ok; dx++) {
+        if (grid.typeAt(x + dx, z + dz) !== T.FLOOR || grid.hAt(x + dx, z + dz) !== grid.hAt(x, z)) ok = false;
+      }
+      if (!ok) continue;
+      const dist = Math.hypot(x + 0.5 - (room.cx + 0.5), z + 0.5 - (room.cz + 0.5));
+      if (dist < bd) { bd = dist; best = { x, z, h: grid.hAt(x, z) }; }
+    }
+  }
+  return best;
 }
 
 function floorVariant(rng) {

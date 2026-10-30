@@ -241,7 +241,12 @@ export class DroidModel {
     this.spin += (info.speed || 0) * dt / (0.075 * sc);
     for (const w of this.wheels) w.rotation.x = this.spin;
     const hoverBob = this.spec.drive === 'hover' ? Math.sin(this.t * 3) * 0.03 : 0;
-    this.body.position.y = this.lift + hoverBob + (info.bob || 0);
+    this.body.position.y = this.lift + hoverBob + (info.bob || 0) - (info.windup || 0) * 0.035;
+    // recoil after a shot, and a crouch while winding up a shove
+    this.kickT = Math.max(0, (this.kickT || 0) - dt);
+    this.body.position.z = -0.06 * (this.kickK || 0) * (this.kickT / 0.09);
+    const wu = info.windup || 0;
+    this.body.scale.set(1 + wu * 0.05, 1 - wu * 0.1, 1 + wu * 0.05);
     if (this.hoverGlow) {
       this.hoverGlow.material.opacity = 0.22 + Math.sin(this.t * 8) * 0.06;
     }
@@ -295,6 +300,7 @@ export class DroidModel {
   }
 
   hit() { this.flash = 1; }
+  kick(k = 1) { this.kickT = 0.09; this.kickK = k; }
 
   dispose() {
     for (const k in this.mats) this.mats[k].dispose();

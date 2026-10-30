@@ -12,20 +12,47 @@ function muzzle(d) {
   return v3(d.pos.x + f.x * 0.42 * s - rx * 0.26 * s, d.pos.y + (d.model.bodyMidY + d.model.lift + 0.04) * s, d.pos.z + f.z * 0.42 * s - rz * 0.26 * s);
 }
 
-function aimDir(d, w, maxAngle, range) {
+function aimDir(d, w) {
+  // KLP-2 fires at whatever it has locked on to, wherever it's going
+  if (d.isPlayer && w.lock) {
+    const t = w.lock.dirTo(d);
+    if (t) return t;
+  }
   if (d.intent.aim) {
     const m = Math.hypot(d.intent.aim.x, d.intent.aim.z) || 1;
     return { x: d.intent.aim.x / m, z: d.intent.aim.z / m };
   }
-  if (d.isPlayer) {
-    const t = w.autoAim(d, maxAngle, range);
-    if (t) return t;
-  }
   return d.forward();
 }
 
+const lerp = (a, b, k) => a + (b - a) * k;
+
 export const ABILITIES = {
   // ------------------------------------------------------------ drives
+  // Plain wheels can swerve: a quick sidestep that bolts and rams pass through.
+  wheels: {
+    press(d, w, s) {
+      if (d.cd.drive > 0 || d.swerve || d.dash || d.lunge || d.stunned || !d.grounded) return;
+      if (!d.useEnergy(s.cost)) { w.noEnergy(d); return; }
+      // swerve the way you're steering; standing still, step back
+      const m = Math.hypot(d.intent.mx, d.intent.mz);
+      const f = d.forward();
+      const dir = m > 0.1 ? { x: d.intent.mx / m, z: d.intent.mz / m } : { x: -f.x, z: -f.z };
+      d.swerve = { t: s.swerveTime, dx: dir.x, dz: dir.z, speed: s.swerveSpeed };
+      d.cd.drive = s.cooldown;
+      w.audio.play('swerve', { at: d.pos });
+      const c = new THREE.Color(d.accent).multiplyScalar(1.4);
+      for (let i = 0; i < 8; i++) {
+        w.fx.emit(d.pos.x + (Math.random() - 0.5) * 0.3, d.pos.y + 0.15 + Math.random() * 0.4, d.pos.z + (Math.random() - 0.5) * 0.3, -dir.x * 2, 0.2, -dir.z * 2, c, 0.3, 0.12, 0, 3);
+      }
+    },
+    passive(d, w) {
+      if (d.swerve && Math.random() < 0.7) {
+        w.fx.emit(d.pos.x, d.pos.y + 0.3, d.pos.z, 0, 0, 0, new THREE.Color(d.accent).multiplyScalar(0.9), 0.22, 0.32, 0, 0);
+      }
+    },
+  },
+
   thrusters: {
     press(d, w, s) {
       if (d.cd.drive > 0 || d.dash || d.stunned) return;
@@ -33,6 +60,8 @@ export const ABILITIES = {
       if (!d.useEnergy(s.cost)) { w.noEnergy(d); return; }
       const dir = d.moveDir();
       d.dash = { t: s.dashTime, dx: dir.x, dz: dir.z, speed: s.dashSpeed };
+      // the first moment of a dash slips past bolts, like a swerve
+      d.dodgeT = 0.12;
       d.airborne = s.dashTime + 0.04;
       d.vy = 0;
       d.cd.drive = s.cooldown;
@@ -93,14 +122,48 @@ export const ABILITIES = {
   },
 
   // ------------------------------------------------------------ arms
+  // The bumper: tap to jab, hold to wind up a shove. The tower's droids only jab.
   ram: {
     press(d, w, s) {
-      if (d.cd.arm > 0 || d.lunge || d.dash || d.stunned) return;
-      if (!d.useEnergy(s.cost)) { w.noEnergy(d); return; }
-      const dir = d.isPlayer ? (w.autoAim(d, 0.6, 2.5) || d.moveDir()) : d.moveDir();
-      d.lunge = { t: s.lungeTime, dx: dir.x, dz: dir.z, speed: s.lungeSpeed };
+      const st = d.mod.arm;
+      if (d.cd.arm > 0 || d.lunge || d.dash || d.swerve || d.stunned) { st.charging = false; return; }
+      if (!d.isPlayer) { ABILITIES.ram.launch(d, w, s, 0); return; }
+      st.charging = true;
+      st.charge = 0;
+    },
+    hold(d, w, s, dt) {
+      const st = d.mod.arm;
+      if (!st.charging) return;
+      if (d.stunned) { st.charging = false; d.charge = 0; return; }
+      const before = st.charge;
+      st.charge = Math.min(1, st.charge + dt / s.chargeTime);
+      // no winding up past what you can pay for
+      const afford = (d.energy - s.cost) / (s.fullCost - s.cost);
+      if (st.charge > afford) st.charge = Math.max(0, Math.min(before, afford));
+      d.charge = st.charge;
+      if (before < 1 && st.charge >= 1) {
+        w.audio.play('charged', { at: d.pos });
+        w.fx.ring(d.pos, d.accent, 0.9, 0.3, 0.1);
+      }
+    },
+    release(d, w, s) {
+      const st = d.mod.arm;
+      if (!st.charging) return;
+      st.charging = false;
+      d.charge = 0;
+      ABILITIES.ram.launch(d, w, s, st.charge < 0.15 ? 0 : st.charge);
+    },
+    launch(d, w, s, c) {
+      if (!d.useEnergy(lerp(s.cost, s.fullCost, c))) { w.noEnergy(d); return; }
+      const dir = d.isPlayer && w.lock ? w.lock.shoveDir(d) : d.moveDir();
+      d.lunge = {
+        t: lerp(s.lungeTime, s.fullTime, c), dx: dir.x, dz: dir.z, speed: lerp(s.lungeSpeed, s.fullSpeed, c),
+        mult: lerp(s.ramMult, s.fullMult, c), knock: lerp(s.ramMult, s.fullKnock, c), charge: c,
+      };
+      d.facing = Math.atan2(dir.x, dir.z);
       d.cd.arm = s.cooldown;
-      w.audio.play('lunge', { at: d.pos });
+      w.audio.play(c > 0.5 ? 'shove' : 'lunge', { at: d.pos, pitch: 1 + c * 0.3 });
+      if (c > 0.5) w.fx.ring(d.pos, d.accent, 1 + c, 0.3, 0.1);
     },
   },
 
@@ -108,12 +171,15 @@ export const ABILITIES = {
     fire(d, w, s) {
       if (d.cd.arm > 0 || d.stunned) return;
       if (!d.useEnergy(s.cost)) { w.noEnergy(d); return; }
-      const dir = aimDir(d, w, 0.55, s.range);
+      const dir = aimDir(d, w);
       if (d.isPlayer) d.facing = Math.atan2(dir.x, dir.z);
       const p = muzzle(d);
       // the tower's bolts are slower than yours, so you can sidestep them
       const speed = d.isPlayer ? s.speed : 8 + (d.mods.arm ? d.mods.arm.grade : 1) * 0.6;
       w.spawnBolt({ owner: d, team: d.team, pos: p, dx: dir.x, dz: dir.z, speed, damage: s.damage, range: s.range, color: d.accent });
+      // a flash at the muzzle and a little kick back
+      w.fx.burst(p, d.accent, d.isPlayer ? 6 : 4, 1.4, 0.18, 0.09, 0);
+      d.model.kick(d.isPlayer ? 1 : 0.6);
       d.cd.arm = s.cooldown;
       d.cloaked = false;
       w.audio.play('laser', { at: d.pos, pitch: d.isPlayer ? 1 : 0.8 });
@@ -127,7 +193,7 @@ export const ABILITIES = {
       if (d.cd.arm > 0 || d.stunned) return;
       const from = d.pos.clone();
       from.y += d.model.height * 0.95;
-      const chain = w.arcTargets(d, s.range, s.chains);
+      const chain = w.arcTargets(d, s.range, s.chains, d.isPlayer && w.lock ? w.lock.target : null);
       const cost = chain.length ? s.cost : s.cost * 0.4;
       if (!d.useEnergy(cost)) { w.noEnergy(d); return; }
       d.cd.arm = s.cooldown;
@@ -164,7 +230,7 @@ export const ABILITIES = {
       if (d.stunned) { ABILITIES.tractor.release(d, w); return; }
       if (!st.target) {
         if (st.retry > 0) { st.retry -= dt; return; }
-        st.target = w.tractorTarget(d, s.range);
+        st.target = w.tractorTarget(d, s.range, d.isPlayer && w.lock ? w.lock.target : null);
         st.tug = 0;
         if (!st.target) { st.retry = 0.2; return; }
         w.audio.play('tractor', { at: d.pos });

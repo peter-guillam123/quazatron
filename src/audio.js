@@ -170,6 +170,46 @@ export class Audio {
         if (!(d = O(0.5, 0.05))) return;
         this.noise(t, 0.12, d, 0.35, 'bandpass', 900, 400, 2);
         break;
+      case 'swerve':
+        if (!(d = O(0.45, 0.05))) return;
+        this.noise(t, 0.16, d, 0.35, 'bandpass', 2400, 900, 2);
+        this.osc('sine', 520, 300, t, 0.1, d, 0.08);
+        break;
+      case 'charged':
+        if (!(d = O(0.5, 0.2))) return;
+        this.osc('triangle', 880, 1320, t, 0.12, d, 0.18);
+        this.osc('sine', 1760, 1760, t + 0.05, 0.1, d, 0.06);
+        break;
+      case 'shove':
+        if (!(d = O(0.75, 0.1))) return;
+        this.noise(t, 0.22, d, 0.6, 'bandpass', 1400 * p, 300, 1.5);
+        this.osc('sawtooth', 160 * p, 60, t, 0.18, d, 0.2);
+        break;
+      case 'slam':
+        if (!(d = O(1.0, 0.35))) return;
+        this.noise(t, 0.3, d, 0.9, 'lowpass', 2200, 200, 1);
+        this.osc('sine', 110, 40, t, 0.35, d, 0.7);
+        this.osc('square', 220, 70, t, 0.08, d, 0.15);
+        break;
+      case 'crit':
+        if (!(d = O(0.6, 0.2))) return;
+        this.osc('square', 1500, 2400, t, 0.06, d, 0.14);
+        this.osc('triangle', 2400, 1800, t + 0.04, 0.12, d, 0.12);
+        break;
+      case 'dent':
+        if (!(d = O(0.5, 0.15))) return;
+        this.osc('triangle', 330, 220, t, 0.16, d, 0.22);
+        this.noise(t, 0.08, d, 0.3, 'highpass', 3000, null, 1);
+        break;
+      case 'dodge':
+        if (!(d = O(0.35, 0.1))) return;
+        this.osc('sine', 900, 1500, t, 0.09, d, 0.1);
+        break;
+      case 'prize':
+        if (!(d = O(0.7, 0.4))) return;
+        [0, 4, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(72 + n), null, t + i * 0.07, 0.35, d, 0.12));
+        this.noise(t + 0.2, 0.4, d, 0.1, 'bandpass', 6000, 9000, 2);
+        break;
       case 'stomp':
         if (!(d = O(0.9, 0.3))) return;
         this.osc('sine', 90, 28, t, 0.5, d, 0.7);

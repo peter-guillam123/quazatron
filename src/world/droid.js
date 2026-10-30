@@ -39,6 +39,9 @@ export class Droid {
     this.cloaked = false;
     this.dash = null;
     this.lunge = null;
+    this.swerve = null;
+    this.dodgeT = 0;
+    this.slamT = 0;
     this.stun = 0;
     this.invuln = 0;
     this.charge = 0;
@@ -67,6 +70,8 @@ export class Droid {
   }
 
   get phasing() { return this.phaseT > 0; }
+  // mid-swerve, or the first instant of a dash: bolts and rams pass through
+  get dodging() { return !!this.swerve || this.dodgeT > 0; }
   get stunned() { return this.stun > 0; }
   get heavy() { return !!this.stats.drive.heavy; }
 
@@ -156,7 +161,7 @@ export class Droid {
   damage(amount, src = {}) {
     if (!this.alive || this.state !== 'active') return 0;
     if (this.isPlayer && this.invuln > 0 && !src.force) return 0;
-    if (this.phasing && !src.force) return 0;
+    if ((this.phasing || this.dodging) && !src.force) return 0;
     if (this.shielding && src.dir && this.inFront(src.dir, this.stats.core.arc)) {
       amount *= 0.15;
     }
@@ -198,6 +203,8 @@ export class Droid {
     for (const s of SLOTS) this.cd[s] = Math.max(0, this.cd[s] - dt);
     this.stun = Math.max(0, this.stun - dt);
     this.invuln = Math.max(0, this.invuln - dt);
+    this.dodgeT = Math.max(0, this.dodgeT - dt);
+    this.slamT = Math.max(0, this.slamT - dt);
     if (this.phaseT > 0) {
       this.phaseT -= dt;
       // don't drop out of phase inside a force field
@@ -230,6 +237,7 @@ export class Droid {
     let speed = top;
     if (this.shielding) speed *= 0.55;
     if (this.charge > 0 && !this.isPlayer) speed *= 0.5;
+    if (this.isPlayer && this.mod.arm.charging) speed *= 0.45;
     if (this.hovering && this.mods.drive.id !== 'hover') speed *= 0.8;
     const tx = it.mx * speed, tz = it.mz * speed;
     if (this.dash) {
@@ -242,6 +250,11 @@ export class Droid {
       this.vel.z = this.lunge.dz * this.lunge.speed;
       this.lunge.t -= dt;
       if (this.lunge.t <= 0) { this.lunge = null; this.vel.x *= 0.5; this.vel.z *= 0.5; }
+    } else if (this.swerve) {
+      this.vel.x = this.swerve.dx * this.swerve.speed;
+      this.vel.z = this.swerve.dz * this.swerve.speed;
+      this.swerve.t -= dt;
+      if (this.swerve.t <= 0) { this.swerve = null; this.vel.x *= 0.3; this.vel.z *= 0.3; }
     } else {
       const inputMag = Math.hypot(it.mx, it.mz);
       const cur = Math.hypot(this.vel.x, this.vel.z);
@@ -258,12 +271,18 @@ export class Droid {
     let mdx = this.vel.x * dt, mdz = this.vel.z * dt;
     // KLP-2 won't roll itself off into the void. A ram, a stamp, a tractor
     // beam or a dash still can.
-    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && Math.hypot(this.vel.x, this.vel.z) <= top * 1.15 + 0.01) {
+    if (this.isPlayer && this.grounded && !this.hovering && !this.dash && (this.swerve || Math.hypot(this.vel.x, this.vel.z) <= top * 1.15 + 0.01)) {
       const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
       if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * 0.06, this.pos.z)) { mdx = 0; this.vel.x = 0; }
       if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * 0.06)) { mdz = 0; this.vel.z = 0; }
     }
+    const vx0 = this.vel.x, vz0 = this.vel.z;
     const hit = moveBody(w.grid, this, mdx, mdz);
+    // knocked flying into a wall: a slam
+    if ((hit.hitX !== -1 || hit.hitZ !== -1) && !this.dash && !this.lunge && !this.swerve) {
+      const into = Math.max(hit.hitX !== -1 ? Math.abs(vx0) : 0, hit.hitZ !== -1 ? Math.abs(vz0) : 0);
+      if (into > 5) w.onSlam(this, into, hit.hitX !== -1 ? -Math.sign(vx0) : 0, hit.hitZ !== -1 ? -Math.sign(vz0) : 0);
+    }
     if (hit.hitX !== -1) { this.onBump(hit.hitX, Math.sign(this.vel.x), 0, dt); this.vel.x *= -0.15; }
     if (hit.hitZ !== -1) { this.onBump(hit.hitZ, 0, Math.sign(this.vel.z), dt); this.vel.z *= -0.15; }
     if (hit.hitX === -1 && hit.hitZ === -1) this.pushT = 0;
@@ -373,7 +392,8 @@ export class Droid {
       stunned: this.stunned,
       shielding: this.shielding,
       visibility: vis,
-      dashing: !!this.dash,
+      dashing: !!this.dash || !!this.swerve,
+      windup: this.isPlayer && this.mod.arm.charging ? this.mod.arm.charge : 0,
       dead: this.state !== 'active',
     });
   }

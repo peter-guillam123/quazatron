@@ -668,17 +668,38 @@ function beamFade() {
 // ------------------------------------------------------------------ pickups: dropped parts, caches, chips
 export class Pickup extends Device {
   // what: { type: 'module', mod } | { type: 'cache', offer } | { type: 'chip' }
+  //     | { type: 'bale' } (scrap) | { type: 'kit' } (repair)
+  // A room's prize starts locked in a cage until the room's droids are dealt with.
   constructor(world, t, what) {
     super(world, t);
     this.kind = 'pickup';
     this.what = what;
+    this.locked = !!what.locked;
     this.pos.y = this.y + 0.45;
     this.pivot = new THREE.Group();
     this.group.position.copy(this.pos);
     this.group.add(this.pivot);
-    const colour = what.type === 'chip' ? 0xffffff : PLAYER_COLOUR;
+    const colour = what.type === 'chip' ? 0xffffff : what.type === 'bale' ? 0xffc867 : PLAYER_COLOUR;
     this.mat = glowMat(colour, 1.8);
-    if (what.type === 'chip') {
+    if (what.type === 'bale') {
+      // a bundle of scrap, strapped up
+      for (let i = 0; i < 6; i++) {
+        const b = new THREE.Mesh(G('baleBit', () => new THREE.BoxGeometry(0.13, 0.08, 0.13)), world.mats.metal);
+        b.position.set(Math.cos(i * 1.05) * 0.12, -0.06 + (i % 3) * 0.07, Math.sin(i * 1.05) * 0.12);
+        b.rotation.set(i, i * 2, 0);
+        this.pivot.add(b);
+      }
+      const band = new THREE.Mesh(G('baleBand', () => new THREE.TorusGeometry(0.2, 0.025, 8, 24)), this.mat);
+      band.rotation.x = Math.PI / 2;
+      this.pivot.add(band);
+    } else if (what.type === 'kit') {
+      // a repair kit: a lit cross
+      const a = new THREE.Mesh(G('kitA', () => new THREE.BoxGeometry(0.36, 0.11, 0.11)), this.mat);
+      const b = new THREE.Mesh(G('kitB', () => new THREE.BoxGeometry(0.11, 0.36, 0.11)), this.mat);
+      const box = new THREE.Mesh(G('kitBox', () => new THREE.BoxGeometry(0.26, 0.26, 0.08)), world.mats.metal);
+      box.position.z = -0.06;
+      this.pivot.add(box, a, b);
+    } else if (what.type === 'chip') {
       const chip = new THREE.Mesh(G('chip', () => new THREE.BoxGeometry(0.36, 0.06, 0.36)), world.mats.metal);
       const top = new THREE.Mesh(G('chipTop', () => new THREE.BoxGeometry(0.22, 0.07, 0.22)), this.mat);
       this.pivot.add(chip, top);
@@ -704,16 +725,51 @@ export class Pickup extends Device {
     this.radius = 0.3;
     this.pulled = 0;
     this.bobT = Math.random() * 10;
+    if (this.locked) this.makeCage(world);
+  }
+  makeCage(world) {
+    this.cage = new THREE.Group();
+    this.cageMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(world.deck.ink).multiplyScalar(1.8), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const bar = new THREE.Mesh(G('cageBar', () => new THREE.CylinderGeometry(0.018, 0.018, 1, 6)), this.cageMat);
+      bar.position.set(Math.cos(a) * 0.42, 0.5, Math.sin(a) * 0.42);
+      this.cage.add(bar);
+    }
+    for (const y of [0.02, 0.98]) {
+      const ring = new THREE.Mesh(G('cageRing', () => new THREE.TorusGeometry(0.42, 0.022, 6, 32)), this.cageMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = y;
+      this.cage.add(ring);
+    }
+    this.cage.position.set(this.pos.x, this.y, this.pos.z);
+    world.root.add(this.cage);
+  }
+  unlock() {
+    if (!this.locked) return;
+    this.locked = false;
+    if (this.cage) {
+      this.world.root.remove(this.cage);
+      this.cageMat.dispose();
+      this.cage = null;
+    }
+  }
+  dispose() {
+    if (this.cage) { this.world.root.remove(this.cage); this.cageMat.dispose(); this.cage = null; }
+    super.dispose();
   }
   label() {
     const w = this.what;
     if (w.type === 'chip') return 'Firmware chip';
     if (w.type === 'cache') return 'Parts cache';
+    if (w.type === 'bale') return 'Scrap bale';
+    if (w.type === 'kit') return 'Repair kit';
     return null;
   }
   update(dt) {
     this.bobT += dt;
     this.pivot.rotation.y += dt * 1.4;
+    if (this.cage) this.cage.rotation.y -= dt * 0.4;
     if (this.pulled > 0) {
       this.pulled -= dt;
       this.group.position.copy(this.pos);
