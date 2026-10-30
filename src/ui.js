@@ -9,6 +9,7 @@ import { FAMILIES, FAMILY_ORDER } from './world/roster.js';
 import { PERKS } from './perks.js';
 import { PLAYER_HEX } from './config.js';
 import { Archive } from './archive.js';
+import { Manual } from './manual.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -754,5 +755,10 @@ export class UI {
   archive(meta) {
     this.archiveBook = this.archiveBook || new Archive(this);
     this.archiveBook.open(meta);
+  }
+
+  manual(input) {
+    this.manualBook = this.manualBook || new Manual(this);
+    this.manualBook.open(input);
   }
 }

@@ -401,58 +401,7 @@ export class Game {
   }
 
   showHowto() {
-    const L = (a) => `<kbd>${this.input.label(a)}</kbd>`;
-    document.getElementById('howto-body').innerHTML = `
-      <div><h3>Controls</h3><dl>
-        <dt><kbd>WASD</kbd> / arrows</dt><dd>Move. Up is up the screen.</dd>
-        <dt><kbd>Space</kbd></dt><dd>Grapple a droid or terminal, pick things up, use the lift</dd>
-        <dt><kbd>J</kbd> or <kbd>Z</kbd></dt><dd>Use your arm part (fire, discharge, pull). With the bumper, tap to jab or hold to wind up a shove.</dd>
-        <dt><kbd>K</kbd> or <kbd>X</kbd></dt><dd>Use your drive part. Wheels swerve, thrusters dash, hover floats, treads stamp.</dd>
-        <dt><kbd>L</kbd> or <kbd>C</kbd></dt><dd>Use your core part (shield, cloak, phase)</dd>
-        <dt>${L('loadout')}</dt><dd>Parts and firmware</dd>
-        <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Zoom in and out</dd>
-        <dt>${L('pause')}</dt><dd>Pause</dd>
-      </dl><p>A gamepad works too: left stick moves, right stick aims, A grapple, X arm, B drive, Y core.</p></div>
-      <div><h3>The idea</h3>
-        <p>You are KLP-2, a small droid in a tower full of bigger ones. You can't win a straight fight, so you steal.</p>
-        <p>Get close and grapple a droid to start a hack. Win, and you can take one of its parts. Every droid is built from the parts it carries: what you see on it is what you get.</p>
-        <p>Each deck has a lift down, locked until you take its <b>◆ command droid</b>, by hack or by force.</p></div>
-      <div><h3>The hack</h3>
-        <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
-        <p>The dots next to YOU are your pulses, one per shot, with the number left beside them. Theirs are on the other side.</p>
-        <p>The bar across the top shows who owns more cells right now: get your colour past the middle mark. The fuse under it, and the clock, are the time left.</p>
-        <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
-        <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
-        <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
-        <p>Your first hacks are small boards that bring in one part at a time.</p></div>
-      <div><h3>Fighting</h3>
-        <ul><li>A cyan bracket marks the droid your arm will hit. You fire at it whichever way you're rolling, so you can back off and shoot. On a gamepad the right stick picks.</li>
-        <li>Hold the bumper to wind up a shove, and let go. Knock a droid off an edge for a ring-out, worth double scrap. Into a wall, it's slammed: hurt and stunned. Into another droid, both get it.</li>
-        <li>A stunned droid takes double damage.</li>
-        <li>Before a droid attacks it paints a warning on the floor. When the warning stops moving, get out of the way. On wheels, swerve: shots pass straight through you.</li>
-        <li>The two marks on a droid's health bar are its dent points. Below each, it hacks back with one pulser fewer. A stunned one starts late.</li>
-        <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
-        <li>A ! means a droid has seen you; a ? means it's given up looking. Two droids chatting are less watchful.</li></ul></div>
-      <div><h3>Room prizes</h3>
-        <p>Rooms with droids in them hold a prize in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens. The map shows each room's prize as a dot, hollow until it's open.</p></div>
-      <div><h3>Bounties</h3>
-        <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
-      <div><h3>KLP-1</h3>
-        <p>Once you've been at it a while, the KLP before you starts turning up: thrusters, a laser, a shield, and a grudge. Beat it in a hack three times, across as many runs as it takes, and you can bring it home.</p></div>
-      <div><h3>Your gang</h3>
-        <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
-      <div><h3>Scrap</h3>
-        <p>Wrecked droids burst into scrap, which KLP-2 picks up as it rolls past. Win a hack and you can strip the droid for scrap instead of taking a part.</p>
-        <p>Spend it at a <b>fabricator</b>, near each deck's lift, where Ledger sells repairs, spot welds and spare cells (small boosts for this run), better grades of the parts you have, and firmware.</p>
-        <p>Win a hack by four cells or more and it's a clean hack: take two parts.</p></div>
-      <div><h3>Parts</h3>
-        <p>Three sockets: drive, arm and core. Taking a part drops the old one at your feet, so you can swap back. A part's grade comes from the class of the droid you took it from.</p>
-        <p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p></div>
-      <div><h3>The Heap, and data</h3>
-        <p>When KLP-2 is destroyed, its bits go up the scrap chute to the Heap, where Nan rebuilds it. Hacking things downloads <b>data</b>, which reaches her whatever happens to you. Spend it on her bench for small permanent upgrades. Scrap only lasts for the run.</p>
-        <p>Nan keeps every part you've ever stolen: take one down the chute with you. Static talks to you on the radio between decks.</p>
-        <p><b>Today's tower</b> is the same five decks for everyone, all day. Only your first go counts, and you get a line of squares to share.</p></div>`;
-    this.ui.show('howto', { push: true });
+    this.ui.manual(this.input);
   }
 
   // ------------------------------------------------------------------ runs
