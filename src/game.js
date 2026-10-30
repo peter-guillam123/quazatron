@@ -16,7 +16,7 @@ import { generateDeck } from './world/deckgen.js';
 import { World } from './world/world.js';
 import { Grid, T } from './world/grid.js';
 import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg, roman, statDiff } from './world/modules.js';
-import { FAMILIES } from './world/roster.js';
+import { FAMILIES, BOUNTY_NAMES } from './world/roster.js';
 import { HackSession } from './hack/session.js';
 import { LESSONS } from './hack/lessons.js';
 import { HackView } from './hack/view.js';
@@ -483,6 +483,8 @@ export class Game {
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0, data: 0 },
       induction: !!opts.induction, bounties: [],
     };
+    // a different bounty name on every deck of the run
+    this.run.bountyNames = makeRng(this.run.seed ^ 0x5bd1e995).shuffle(BOUNTY_NAMES.slice());
     // KLP-1 turns up on some runs, once you've been at it a while
     const m = this.meta;
     if (!opts.daily && !opts.induction && (m.runs || 0) >= 2 && !m.klp1Turned && (Math.random() < 0.6 || (!m.klp1Met && m.runs >= 3))) {
@@ -562,7 +564,7 @@ export class Game {
     if (!heap) this.forceSeed = null;
     const induction = this.run.induction && n === 1;
     // today's tower must come out the same for everyone, whatever they carry
-    const build = generateDeck(n, makeRng(seed), { heap, induction, playerMods: this.run.daily ? null : this.run.mods });
+    const build = generateDeck(n, makeRng(seed), { heap, induction, playerMods: this.run.daily ? null : this.run.mods, bountyName: this.run.bountyNames && this.run.bountyNames[n - 1] });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
@@ -596,19 +598,32 @@ export class Game {
     this.input.clear();
     if (record) setTimeout(() => this.addData(dataFor('record'), `New deepest deck: ${n}`), 1200);
     // Static, on the radio, once the deck card has gone
-    if (n >= 2) setTimeout(() => this.radioLift(n, w), 3600);
+    if (!heap && !induction) setTimeout(() => this.radioLift(n, w), 3600);
     if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 9000);
   }
 
-  // Static's bit between decks: a remark on the last one, then what's next.
+  // Static's bit as a deck starts: a remark on the last one, what's on this
+  // one, and who has a price on their head.
   radioLift(n, w) {
     if (this.world !== w || !this.run) return;
-    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {} });
-    const remark = this.run.prev ? pick('static', 'remark', ctx) : null;
-    const intro = pick('static', 'lift', ctx);
+    const b = w.bounty;
+    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {}, bounty: b && b.alive && !b.bountyDone && b.team === 'h' ? this.bountyFacts(b) : null });
+    const remark = n >= 2 && this.run.prev ? pick('static', 'remark', ctx) : null;
+    const intro = n >= 2 ? pick('static', 'lift', ctx) : null;
+    const wanted = ctx.bounty ? pick('static', 'bounty', ctx) : null;
     if (remark) this.ui.radio('static', remark.pages[0], 5);
     if (intro) this.ui.radio('static', intro.pages[0], 6);
+    if (wanted) for (const page of wanted.pages) this.ui.radio('static', page, 6);
     saveMeta(this.meta);
+  }
+
+  // What Static can tell you about a bounty: its name, its family and the
+  // best part it carries.
+  bountyFacts(b) {
+    const m = b.mods.arm && b.mods.arm.id !== 'ram' ? b.mods.arm : b.mods.core || (b.mods.drive.id !== 'wheels' ? b.mods.drive : null);
+    const name = m ? `Mk ${roman(m.grade)} ${MODULES[m.id].name.toLowerCase()}` : '';
+    const part = !m ? 'better parts' : /s$/.test(MODULES[m.id].name) ? name : `a ${name}`;
+    return { name: b.bounty, family: b.family, familyName: FAMILIES[b.family].name, part };
   }
 
   saveRunFromPlayer() {

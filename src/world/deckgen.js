@@ -384,7 +384,10 @@ function placeDroids(n, deck, rng, rooms, opts) {
       }
       const F = FAMILIES[bounty.family];
       bounty.cls = Math.max(F.min, Math.min(F.max, hi - rng.int(0, 30)));
-      bounty.bounty = rng.pick(BOUNTY_NAMES);
+      // the run deals each deck a different name; the pick still happens so
+      // a seed's layout stays the same
+      const name = rng.pick(BOUNTY_NAMES);
+      bounty.bounty = opts.bountyName || name;
     }
   }
 

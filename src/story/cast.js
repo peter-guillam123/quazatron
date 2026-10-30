@@ -111,6 +111,22 @@ say('static', 'remark', 'That was quick. Were you even there?', { pri: 4, again:
 say('static', 'remark', 'You met KLP-1. I\'ve been trying to get it on the show for years. It doesn\'t do interviews.', { pri: 10, again: true, when: (c) => !!c.prev.klp1 });
 say('static', 'remark', 'Every machine on that deck, cyan. Show-off.', { pri: 8, again: true, when: (c) => c.prev.claimed });
 
+// naming the bounty on each deck, once the deck card has gone
+const has = (c, ...fams) => !!c.bounty && fams.includes(c.bounty.family);
+say('static', 'bounty', ['Static here, on the radio. Every deck has a bounty: one droid with a name, a gold ring and better parts than it should have.', 'On this deck it\'s {NAME}, {A} {FAMILY} with {PART}. Hack it and the part is yours.'],
+  { id: 'static.bounty1', pri: 20, when: (c) => !!c.bounty && !(c.meta.heard || {})['static.intro2'] });
+say('static', 'bounty', ['One more thing. Every deck has a bounty: one droid with a name, a gold ring and better parts than it should have.', 'On this deck it\'s {NAME}, {A} {FAMILY} with {PART}. Hack it and the part is yours.'],
+  { id: 'static.bounty1b', pri: 19, when: (c) => !!c.bounty && !(c.meta.heard || {})['static.bounty1'] });
+say('static', 'bounty', 'Bounty news. {NAME} is on this deck: {A} {FAMILY} with {PART}. Gold ring. You can\'t miss it.', { pri: 5, again: true, when: (c) => !!c.bounty });
+say('static', 'bounty', 'Somebody\'s put a price on {NAME}. {CA} {FAMILY}, carrying {PART} two grades too good for it.', { pri: 5, again: true, when: (c) => !!c.bounty });
+say('static', 'bounty', 'This deck\'s most wanted: {NAME}, {A} {FAMILY} with {PART}. Bring it down and I\'ll say your name on air.', { pri: 5, again: true, when: (c) => !!c.bounty });
+say('static', 'bounty', 'Word on the wire: {NAME}\'s down here somewhere. {CA} {FAMILY} with {PART}, and very pleased with itself.', { pri: 5, again: true, when: (c) => !!c.bounty });
+say('static', 'bounty', '{NAME} has {PART} and thinks that makes it clever. {CA} {FAMILY}, shield up. Go round the side.', { pri: 6, again: true, when: (c) => has(c, 'warden', 'sentinel', 'lancer', 'archon') && Math.random() < 0.6 });
+say('static', 'bounty', '{NAME} is on this deck. Probably. {CA} {FAMILY} with {PART}, and a cloak. If the air shimmers, that\'s your bounty.', { pri: 6, again: true, when: (c) => has(c, 'phantom', 'reaper') && Math.random() < 0.6 });
+say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. It\'ll come to you, fast. Step aside and shove it into a wall.', { pri: 6, again: true, when: (c) => has(c, 'courier', 'wraith') && Math.random() < 0.6 });
+say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. Don\'t let it get close. Or do, and shove first.', { pri: 6, again: true, when: (c) => has(c, 'tesla', 'overseer') && Math.random() < 0.6 });
+say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. It\'ll try to pull you off an edge. Keep a wall behind you.', { pri: 6, again: true, when: (c) => has(c, 'crane', 'reaper') && Math.random() < 0.6 });
+
 say('static', 'talk', 'I broadcast to anything with an aerial. Mostly that\'s you and a toaster on Reactor.', { pri: 10 });
 say('static', 'talk', 'Nan pretends she doesn\'t watch your runs. She watches every one.', { pri: 9 });
 say('static', 'talk', 'The Mainframe listens to my show, you know. It\'s never phoned in.', { pri: 8 });
@@ -167,7 +183,12 @@ function fill(text, c) {
     .replace('{LASTRINGOUTS}', String(lr.ringouts || 0))
     .replace('{BOUNTY}', (c.prev && c.prev.bounty) || 'the bounty')
     .replace('{RINGOUTS}', String((c.prev && c.prev.ringouts) || 0))
-    .replace('{DATA}', String(c.meta.data || 0));
+    .replace('{DATA}', String(c.meta.data || 0))
+    .replaceAll('{NAME}', (c.bounty && c.bounty.name) || 'the bounty')
+    .replaceAll('{FAMILY}', (c.bounty && c.bounty.familyName) || 'droid')
+    .replaceAll('{PART}', (c.bounty && c.bounty.part) || 'better parts')
+    .replaceAll('{CA}', (c.bounty && /^[AEIOU]/.test(c.bounty.familyName) ? 'An' : 'A'))
+    .replaceAll('{A}', (c.bounty && /^[AEIOU]/.test(c.bounty.familyName) ? 'an' : 'a'));
 }
 
 // The best thing for `who` to say about `on`, given context c (which must
