@@ -218,6 +218,23 @@ export class DroidModel {
     }
     this.height = top;
 
+    // stars that circle a stunned droid's head
+    if (!s.player) {
+      this.stars = new THREE.Group();
+      this.stars.position.y = top + 0.12;
+      const starMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffe27a).multiplyScalar(2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+      this.mats.star = starMat;
+      for (let i = 0; i < 3; i++) {
+        const st = new THREE.Mesh(G('star', () => new THREE.OctahedronGeometry(0.045)), starMat);
+        const a = (i / 3) * TAU;
+        st.position.set(Math.cos(a) * 0.2, 0, Math.sin(a) * 0.2);
+        st.castShadow = false;
+        this.stars.add(st);
+      }
+      this.stars.visible = false;
+      b.add(this.stars);
+    }
+
     this.body.position.y = lift;
     const sc = s.scale || 1;
     this.group.scale.setScalar(sc);
@@ -264,9 +281,11 @@ export class DroidModel {
     if (this.coilBall) this.coilBall.scale.setScalar(1 + (info.charge || 0) * 1.2 + Math.sin(this.t * 20) * 0.05 * (info.charge || 0));
     if (this.tractorCore) this.tractorCore.scale.setScalar(1 + (info.charge || 0) * 1.5);
     if (this.bubble) this.bubble.visible = !!info.shielding;
-    // the visor turns to watch what the droid is watching
+    if (!info.dead && !this.spec.player) this.manner(dt, info);
+    else if (this.stars) this.stars.visible = false;
+    // the visor turns to watch what the droid is watching, or looks round
     if (this.visor) {
-      const look = Math.max(-0.9, Math.min(0.9, info.look || 0));
+      const look = Math.max(-0.9, Math.min(0.9, this.scan ?? info.look ?? 0));
       this.visor.rotation.y += (look - this.visor.rotation.y) * Math.min(1, dt * 6);
     }
 
@@ -296,10 +315,69 @@ export class DroidModel {
       for (const k of ['shell', 'dark', 'metal', 'accent']) this.mats[k].opacity = vis;
     }
 
-    this.group.rotation.y = info.facing ?? this.group.rotation.y;
+    this.group.rotation.y = (info.facing ?? this.group.rotation.y) + (this.cheerSpin || 0);
   }
 
-  hit() { this.flash = 1; }
+  // Body language, by family: how it moves when nothing much is happening,
+  // and how it reacts when something is.
+  manner(dt, info) {
+    const t = this.t, b = this.body;
+    const moving = (info.speed || 0) > 0.4;
+    const k = info.still ? 0.35 : 1;
+    let rx = 0, rz = 0, dx = 0, dy = 0;
+    this.scan = null;
+    switch (this.spec.family) {
+      case 'mite':
+        // sweeps as it goes; shakes when it runs
+        if (moving && info.mood !== 'chase') rz = Math.sin(t * 9) * 0.07;
+        if (info.fleeing && !info.still) { dx = (Math.random() - 0.5) * 0.025; rz = Math.sin(t * 31) * 0.05; }
+        break;
+      case 'courier':
+        // can't keep still: revving on the spot
+        dy = Math.abs(Math.sin(t * 15)) * 0.012;
+        break;
+      case 'hauler': case 'sentinel':
+        rz = Math.sin(t * 1.3) * 0.03;
+        break;
+      case 'spark': case 'skimmer': case 'archon':
+        // sentries look round while they wait
+        if (info.mood === 'patrol') this.scan = Math.sin(t * 0.9) * 0.8;
+        break;
+      case 'phantom': case 'reaper':
+        rx = Math.sin(t * 0.7) * 0.05; rz = Math.cos(t * 0.6) * 0.04;
+        break;
+      case 'lancer':
+        rx = -0.05;   // chest out
+        break;
+      case 'wraith':
+        // twitchy: a quick glance every so often
+        if (info.mood === 'patrol') this.scan = Math.sin(t * 0.5) > 0.6 ? 0.8 : Math.sin(t * 0.5) < -0.6 ? -0.8 : 0;
+        break;
+      default: break;
+    }
+    // leans in when it's coming for you
+    if (info.mood === 'chase' && moving && !info.fleeing) rx += Math.min(0.09, info.speed * 0.02);
+    // knocked back a little by a hit
+    this.hitTilt = Math.max(0, (this.hitTilt || 0) - dt * 4);
+    rx -= this.hitTilt * 0.22;
+    // dizzy while stunned
+    if (this.stars) this.stars.visible = !!info.stunned;
+    if (info.stunned) {
+      rx += Math.sin(t * 7) * 0.1 * k; rz += Math.cos(t * 7) * 0.1 * k;
+      this.stars.rotation.y = info.still ? 0 : t * 5;
+    }
+    // a quick spin to celebrate
+    if (this.cheerT > 0) {
+      this.cheerT = Math.max(0, this.cheerT - dt);
+      this.cheerSpin = (1 - this.cheerT / 0.7) * Math.PI * 2;
+    } else this.cheerSpin = 0;
+    b.rotation.x = rx * k; b.rotation.z = rz * k;
+    b.position.x = dx;
+    b.position.y += dy * k;
+  }
+
+  hit() { this.flash = 1; this.hitTilt = 1; }
+  cheer() { this.cheerT = 0.7; }
   kick(k = 1) { this.kickT = 0.09; this.kickK = k; }
 
   dispose() {

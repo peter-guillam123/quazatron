@@ -120,6 +120,7 @@ export class Droid {
       core: this.mods.core ? this.mods.core.id : null,
       player: this.isPlayer,
       command: this.command,
+      family: this.family,
     };
     const old = this.model;
     this.model = new DroidModel(spec);
@@ -337,6 +338,13 @@ export class Droid {
         -this.vel.x * 0.1, 0.3 + Math.random() * 0.3, -this.vel.z * 0.1, DUST, 0.5, 0.16, -0.4, 2.5);
     }
 
+    // a Tesla can't keep its charge to itself
+    if (this.family === 'tesla' && !this.cloaked && Math.random() < dt * 2.5 && w.player && this.pos.distanceTo(w.player.pos) < 9) {
+      const top = this.pos.clone(); top.y += this.model.height * 0.95;
+      const a = Math.random() * Math.PI * 2;
+      w.fx.lightning(top, top.clone().add(new THREE.Vector3(Math.cos(a) * 0.35, -0.25 - Math.random() * 0.2, Math.sin(a) * 0.35)), this.accent, 0.08, 0.03);
+    }
+
     this.syncModel(dt);
   }
 
@@ -394,6 +402,9 @@ export class Droid {
       visibility: vis,
       dashing: !!this.dash || !!this.swerve,
       windup: this.isPlayer && this.mod.arm.charging ? this.mod.arm.charge : 0,
+      mood: this.brain ? this.brain.state : null,
+      fleeing: !!(this.brain && this.brain.fleeing && this.brain.state === 'chase'),
+      still: this.world.game.reducedMotion,
       dead: this.state !== 'active',
     });
   }

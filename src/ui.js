@@ -357,6 +357,15 @@ export class UI {
     return p;
   }
 
+  // A symbol over a droid's head that follows it: ! seen you, ? lost you, z asleep.
+  emote(d, text, cls) {
+    const p = this.pop(d.pos, text, `emote ${cls}`);
+    p.d = d;
+    p.life = 1.1;
+    p.dx = 0;
+    return p;
+  }
+
   unpop(p) {
     const i = this.pops ? this.pops.indexOf(p) : -1;
     if (i >= 0) { p.el.remove(); this.pops.splice(i, 1); }
@@ -370,6 +379,7 @@ export class UI {
       const p = this.pops[i];
       p.t += dt;
       if (p.t > p.life) { p.el.remove(); this.pops.splice(i, 1); continue; }
+      if (p.d) { p.at.copy(p.d.pos); p.at.y += p.d.model.height + 0.3; }
       renderer.project(p.at, out);
       const k = p.t / p.life;
       const rise = still ? 0 : 30 * (1 - (1 - k) * (1 - k));
