@@ -205,6 +205,11 @@ export class Audio {
         if (!(d = O(0.35, 0.1))) return;
         this.osc('sine', 900, 1500, t, 0.09, d, 0.1);
         break;
+      case 'prize':
+        if (!(d = O(0.7, 0.4))) return;
+        [0, 4, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(72 + n), null, t + i * 0.07, 0.35, d, 0.12));
+        this.noise(t + 0.2, 0.4, d, 0.1, 'bandpass', 6000, 9000, 2);
+        break;
       case 'stomp':
         if (!(d = O(0.9, 0.3))) return;
         this.osc('sine', 90, 28, t, 0.5, d, 0.7);

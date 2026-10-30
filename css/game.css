@@ -75,6 +75,9 @@ button, .button { font: inherit; }
 .claim-pc { font-size: 11px; color: #8f98ab; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hud-clearance { font-size: 12px; color: #b8c0cf; margin-top: 5px; }
 .hud-clearance.ok { color: var(--you); }
+.hud-room { font-size: 12px; color: #dfe4ee; margin-top: 3px; }
+.hud-room:empty { display: none; }
+.hud-room.open { color: var(--you); }
 .hud-bounty { font-size: 12px; color: #ffcf6e; margin-top: 3px; }
 .hud-bounty:empty { display: none; }
 .hud-bounty.done { color: var(--muted); }
@@ -136,6 +139,7 @@ body.reduced .banner { animation: none; }
 .pop.word.slam { color: #fff; font-size: 17px; text-shadow: 0 1px 0 #000, 0 0 12px rgba(255, 140, 60, 0.9); }
 .pop.word.dent { color: #ffc067; font-size: 12px; }
 .pop.word.dodge { color: var(--you); font-size: 12px; }
+.pop.word.clear { color: #fff; font-size: 16px; text-shadow: 0 1px 0 #000, 0 0 12px rgba(46, 242, 255, 0.9); }
 .label.cmd { color: #fff; }
 .label.cmd::before { content: '◆ '; color: var(--ink); }
 .label.bounty { color: #ffcf6e; }

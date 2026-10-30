@@ -36,7 +36,7 @@ function fakeGame(run) {
     addScrap: (n) => { run.scrap = (run.scrap || 0) + n; }, ringOut: () => { run.ringouts = (run.ringouts || 0) + 1; },
     bountyClaimed: (d) => { if (d.bountyDone) return; d.bountyDone = true; run.bounties = (run.bounties || 0) + 1; },
     allyLost: noop, say: noop, onDroidHurt: noop, onSpotted: noop,
-    hitFeedback: noop, word: noop, dodged: noop,
+    hitFeedback: noop, word: noop, dodged: noop, prizeUnlocked: (room) => { run.prizes = (run.prizes || 0) + 1; },
     state: 'play', hitStop: 0,
   };
   return g;

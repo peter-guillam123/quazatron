@@ -76,6 +76,7 @@ export class World {
     this.signs = (build.signs || []).map((sg) => new FloorSign(this.root, sg, game.input ? game.input.lastDevice : 'keyboard'));
     this.makeDroids(build.droids);
     if (this.bounty) this.makeBountyMarker();
+    this.makePrizes();
     this.makePlayer(run);
     this.claimTotal = this.droids.filter((d) => !d.isPlayer).length
       + this.devices.filter((d) => d.kind === 'turret' || d.kind === 'terminal' || d.kind === 'archive').length;
@@ -173,6 +174,41 @@ export class World {
     if (beam.visible) {
       beam.position.copy(b.pos);
       beam.material.opacity = Math.min(1, this.bountyBeamT / 0.6) * 0.35;
+    }
+  }
+
+  // Each fighting room's prize, caged until its droids are dealt with.
+  makePrizes() {
+    this.prizeT = 0;
+    for (const room of this.build.rooms) {
+      if (!room.prize || !room.prizeAt) continue;
+      const at = room.prizeAt;
+      const what = { type: room.prize, locked: true, room: room.index };
+      if (room.prize === 'cache') what.offer = room.prizeOffer;
+      const k = new Pickup(this, { t: 'prize', x: at.x, z: at.z, h: at.h, room: room.index, ch: '' }, what);
+      this.pickups.push(k);
+      room.prizePickup = k;
+    }
+  }
+
+  // Droids still standing between you and a room's prize.
+  roomGuards(index) {
+    let n = 0;
+    for (const d of this.droids) if (d.room === index && d.team === 'h' && d.alive && d.state === 'active') n++;
+    return n;
+  }
+
+  updatePrizes(dt) {
+    this.prizeT -= dt;
+    if (this.prizeT > 0) return;
+    this.prizeT = 0.3;
+    for (const room of this.build.rooms) {
+      const k = room.prizePickup;
+      if (!k || !k.locked || !room.visited) continue;
+      if (this.roomGuards(room.index) === 0) {
+        k.unlock();
+        this.game.prizeUnlocked?.(room, k);
+      }
     }
   }
 
@@ -353,7 +389,7 @@ export class World {
     if (d.isPlayer) {
       for (const o of this.hostilesOf(d)) if (o.kind === 'droid') consider(o, 'droid');
       for (const c of this.crates) if (!c.removed && !c.heavy) consider(c, 'crate');
-      for (const p of this.pickups) consider(p, 'pickup');
+      for (const p of this.pickups) if (!p.locked) consider(p, 'pickup');
     } else {
       const t = d.brain && d.brain.target;
       if (t && t.kind === 'droid' && t.alive && !t.cloaked) consider(t, 'droid');
@@ -751,6 +787,7 @@ export class World {
   pickupNear(p) {
     let best = null, bd = 0.9;
     for (const k of this.pickups) {
+      if (k.locked) continue;
       const dist = Math.hypot(k.pos.x - p.pos.x, k.pos.z - p.pos.z);
       if (dist < bd && Math.abs(k.pos.y - 0.45 - p.pos.y) < 0.8) { bd = dist; best = k; }
     }
@@ -837,6 +874,7 @@ export class World {
     for (const k of this.pickups) k.update(dt);
     this.scrap.update(dt);
     this.updateBountyMarker(dt);
+    this.updatePrizes(dt);
     this.evaluateChannels();
 
     // which room are we in?

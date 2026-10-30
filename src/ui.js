@@ -22,7 +22,7 @@ export class UI {
       hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'), pips: $('#hud-pips'),
       valIntegrity: $('#val-integrity'), valEnergy: $('#val-energy'), statIntegrity: $('#stat-integrity'),
       claimPc: $('#hud-claim-pc'), gangRow: $('#hud-gang-row'),
-      deck: $('#hud-deck'), gang: $('#hud-gang'), bounty: $('#hud-bounty'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
+      deck: $('#hud-deck'), gang: $('#hud-gang'), bounty: $('#hud-bounty'), room: $('#hud-room'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
       fade: $('#fade'), deckCard: $('#deck-card'), scrap: $('#hud-scrap'), banner: $('#banner'),
@@ -251,6 +251,14 @@ export class UI {
       cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
       cl.classList.toggle('ok', world.clearance);
     }
+    // this room's prize, and what stands between you and it
+    const room = world.roomNow >= 0 ? world.build.rooms[world.roomNow] : null;
+    const k = room && room.prizePickup && !room.prizePickup.removed ? room.prizePickup : null;
+    let rt = '';
+    if (k && k.locked) { const n = world.roomGuards(room.index); rt = `Room prize: ${k.label().toLowerCase()} · ${n} droid${n === 1 ? '' : 's'} to deal with`; }
+    else if (k) rt = `Room clear: ${k.label().toLowerCase()} is yours`;
+    if (this.el.room.textContent !== rt) this.el.room.textContent = rt;
+    this.el.room.classList.toggle('open', !!k && !k.locked);
     const b = world.bounty;
     const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `★ Bounty claimed: ${b.bounty}` : `★ Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}${b.spotted ? '' : ', not yet found'}`;
     if (this.el.bounty.textContent !== bt) this.el.bounty.textContent = bt;
@@ -449,6 +457,14 @@ export class UI {
       else if (r.role === 'archive' && r.visited) { ctx.fillStyle = '#ffffff'; ctx.fillText('A', x, y); }
       else if (r.role === 'repair' && r.visited) { ctx.fillStyle = PLAYER_HEX; ctx.fillText('+', x, y); }
       else if (r.role === 'boss') { ctx.fillStyle = ink; ctx.fillText('999', x, y); }
+      // the room's prize: a hollow dot while caged, filled once it's open
+      const k = r.prizePickup;
+      if (k && !k.removed) {
+        ctx.beginPath();
+        ctx.arc(x + s * 0.3, y + s * 0.3, 2.6, 0, Math.PI * 2);
+        const col = { bale: '#ffc867', kit: PLAYER_HEX, cache: '#ffffff', chip: '#ffe9b0' }[k.what.type] || '#fff';
+        if (k.locked) { ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.stroke(); } else { ctx.fillStyle = col; ctx.fill(); }
+      }
       // the bounty, once you've seen it
       if (r.index === bountyRoom) { ctx.font = '700 11px "IBM Plex Mono", monospace'; ctx.fillStyle = '#ffcf6e'; ctx.fillText('★', x + s * 0.28, y - s * 0.28); }
     }

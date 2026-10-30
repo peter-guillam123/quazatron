@@ -409,6 +409,8 @@ export class Game {
         <li>Before a droid attacks it paints a warning on the floor. When the warning stops moving, get out of the way. On wheels, swerve: shots pass straight through you.</li>
         <li>The two marks on a droid's health bar are its dent points. Below each, it hacks back with one pulser fewer. A stunned one starts late.</li>
         <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li></ul></div>
+      <div><h3>Room prizes</h3>
+        <p>Rooms with droids in them hold a prize in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens. The map shows each room's prize as a dot, hollow until it's open.</p></div>
       <div><h3>Bounties</h3>
         <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
       <div><h3>Your gang</h3>
@@ -844,7 +846,32 @@ export class Game {
       this.state = 'menu';
     } else if (what.type === 'chip') {
       this.offerFirmware('chip', k);
+    } else if (what.type === 'bale') {
+      const n = 6 + 3 * Math.min(5, this.run.deck);
+      w.removePickup(k);
+      w.scrap.burst(k.pos, n, { pull: 3, speed: 1.6 });
+      this.audio.play('crate', { at: k.pos });
+      this.toast(`Scrap bale: ${n} scrap`);
+    } else if (what.type === 'kit') {
+      const p = w.player;
+      w.removePickup(k);
+      p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.3);
+      w.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
+      this.audio.play('repair', { at: p.pos });
+      this.toast('Repair kit: patched up');
     }
+  }
+
+  // A room's droids are all dealt with: its prize comes out of the cage.
+  prizeUnlocked(room, k) {
+    const w = this.world;
+    const at = k.pos.clone(); at.y += 0.6;
+    w.fx.ring(k.pos.clone().setY(k.y), PLAYER_COLOUR, 1.6, 0.6);
+    w.fx.burst(at, PLAYER_COLOUR, 22, 2.4, 0.7, 0.1, -1);
+    this.word(at, 'ROOM CLEAR', 'clear');
+    this.audio.play('prize', { at: k.pos });
+    this.ui.announce(`Room clear. ${k.label()} unlocked.`);
+    this.hintOnce('prize', `Room clear. Its prize is out of the cage: roll over to the ${k.label().toLowerCase()} and press <b>${this.input.label('grapple')}</b>.`, 7);
   }
 
   offerFirmware(source, pickup) {
