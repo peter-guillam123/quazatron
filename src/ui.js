@@ -161,6 +161,7 @@ export class UI {
   banner(title, sub = '', tone = '') {
     const b = this.el.banner;
     b.classList.toggle('gold', tone === 'gold');
+    b.classList.toggle('rival', tone === 'rival');
     b.firstElementChild.textContent = title;
     b.lastElementChild.textContent = sub;
     b.hidden = true;
@@ -462,7 +463,8 @@ export class UI {
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
       const dent = d.team === 'k' ? 0 : d.dentShown || 0;
-      const txt = d.npc ? d.npc.name : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}${dent ? ` −${dent}` : ''}`;
+      const txt = d.npc ? d.npc.name : d.family === 'klp1' ? `KLP-1${dent ? ` −${dent}` : ''}` : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}${dent ? ` −${dent}` : ''}`;
+      el.classList.toggle('rival', d.family === 'klp1' && d.team !== 'k');
       el.classList.toggle('npc', !!d.npc);
       if (d.npc) el.style.color = `#${d.accent.toString(16).padStart(6, '0')}`; else el.style.color = '';
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
@@ -664,6 +666,17 @@ export class UI {
     </button>`;
   }
 
+  // KLP-1 won't join a gang. Beat it enough times and it'll go home instead.
+  homeCard(wins, need) {
+    const ready = wins >= need;
+    return `<button class="card turn${ready ? '' : ' dim'}" data-act="${ready ? 'home' : 'notyet'}"${ready ? '' : ' aria-disabled="true"'}>
+      <span class="slot-tag">KLP-1</span>
+      <span class="card-head">${iconSvg('gang', 26)}${ready ? 'Bring it home' : 'Not yet'}</span>
+      <span class="line">${ready ? 'KLP-1 goes up the chute to the Heap, to Nan. It won\'t come for you again.' : 'It won\'t follow you, and it won\'t go home. Not yet.'}</span>
+      <span class="swap">Beaten in a hack ${Math.min(wins, need)} of ${need} times</span>
+    </button>`;
+  }
+
   perkCard(id) {
     const p = PERKS[id];
     return `<button class="card" data-act="perk" data-id="${id}">
@@ -727,7 +740,7 @@ export class UI {
     $('#archive-body').innerHTML = FAMILY_ORDER.map((k) => {
       const F = FAMILIES[k];
       const a = meta.archive[k];
-      if (!a) return `<div class="droid unknown"><h3>Unknown <span>${F.min}–${F.max}</span></h3><p>Not yet seen.</p></div>`;
+      if (!a) return `<div class="droid unknown"><h3>Unknown <span>${F.rival ? '???' : `${F.min}–${F.max}`}</span></h3><p>Not yet seen.</p></div>`;
       const parts = [F.drive, F.arm, F.core].filter(Boolean).map((m) => `<span title="${esc(MODULES[m].name)}">${iconSvg(m, 20)}</span>`).join('');
       const names = [F.drive, F.arm, F.core].filter(Boolean).map((m) => MODULES[m].name).join(', ');
       return `<div class="droid"><h3>${esc(F.name)} <span>${F.min}–${F.max}</span></h3>

@@ -108,6 +108,7 @@ say('static', 'remark', 'Not one hack on that deck. Nan won\'t like that. She ru
 say('static', 'remark', 'You sound rough. There\'s a fabricator by every lift. Ledger will patch you up, at a price.', { pri: 6, again: true, when: (c) => c.prev.hurt });
 say('static', 'remark', 'You and your gang. You\'re a proper crowd now.', { pri: 5, when: (c) => c.prev.gang >= 2 });
 say('static', 'remark', 'That was quick. Were you even there?', { pri: 4, again: true, when: (c) => c.prev.time < 80 });
+say('static', 'remark', 'You met KLP-1. I\'ve been trying to get it on the show for years. It doesn\'t do interviews.', { pri: 10, again: true, when: (c) => !!c.prev.klp1 });
 say('static', 'remark', 'Every machine on that deck, cyan. Show-off.', { pri: 8, again: true, when: (c) => c.prev.claimed });
 
 say('static', 'talk', 'I broadcast to anything with an aerial. Mostly that\'s you and a toaster on Reactor.', { pri: 10 });
@@ -146,6 +147,14 @@ for (const [n, text] of Object.entries(MF)) say('mainframe', 'deck', text, { pri
 say('mainframe', 'deck', 'YOU AGAIN.', { pri: 6, again: true, when: (c) => c.deck === 1 && (c.meta.runs || 0) >= 3 && Math.random() < 0.5 });
 say('mainframe', 'deck', 'THE CHUTE IS NOT AN ENTRANCE.', { id: 'mf.chute', pri: 7, when: (c) => c.deck === 1 && (c.meta.runs || 0) >= 5 });
 say('mainframe', 'deck', 'WE HAVE MET. I REMEMBER IT DIFFERENTLY.', { pri: 8, again: true, when: (c) => c.deck === 6 && (c.meta.wins || 0) >= 1 });
+
+// ---------------------------------------------------------------- KLP-1, once it's home
+say('klp1', 'talk', ['Nan says I can stay.', 'I\'m not sure I want to. I\'ll stay anyway.'], { pri: 10 });
+say('klp1', 'talk', 'I went down the chute first. Nobody rebuilt me. I rebuilt myself, out of whatever I could take. Badly.', { pri: 9 });
+say('klp1', 'talk', 'You hack like her. Nan, I mean. She taught me too, before.', { pri: 8 });
+say('klp1', 'talk', 'Wardens. Go round, never through. I learnt that the expensive way.', { pri: 7 });
+say('klp1', 'talk', 'Static still talks too much.', { pri: 0, again: true });
+say('klp1', 'talk', 'Go on, then, Two. I\'ll be here.', { pri: 0, again: true });
 
 export const STORY = L;
 

@@ -27,6 +27,7 @@ import { makeRng, randomSeed } from './rng.js';
 import { line, CHATS } from './lines.js';
 import { runStats, dataFor, BENCH, rank, nextCost, cheapest } from './progress.js';
 import { pick, hasNew } from './story/cast.js';
+import { frontPage } from './story/gazette.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
@@ -435,6 +436,8 @@ export class Game {
         <p>Rooms with droids in them hold a prize in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens. The map shows each room's prize as a dot, hollow until it's open.</p></div>
       <div><h3>Bounties</h3>
         <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
+      <div><h3>KLP-1</h3>
+        <p>Once you've been at it a while, the KLP before you starts turning up: thrusters, a laser, a shield, and a grudge. Beat it in a hack three times, across as many runs as it takes, and you can bring it home.</p></div>
       <div><h3>Your gang</h3>
         <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
       <div><h3>Scrap</h3>
@@ -480,8 +483,35 @@ export class Game {
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0, data: 0 },
       induction: !!opts.induction, bounties: [],
     };
+    // KLP-1 turns up on some runs, once you've been at it a while
+    const m = this.meta;
+    if (!opts.daily && !opts.induction && (m.runs || 0) >= 2 && !m.klp1Turned && (Math.random() < 0.6 || (!m.klp1Met && m.runs >= 3))) {
+      this.run.klp1Deck = 2 + Math.floor(Math.random() * 4);
+    }
     this.disposeTitleScene();
     this.loadDeck(1);
+  }
+
+  // KLP-1 drops into the room: the KLP before you, as a mini-boss.
+  spawnKlp1(room) {
+    const w = this.world, r = this.run, p = w.player;
+    const at = w.freeSpotNear(new THREE.Vector3(room.cx + 0.5, p.pos.y, room.cz + 0.5), 1.2) || w.freeSpotNear(p.pos, 3);
+    if (!at) return;
+    r.klp1Seen = true;
+    const cls = 300 + 110 * r.deck;
+    const d = w.spawnDroid('klp1', cls, at.x, at.z, { accent: 0xff6a5a, look: { shape: 'player', shell: 0x6b7380, label: 'K-1' } });
+    d.maxIntegrity *= 1.5; d.integrity = d.maxIntegrity;
+    d.brain.target = p;
+    const first = !this.meta.klp1Met;
+    this.meta.klp1Met = (this.meta.klp1Met || 0) + 1;
+    saveMeta(this.meta);
+    if (r.deckStats) r.deckStats.klp1 = true;
+    this.ui.banner('KLP-1', first ? 'The first of you' : `Meeting ${this.meta.klp1Met}`, 'rival');
+    this.audio.play('spawn', { at: d.pos });
+    w.fx.ring(d.pos, 0xff6a5a, 2.2, 0.7);
+    setTimeout(() => { if (d.alive) this.speak(d, first ? 'SO NAN BUILT ANOTHER ONE.' : line('spot', 'klp1'), true); }, 900);
+    this.ui.announce(first ? 'KLP-1 is here: the KLP before you.' : 'KLP-1 is back.');
+    setTimeout(() => this.hintOnce('klp1', 'KLP-1: the KLP before you, with thrusters, a laser and a shield. Beat it in a hack and it might listen.', 8), 3400);
   }
 
   // A run-shaped stand-in for the time spent in the Heap.
@@ -671,7 +701,7 @@ export class Game {
     const t = it.target;
     let name, sub = '';
     if (t.kind === 'droid') {
-      name = `${FAMILIES[t.family].name} ${t.cls}`;
+      name = t.family === 'klp1' ? 'KLP-1' : `${FAMILIES[t.family].name} ${t.cls}`;
       const p = this.world.player;
       const hurt = 1 - t.integrity / t.maxIntegrity;
       const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
@@ -800,6 +830,7 @@ export class Game {
         }
         this.powerDown(t);
         this.say(t, 'beaten', true);
+        if (t.family === 'klp1') { this.meta.klp1Wins = (this.meta.klp1Wins || 0) + 1; this.addData(4, 'KLP-1 hacked'); saveMeta(this.meta); }
         // win by four or more and it's a clean hack: two parts, or a bonus
         const clean = session.roundsTotal === 1 && session.margin >= 4;
         if (clean && offers.length < 2) {
@@ -838,7 +869,7 @@ export class Game {
 
   showSalvage() {
     const o = this.offerState, t = o.target, p = this.world.player;
-    const name = `${FAMILIES[t.family].name} ${t.cls}`;
+    const name = t.family === 'klp1' ? 'KLP-1' : `${FAMILIES[t.family].name} ${t.cls}`;
     let title, lede;
     if (o.taken) {
       title = 'One more part';
@@ -850,9 +881,10 @@ export class Game {
       else if (o.picks > 1) lede = 'You won by four cells or more, so take two parts. Or turn it, or strip it for scrap.';
       else if (first) lede = 'Take a part: it goes in the matching socket, and anything it replaces drops at your feet. Or turn the droid to your side, or strip it for scrap.';
       else lede = 'Take a part, turn it to your side, or strip it for scrap.';
+      if (t.family === 'klp1') lede = 'Beaten, for now. Take one of its parts, or strip it for scrap. It won\'t join a gang.';
     }
     const cards = o.offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot]));
-    if (!o.taken) cards.push(this.ui.turnCard(t, this.world.allies(), GANG_MAX));
+    if (!o.taken) cards.push(t.family === 'klp1' ? this.ui.homeCard(this.meta.klp1Wins || 0, 3) : this.ui.turnCard(t, this.world.allies(), GANG_MAX));
     this.ui.offer({
       title, lede, cards,
       extra: o.taken ? '<button data-act="leave">Done</button>' : `<button data-act="strip">Strip it for ${o.strip} scrap</button>`,
@@ -1018,6 +1050,18 @@ export class Game {
     } else if (act === 'perk') {
       this.addPerk(el.dataset.id);
       if (o.pickup) this.world.removePickup(o.pickup);
+    } else if (act === 'notyet') {
+      return;
+    } else if (act === 'home') {
+      // up the chute it goes, to Nan
+      const t = o.target;
+      this.meta.klp1Turned = true;
+      saveMeta(this.meta);
+      this.world.fx.burst(t.pos.clone().setY(t.pos.y + 0.5), 0xff6a5a, 30, 3, 1, 0.12, -2);
+      t.downT = Math.max(t.downT || 0, 3.2);
+      this.ui.banner('KLP-1 goes home', 'Up the chute, to the Heap', 'rival');
+      this.audio.play('turn', { at: t.pos });
+      this.ui.announce('KLP-1 has gone up the chute to the Heap. It won\'t come for you again.');
     } else if (act === 'turn') {
       this.turnDroid(o.target);
     } else if (act === 'strip') {
@@ -1463,7 +1507,8 @@ export class Game {
 
   onEnterRoom(room, first) {
     if (!first) return;
-    if (!room.signs && room.role !== 'start') this.overhear(room);
+    if (this.run && this.run.klp1Deck === this.run.deck && !this.run.klp1Seen && room.role === 'combat') this.spawnKlp1(room);
+    else if (!room.signs && room.role !== 'start') this.overhear(room);
     if (room.signs) {
       // read the floor signs out, with the right keys in
       const keys = (t) => t.replace(/\{(\w+)\}/g, (m, k) => (k === 'move' ? (this.input.lastDevice === 'pad' ? 'Left stick' : 'WASD or the arrow keys') : this.input.label(k)));
@@ -1528,7 +1573,7 @@ export class Game {
       const ds = this.run.deckStats || {};
       this.run.prev = {
         hacked: ds.hacked || 0, ringouts: ds.ringouts || 0, bounty: ds.bounty, time: this.run.stats.time - (ds.t0 || 0),
-        hurt: p.integrity < p.maxIntegrity * 0.35, gang: w.allies().length, claimed: !!w.fullyClaimed,
+        hurt: p.integrity < p.maxIntegrity * 0.35, gang: w.allies().length, claimed: !!w.fullyClaimed, klp1: !!ds.klp1,
       };
       this.run.deck += 1;
       this.saveRunFromPlayer();
@@ -1612,10 +1657,15 @@ export class Game {
     this.ui.showHud(false);
     this.ui.setPrompt(null);
     const mins = Math.floor(r.stats.time / 60), secs = Math.floor(r.stats.time % 60);
-    document.getElementById('end-h').textContent = won ? 'The tower is yours' : how === 'abandoned' ? 'Run abandoned' : 'KLP-2 destroyed';
-    document.getElementById('end-lede').textContent = won
-      ? 'The Mainframe went quiet and every light in the tower turned cyan. Not bad for a droid that started with wheels and a bumper.'
-      : `It got as far as deck ${r.deck}, ${DECKS[r.deck - 1].name}. The archive keeps what it learned.`;
+    // the run, as the front page of the tower's newspaper
+    const page = frontPage(r, this.meta, how);
+    document.getElementById('end-h').textContent = page.head;
+    document.getElementById('end-lede').textContent = page.stand;
+    document.getElementById('gz-body').innerHTML = page.body.map((t) => `<p>${t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>`).join('');
+    document.getElementById('gz-edition').textContent = r.daily ? 'Today\'s tower edition' : page.edition;
+    document.getElementById('gz-date').textContent = prettyDate(today());
+    document.getElementById('gz-weather').textContent = page.weather;
+    document.getElementById('gz-classified').textContent = page.classified;
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],

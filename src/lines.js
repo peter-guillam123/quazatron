@@ -211,6 +211,19 @@ export const VOICES = {
     hackBehind: ['THIS WASN\'T ON THE AGENDA.'],
     gangIdle: ['QUICK SYNC?', 'WHAT ARE OUR DELIVERABLES?'],
   },
+  // the KLP before you, and it knows it
+  klp1: {
+    spot: ['YOU AGAIN.', 'I WAS FIRST.', 'GO BACK UP THE CHUTE, TWO.', 'STILL ALIVE? NAN\'S GOOD.'],
+    windup: ['TOO SLOW, TWO.', 'WATCH. I TAUGHT MYSELF THIS.'],
+    hit: ['THAT WAS MY MOVE.', 'NAN TAUGHT YOU THAT.', 'NOT BAD.'],
+    low: ['NOT AGAIN.', 'I KNOW HOW THIS ENDS.'],
+    fall: ['NOT LIKE THIS. AGAIN.'],
+    beaten: ['TAKE IT. I ALWAYS GET MORE.', 'FINE. THIS TIME.'],
+    rejected: ['FIRST. STILL FIRST.'],
+    hackStart: ['SAME WIRING AS YOU. NEARLY.'],
+    hackAhead: ['I WROTE THESE BOARDS.'],
+    hackBehind: ['WHO TAUGHT YOU THAT?'],
+  },
   // the tower's senior staff
   archon: {
     spot: ['DO YOU HAVE AN APPOINTMENT?', 'HOW DID YOU GET DOWN HERE?', 'I HAVE NEVER LOST A HACK.'],

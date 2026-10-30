@@ -52,6 +52,11 @@ beats them in a circuit-board duel and steals their parts.
   a fuse and clock, faces either side when the window is wide enough, and
   family heckles from `session.heckle()` (lines `hackStart`, `hackAhead`,
   `hackBehind`, `hackEmpty`). The reveal is keyed on the board, not the round.
+- Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
+  written from the run). KLP-1 is a rival family (`rival: true`, never
+  generated): from your third run it may drop into a combat room on one deck
+  (`run.klp1Deck`). Three hack wins (`meta.klp1Wins`) offer "Bring it home",
+  which sets `meta.klp1Turned` and puts it in the Heap.
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken
