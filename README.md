@@ -5,7 +5,8 @@ KLP-2, a small droid with a grapple in a tower full of bigger ones. Latch on
 to a droid, beat it in a circuit-board duel and steal one of its parts:
 thrusters, a laser, a cloak and six more. Or turn it cyan and it joins your
 gang. Each part changes how you fight and which sealed vaults you can open.
-Five decks, then the Mainframe.
+Five decks, then the Mainframe. Between runs you're rebuilt in the Heap,
+where data from your hacks buys small permanent upgrades.
 
 Your first run starts with the induction, a hand-built deck that brings
 things in one at a time, and the hack teaches its parts one board at a time.

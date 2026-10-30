@@ -14,6 +14,8 @@ const DEFAULTS = {
   hints: {},
   lesson: 0, lessonSeen: -1, seenHidden: false,
   runs: 0, wins: 0, bestDeck: 0, hacks: 0,
+  // the Heap: data to spend, what Nan has fitted, what the cast have said
+  data: 0, dataTotal: 0, bench: {}, heard: {}, lastRun: null,
 };
 
 export function loadMeta() {

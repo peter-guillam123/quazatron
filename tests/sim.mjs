@@ -17,6 +17,7 @@ const { hackSkill } = await import('../src/world/roster.js');
 const noop = () => {};
 const RUNS = +process.argv[2] || 3;
 const SEED = +process.argv[3] || 1;
+const START = +process.env.START || 100;
 
 function fakeGame(run) {
   const g = {
@@ -209,7 +210,8 @@ function playDeck(n, run, seed) {
 for (let r = 0; r < RUNS; r++) {
   const run = {
     mods: { drive: { id: 'wheels', grade: 1 }, arm: null, core: null },
-    integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
+    // START=60 node tests/sim.mjs plays with a fresh KLP-2 straight out of the Heap
+    integrity: START, maxIntegrity: START, maxEnergy: START,
     perks: [], stats: {}, hurt: {}, parts: 0,
   };
   const out = [];

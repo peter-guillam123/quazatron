@@ -385,6 +385,12 @@ export class Audio {
         });
         this.noise(t + 0.3, 0.6, d, 0.12, 'bandpass', 4000, 9000, 2);
         break;
+      case 'blip':
+        // a voice, one syllable at a time
+        if (!(d = O(opts.soft ? 0.12 : 0.22, 0.05))) return;
+        this.osc('square', 220 * p, 200 * p, t, 0.045, d, 0.09);
+        this.osc('triangle', 440 * p, 420 * p, t, 0.04, d, 0.05);
+        break;
       case 'pickup':
         if (!(d = O(0.6, 0.4))) return;
         [0, 7, 12].forEach((n, i) => this.osc('triangle', NOTE(76 + n), null, t + i * 0.05, 0.25, d, 0.18));

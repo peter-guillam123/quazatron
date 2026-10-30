@@ -25,6 +25,7 @@
     <div class="hud-top">
       <span class="hud-name">KLP-2</span>
       <span class="hud-scrap" id="hud-scrap" title="Scrap: spend it at a fabricator"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2l8.7 5v10L12 22l-8.7-5V7z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><b>0</b> scrap</span>
+      <span class="hud-data" id="hud-data" title="Data: kept between runs. Nan spends it in the Heap"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><b>0</b> data</span>
     </div>
     <div class="stat" id="stat-integrity">
       <div class="stat-head">
@@ -60,6 +61,10 @@
   <div class="hint" id="hud-hint" aria-hidden="true"></div>
   <div class="toasts" id="toasts" aria-hidden="true"></div>
   <div class="banner" id="banner" hidden aria-hidden="true"><div class="banner-h"></div><div class="banner-sub"></div></div>
+  <div class="radio" id="radio" hidden aria-hidden="true">
+    <canvas class="portrait" id="radio-portrait" width="120" height="120"></canvas>
+    <div class="radio-body"><b class="radio-name" id="radio-name"></b><p class="radio-text" id="radio-text"></p></div>
+  </div>
 </div>
 
 <!-- screens -->
@@ -102,6 +107,31 @@
   </div>
 </section>
 
+<section class="screen talk-screen" id="screen-talk" hidden aria-labelledby="talk-name">
+  <div class="talk">
+    <canvas class="portrait" id="talk-portrait" width="120" height="120" aria-hidden="true"></canvas>
+    <div class="talk-body">
+      <h2 class="talk-name"><span id="talk-name"></span> <small id="talk-role"></small></h2>
+      <p class="talk-text" id="talk-text" aria-hidden="true"></p>
+      <p class="sr-only" id="talk-said" aria-live="polite"></p>
+      <nav class="menu talk-opts" id="talk-opts" aria-label="Reply"></nav>
+    </div>
+  </div>
+</section>
+
+<section class="screen panel-screen" id="screen-bench" hidden aria-labelledby="bench-h">
+  <div class="panel">
+    <div class="fab-head">
+      <h2 id="bench-h">Nan's bench</h2>
+      <p class="fab-wallet data" id="bench-wallet"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><b>0</b> <span>data</span></p>
+    </div>
+    <div class="shop-voice"><canvas class="portrait small" id="bench-portrait" width="120" height="120" aria-hidden="true"></canvas><p id="bench-line"></p></div>
+    <p class="lede">Permanent upgrades, a notch at a time. They stay with KLP-2 from run to run.</p>
+    <div class="fab-list" id="bench-list"></div>
+    <div class="row"><button data-act="back">Done</button></div>
+  </div>
+</section>
+
 <section class="screen panel-screen" id="screen-pause" hidden aria-labelledby="pause-h">
   <div class="panel">
     <h2 id="pause-h">Paused</h2>
@@ -139,6 +169,7 @@
       <h2 id="fab-h">Fabricator</h2>
       <p class="fab-wallet" id="fab-wallet"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2l8.7 5v10L12 22l-8.7-5V7z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><b>0</b> <span>scrap</span></p>
     </div>
+    <div class="shop-voice"><canvas class="portrait small" id="fab-portrait" width="120" height="120" aria-hidden="true"></canvas><p id="fab-line"></p></div>
     <p class="lede" id="fab-lede">Scrap in, repairs and upgrades out.</p>
     <div class="fab-list" id="fab-list"></div>
     <div class="row"><button data-act="back">Done</button></div>
@@ -182,7 +213,7 @@
       <div class="share-row"><button data-act="copy" id="share-copy">Copy result</button><span id="share-note"></span></div>
     </div>
     <nav class="menu row" aria-label="After the run">
-      <button data-act="again">Another run</button>
+      <button data-act="again">Back to the Heap</button>
       <button data-act="title">Title screen</button>
     </nav>
   </div>
@@ -204,6 +235,7 @@
   <div class="deck-title" id="deck-title"></div>
   <div class="deck-blurb" id="deck-blurb"></div>
   <div class="deck-bounty" id="deck-bounty"></div>
+  <div class="deck-quote" id="deck-quote"></div>
 </div>
 
 <div class="fade" id="fade"></div>
