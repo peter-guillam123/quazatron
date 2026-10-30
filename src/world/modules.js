@@ -12,8 +12,8 @@ export const MODULES = {
   wheels: {
     slot: 'drive', name: 'Wheels', starter: true,
     line: 'Four wheels and a good attitude.',
-    use: 'No special move.',
-    stats: () => ({ speed: 4.6, accel: 30, friction: 10, mass: 1 }),
+    use: 'Press to swerve: a quick sidestep that bolts pass straight through.',
+    stats: () => ({ speed: 4.6, accel: 30, friction: 10, mass: 1, swerveSpeed: 10.5, swerveTime: 0.17, cost: 10, cooldown: 0.55 }),
   },
   thrusters: {
     slot: 'drive', name: 'Thrusters',
@@ -43,9 +43,12 @@ export const MODULES = {
   // ---------------------------------------------------------------- arms
   ram: {
     slot: 'arm', name: 'Bumper', starter: true,
-    line: 'A short lunge. KLP-2’s only weapon until it steals a better one.',
-    use: 'Press to lunge forwards and bump whatever is in front.',
-    stats: () => ({ lungeSpeed: 9, lungeTime: 0.13, cost: 6, cooldown: 0.7, ramMult: 1.2 }),
+    line: 'A shove. KLP-2’s only weapon until it steals a better one.',
+    use: 'Tap to jab. Hold to wind up a shove, let go to launch: a full one sends a droid flying, and into a wall it stuns.',
+    stats: () => ({
+      lungeSpeed: 8.5, lungeTime: 0.13, cost: 6, cooldown: 0.5, ramMult: 1,
+      chargeTime: 0.55, fullSpeed: 12.5, fullTime: 0.22, fullMult: 0.8, fullKnock: 2.4, fullCost: 16,
+    }),
   },
   laser: {
     slot: 'arm', name: 'Laser',
@@ -92,6 +95,27 @@ export const STEALABLE = Object.keys(MODULES).filter((k) => !MODULES[k].starter)
 export function moduleStats(mod) {
   if (!mod) return null;
   return MODULES[mod.id].stats(mod.grade || 1);
+}
+
+// What a part does, in numbers, for the cards: damage, rate, range and so on.
+export function statLine(mod) {
+  if (!mod) return '';
+  const s = moduleStats(mod);
+  const r1 = (v) => Math.round(v * 10) / 10;
+  switch (mod.id) {
+    case 'ram': return 'Jab or charged shove · full shove stuns against a wall';
+    case 'wheels': return `Swerve ${s.cost} energy`;
+    case 'laser': return `${Math.round(s.damage)} a hit · ${r1(1 / s.cooldown)} shots a second · range ${s.range}`;
+    case 'arc': return `${Math.round(s.damage)} a hit · stuns ${r1(s.stun)}s · jumps to ${s.chains} more`;
+    case 'tractor': return `Pulls from ${r1(s.range)} tiles · ${Math.round(s.drain)} energy a second`;
+    case 'thrusters': return `Dash ${s.cost} energy · rams ${r1(s.ramMult)}× as hard`;
+    case 'hover': return `${Math.round(s.drain)} energy a second`;
+    case 'treads': return `Stamp ${Math.round(s.damage)} damage · stuns ${r1(s.stun)}s · ${r1(s.radius)} tiles`;
+    case 'shield': return `Blocks ${Math.round((1 - 0.15) * 100)}% from the front · ${r1(s.drain)} energy a second`;
+    case 'cloak': return `${r1(s.drain)} energy a second · ambush stuns ${r1(s.ambush)}s`;
+    case 'phase': return `${r1(s.time)}s of phase · ${s.cost} energy`;
+    default: return '';
+  }
 }
 
 export function gradeFromClass(cls) {

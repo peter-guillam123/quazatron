@@ -1,7 +1,7 @@
 // The DOM side: HUD, menus, cards, minimap, labels over droids, toasts and
 // hints. Menus are real buttons, so they work with a keyboard, a screen
 // reader or a gamepad (which moves the focus for you).
-import { MODULES, SLOTS, SLOT_NAMES, iconSvg, moduleLabel, roman } from './world/modules.js';
+import { MODULES, SLOTS, SLOT_NAMES, iconSvg, moduleLabel, roman, statLine } from './world/modules.js';
 import { FAMILIES, FAMILY_ORDER } from './world/roster.js';
 import { PERKS } from './perks.js';
 import { PLAYER_HEX } from './config.js';
@@ -311,13 +311,16 @@ export class UI {
       el.hidden = false;
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
-      const txt = d.bounty ? `${d.bounty} ${d.cls}` : String(d.cls);
+      const dent = d.team === 'k' ? 0 : d.dentShown || 0;
+      const txt = `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}${dent ? ` −${dent}` : ''}`;
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
+      el.classList.toggle('dented', dent > 0);
+      el.classList.toggle('locked', world.lock && world.lock.target === d);
       el.classList.toggle('cmd', d.command && d.team !== 'k');
       el.classList.toggle('bounty', !!d.bounty && d.team !== 'k');
       el.classList.toggle('ally', d.team === 'k');
       const hp = d.integrity / d.maxIntegrity;
-      el.lastChild.style.visibility = hp < 0.999 ? 'visible' : 'hidden';
+      el.lastChild.style.visibility = hp < 0.999 || (world.lock && world.lock.target === d) ? 'visible' : 'hidden';
       el.lastChild.firstChild.style.width = `${hp * 100}%`;
       n++;
     }
@@ -327,6 +330,48 @@ export class UI {
     for (const l of this.labels) l.hidden = true;
     for (const b of this.bubbles) b.el.remove();
     this.bubbles = [];
+    for (const p of this.pops || []) p.el.remove();
+    this.pops = [];
+  }
+
+  // A number or a word that jumps off a droid and fades: damage, SLAM, DODGE.
+  pop(at, text, cls = '') {
+    this.pops = this.pops || [];
+    if (this.pops.length > 18) this.pops.shift().el.remove();
+    const el = document.createElement('div');
+    el.className = `pop ${cls}`;
+    el.textContent = text;
+    el.setAttribute('aria-hidden', 'true');
+    this.el.labels.appendChild(el);
+    const word = cls.includes('word');
+    const p = { el, at: at.clone(), t: 0, life: word ? 0.95 : 0.75, dx: word ? 0 : (Math.random() - 0.5) * 22 };
+    this.pops.push(p);
+    return p;
+  }
+
+  unpop(p) {
+    const i = this.pops ? this.pops.indexOf(p) : -1;
+    if (i >= 0) { p.el.remove(); this.pops.splice(i, 1); }
+  }
+
+  updatePops(renderer, dt) {
+    if (!this.pops || !this.pops.length) return;
+    const out = { x: 0, y: 0, visible: false };
+    const still = document.body.classList.contains('reduced');
+    for (let i = this.pops.length - 1; i >= 0; i--) {
+      const p = this.pops[i];
+      p.t += dt;
+      if (p.t > p.life) { p.el.remove(); this.pops.splice(i, 1); continue; }
+      renderer.project(p.at, out);
+      const k = p.t / p.life;
+      const rise = still ? 0 : 30 * (1 - (1 - k) * (1 - k));
+      const grow = still ? 1 : k < 0.12 ? 0.6 + k / 0.12 * 0.5 : 1.1 - Math.min(0.1, (k - 0.12));
+      p.el.style.left = `${out.x}px`;
+      p.el.style.top = `${out.y}px`;
+      p.el.style.transform = `translate(calc(-50% + ${p.dx}px), calc(-100% - ${rise}px)) scale(${grow})`;
+      p.el.style.opacity = k > 0.6 ? String((1 - k) / 0.4) : '1';
+      p.el.style.visibility = out.visible ? 'visible' : 'hidden';
+    }
   }
 
   // A droid says something, in a bubble over its head.
@@ -430,6 +475,7 @@ export class UI {
       <span class="card-head">${iconSvg(mod.id, 26)}${esc(moduleLabel(mod))}</span>
       <span class="line">${esc(def.line)}</span>
       <span class="use">${esc(def.use)}</span>
+      <span class="stats">${esc(statLine(mod))}</span>
       <span class="swap">${swap}</span>
     </button>`;
   }
@@ -493,7 +539,8 @@ export class UI {
       const def = id ? MODULES[id] : null;
       return `<div class="box"><h3>${SLOT_NAMES[slot]} · <kbd>${this.game.input.label(slot)}</kbd></h3>
         <div class="name">${iconSvg(id || 'empty', 22)}${esc(id ? moduleLabel(mod || { id }) : 'Empty')}</div>
-        <p>${esc(def ? def.use : 'Nothing fitted. Steal a part from a droid to fill this socket.')}</p></div>`;
+        <p>${esc(def ? def.use : 'Nothing fitted. Steal a part from a droid to fill this socket.')}</p>
+        ${id ? `<p class="stats">${esc(statLine(mod || { id, grade: 1 }))}</p>` : ''}</div>`;
     }).join('');
     const fw = perks.length
       ? `<ul>${perks.map((id) => `<li><b>${esc(PERKS[id].name)}</b>: ${esc(PERKS[id].line)}</li>`).join('')}</ul>`

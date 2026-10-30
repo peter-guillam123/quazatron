@@ -11,8 +11,8 @@ const LOOK = 0.68;                 // how much the camera squashes the floor
 // The keys a sign mentions, for keyboard or pad.
 function keys(device) {
   return device === 'pad'
-    ? { move: ['Left stick'], grapple: ['A'], arm: ['X'] }
-    : { move: ['WASD', ' or ', '← ↑ → ↓'], grapple: ['Space'], arm: ['J'] };
+    ? { move: ['Left stick'], grapple: ['A'], arm: ['X'], drive: ['B'] }
+    : { move: ['WASD', ' or ', '← ↑ → ↓'], grapple: ['Space'], arm: ['J'], drive: ['K'] };
 }
 
 // Split text into runs of plain words and key caps.

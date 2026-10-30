@@ -7,7 +7,7 @@ const DEFAULTS = {
   settings: {
     master: 0.8, music: 0.5, sfx: 0.8,
     reducedMotion: null,   // null follows the system setting
-    shake: true, retro: false, hints: true, assist: false, slowHack: false, wireHints: false, gridControls: false, zoom: 1,
+    shake: true, retro: false, hints: true, assist: false, damageNumbers: true, slowHack: false, wireHints: false, gridControls: false, zoom: 1,
   },
   archive: {},
   stolen: {},

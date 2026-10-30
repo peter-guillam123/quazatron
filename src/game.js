@@ -160,6 +160,7 @@ export class Game {
           this.ui.updateHud(w, dt);
           this.ui.updateLabels(w, r);
           this.ui.updateBubbles(r);
+          this.ui.updatePops(r, dt);
           this.chatter(dt);
           this.updatePrompt();
           this.musicIntensity(dt);
@@ -360,6 +361,7 @@ export class Game {
       check('shake', 'Screen shake'),
       check('hints', 'Hints', 'Short tips the first time things happen.'),
       check('assist', 'Assist', 'Take a little over half the damage.'),
+      check('damageNumbers', 'Damage numbers', 'Show how hard each hit landed.'),
       check('slowHack', 'Slower hacks', 'Hack timers run half as long again.'),
       check('wireHints', 'Wire hints', 'In a hack, colour each of your wires by where it lands: your colour, theirs, or grey for nowhere. Always on while you’re learning the parts.'),
       check('gridControls', 'Grid controls', 'Up moves along the floor grid (up and right on screen) instead of straight up the screen.'),
@@ -382,13 +384,13 @@ export class Game {
       <div><h3>Controls</h3><dl>
         <dt><kbd>WASD</kbd> / arrows</dt><dd>Move. Up is up the screen.</dd>
         <dt><kbd>Space</kbd></dt><dd>Grapple a droid or terminal, pick things up, use the lift</dd>
-        <dt><kbd>J</kbd> or <kbd>Z</kbd></dt><dd>Use your arm part (fire, discharge, pull)</dd>
-        <dt><kbd>K</kbd> or <kbd>X</kbd></dt><dd>Use your drive part (dash, hover, stamp)</dd>
+        <dt><kbd>J</kbd> or <kbd>Z</kbd></dt><dd>Use your arm part (fire, discharge, pull). With the bumper, tap to jab or hold to wind up a shove.</dd>
+        <dt><kbd>K</kbd> or <kbd>X</kbd></dt><dd>Use your drive part. Wheels swerve, thrusters dash, hover floats, treads stamp.</dd>
         <dt><kbd>L</kbd> or <kbd>C</kbd></dt><dd>Use your core part (shield, cloak, phase)</dd>
         <dt>${L('loadout')}</dt><dd>Parts and firmware</dd>
         <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Zoom in and out</dd>
         <dt>${L('pause')}</dt><dd>Pause</dd>
-      </dl><p>A gamepad works too: left stick, A grapple, X arm, B drive, Y core.</p></div>
+      </dl><p>A gamepad works too: left stick moves, right stick aims, A grapple, X arm, B drive, Y core.</p></div>
       <div><h3>The idea</h3>
         <p>You are KLP-2, a small droid in a tower full of bigger ones. You can't win a straight fight, so you steal.</p>
         <p>Get close and grapple a droid to start a hack. Win, and you can take one of its parts. Every droid is built from the parts it carries: what you see on it is what you get.</p>
@@ -401,10 +403,12 @@ export class Game {
         <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
         <p>Your first hacks are small boards that bring in one part at a time.</p></div>
       <div><h3>Fighting</h3>
-        <ul><li>Ram droids to dent them, and knock them off edges into the void. A ring-out is worth double scrap.</li>
-        <li>Ram a droid before you grapple it. Dent it by a third and it hacks back with one pulser fewer, by two thirds and it's two. A stunned one starts late.</li>
-        <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
-        <li>Watch for lights brightening: that's an attack coming.</li></ul></div>
+        <ul><li>A cyan bracket marks the droid your arm will hit. You fire at it whichever way you're rolling, so you can back off and shoot. On a gamepad the right stick picks.</li>
+        <li>Hold the bumper to wind up a shove, and let go. Knock a droid off an edge for a ring-out, worth double scrap. Into a wall, it's slammed: hurt and stunned. Into another droid, both get it.</li>
+        <li>A stunned droid takes double damage.</li>
+        <li>Before a droid attacks it paints a warning on the floor. When the warning stops moving, get out of the way. On wheels, swerve: shots pass straight through you.</li>
+        <li>The two marks on a droid's health bar are its dent points. Below each, it hacks back with one pulser fewer. A stunned one starts late.</li>
+        <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li></ul></div>
       <div><h3>Bounties</h3>
         <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
       <div><h3>Your gang</h3>
@@ -529,6 +533,11 @@ export class Game {
     p.intent.drive = inp.held('drive') || inp.hit('drive');
     p.intent.core = inp.held('core') || inp.hit('core');
     if (p.modId('arm') !== 'tractor') p.intent.aim = null;
+    // the right stick aims, and the lock-on follows it
+    const a = inp.aim();
+    const aim = a ? this.renderer.screenToWorld(a.x, a.y) : null;
+    w.lock.aim = aim;
+    if (aim && p.modId('arm') !== 'tractor') p.intent.aim = aim;
     if (inp.hit('grapple')) this.interact();
     if (inp.hit('zoomIn') || inp.hit('zoomOut')) {
       const z = Math.max(0.7, Math.min(1.4, (this.settings.zoom || 1) * (inp.hit('zoomIn') ? 0.9 : 1.1)));
@@ -563,9 +572,11 @@ export class Game {
     if (t.kind === 'droid') {
       name = `${FAMILIES[t.family].name} ${t.cls}`;
       const p = this.world.player;
+      const hurt = 1 - t.integrity / t.maxIntegrity;
+      const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
+      const easier = [dent ? `${dent} pulser${dent > 1 ? 's' : ''} down` : '', t.stunned ? 'starts late' : ''].filter(Boolean).join(', ');
       if (t.shielding && t.inFront({ x: t.pos.x - p.pos.x, z: t.pos.z - p.pos.z }, t.stats.core.arc)) sub = 'its shield is up';
-      else if (t.stunned) sub = 'stunned: it will start late';
-      else if (t.integrity < t.maxIntegrity * 0.66) sub = 'dented: it hacks back weaker';
+      else if (easier) sub = `${t.stunned ? 'stunned' : 'dented'}: ${easier}`;
       if (p.cloaked) sub = 'ambush from cloak';
     } else if (t.kind === 'mainframe') {
       name = 'the Mainframe';
@@ -600,6 +611,10 @@ export class Game {
     if (t.kind === 'mainframe' && !t.canHack()) { this.toast('The Mainframe is shielded. Take down its relays first.'); return; }
     let ambush = 0;
     if (p.cloaked && p.stats.core) { ambush = p.stats.core.ambush; p.cloaked = false; }
+    // a shove being wound up is dropped, not let loose after the hack
+    if (p.mod.arm) p.mod.arm.charging = false;
+    p.charge = 0;
+    w.lock.hide();
     this.state = 'grapple';
     this.grapple = { t: 0, target: t, ambush };
     p.facing = Math.atan2(t.pos.x - p.pos.x, t.pos.z - p.pos.z);
@@ -1039,6 +1054,50 @@ export class Game {
     if (!d || !d.alive && kind !== 'fall') return;
     const text = line(kind).replace('{N}', (d.bounty || '').toUpperCase());
     if (this.ui.say(d, text, force)) this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1) });
+  }
+
+  // ------------------------------------------------------------------ hit feedback
+  // Numbers off every hit, a word for the big ones, and a beat's pause.
+  hitFeedback(d, amount, src) {
+    if (amount < 0.5 || !this.world) return;
+    const at = d.pos.clone(); at.y += d.model.height + 0.1;
+    if (d.isPlayer) {
+      if (this.settings.damageNumbers && amount >= 1) this.ui.pop(at, `-${Math.round(amount)}`, 'hurt');
+      return;
+    }
+    if (!src.by || src.by.team !== 'k' || d.team === 'k') return;
+    const mine = src.by.isPlayer;
+    if (this.settings.damageNumbers) this.ui.pop(at, src.crit ? `${Math.round(amount)}!` : String(Math.round(amount)), src.crit ? 'crit' : mine ? '' : 'ally');
+    if (src.crit) {
+      this.audio.play('crit', { at: d.pos });
+      this.world.fx.burst(at, 0xffd25a, 12, 2.6, 0.35, 0.1, 3);
+      this.hintOnce('crit', 'A stunned droid takes double damage. Stun it, slam it into a wall, then hit it.', 7);
+    }
+    if (mine) {
+      const stop = src.kind === 'arc' ? 0.035 : src.kind === 'bolt' ? 0.02 : 0;
+      if (stop) this.hitStop = Math.max(this.hitStop || 0, stop + (src.crit ? 0.025 : 0));
+    }
+    // a dent costs it a pulser in the hack: say so when it happens
+    if (d.kind === 'droid' && d.alive) {
+      const hurt = 1 - d.integrity / d.maxIntegrity;
+      const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
+      if (dent > (d.dentShown || 0) && d.integrity > 0) {
+        d.dentShown = dent;
+        const up = at.clone(); up.y += 0.35;
+        // a second dent straight after the first replaces its word
+        if (d.dentPop) this.ui.unpop(d.dentPop);
+        d.dentPop = this.word(up, dent === 2 ? 'DENTED −2' : 'DENTED −1', 'dent');
+        this.audio.play('dent', { at: d.pos });
+        this.hintOnce('dent', 'Dented: it hacks back with a pulser fewer. Dent it twice and it\'s two.', 6);
+      }
+    }
+  }
+
+  word(at, text, kind = '') { return this.ui.pop(at, text, `word ${kind}`); }
+
+  dodged(p) {
+    this.word(p.pos.clone().setY(p.pos.y + p.model.height + 0.2), 'DODGE', 'dodge');
+    this.audio.play('dodge', { at: p.pos });
   }
 
   onSpotted(d) {

@@ -16,6 +16,8 @@ import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
 import { Mainframe } from './mainframe.js';
 import { FloorSign } from '../render/signs.js';
+import { LockOn } from './lockon.js';
+import { Telegraphs } from '../render/telegraph.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
 const boltGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.55, 6, 1);
@@ -66,6 +68,9 @@ export class World {
     this.chars = new Map();
     for (const t of build.things) this.chars.set(`${t.x},${t.z}`, t.t);
     this.scrap = new ScrapField(this);
+    this.lock = new LockOn(this);
+    this.tele = new Telegraphs(this.root);
+    this.tele.reduced = game.reducedMotion;
 
     this.makeDevices(build.things);
     this.signs = (build.signs || []).map((sg) => new FloorSign(this.root, sg, game.input ? game.input.lastDevice : 'keyboard'));
@@ -311,31 +316,14 @@ export class World {
     return false;
   }
 
-  autoAim(d, maxAngle, range) {
-    const f = d.moveDir();
-    let best = null, bestScore = Infinity;
-    for (const o of this.hostilesOf(d)) {
-      if (o.cloaked) continue;
-      const dx = o.pos.x - d.pos.x, dz = o.pos.z - d.pos.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > range || dist < 0.01) continue;
-      if (Math.abs(o.pos.y - d.pos.y) > 1.2) continue;
-      const cos = (dx * f.x + dz * f.z) / dist;
-      const ang = Math.acos(Math.max(-1, Math.min(1, cos)));
-      if (ang > maxAngle) continue;
-      if (!this.canSee(d.pos, o.pos)) continue;
-      const score = ang * 4 + dist * 0.25;
-      if (score < bestScore) { bestScore = score; best = { x: dx / dist, z: dz / dist }; }
-    }
-    return best;
-  }
-
-  arcTargets(d, range, chains) {
+  arcTargets(d, range, chains, first = null) {
     const out = [];
     let from = d.pos;
     const pool = this.hostilesOf(d).filter((o) => !o.phasing);
     if (d.isPlayer || d.team === 'k') for (const c of this.devices) if (c.kind === 'conduit' && !c.on) pool.push(c);
-    for (let i = 0; i <= chains; i++) {
+    // the locked target goes first, if it's in reach
+    if (first && pool.includes(first) && Math.hypot(first.pos.x - d.pos.x, first.pos.z - d.pos.z) < range) { out.push(first); from = first.pos; }
+    for (let i = out.length; i <= chains; i++) {
       let best = null, bd = i === 0 ? range : 2.8;
       for (const o of pool) {
         if (out.includes(o)) continue;
@@ -349,7 +337,8 @@ export class World {
     return out;
   }
 
-  tractorTarget(d, range) {
+  tractorTarget(d, range, prefer = null) {
+    if (prefer && prefer.kind === 'droid' && prefer.alive && prefer.state === 'active' && prefer.pos.distanceTo(d.pos) < range) return prefer;
     const f = d.forward();
     let best = null, bestScore = Infinity;
     const consider = (o, kind) => {
@@ -436,6 +425,11 @@ export class World {
           if (dx * dx + dz * dz > (d.radius + 0.1) ** 2) continue;
           const midY = d.pos.y + 0.45 * d.scale;
           if (Math.abs(b.pos.y - midY) > 0.55 * d.scale + 0.1) continue;
+          // a swerve lets it straight through
+          if (d.dodging) {
+            if (!b.dodged) { b.dodged = true; if (d.isPlayer) this.game.dodged?.(d); }
+            continue;
+          }
           const dir = { x: b.vx, z: b.vz };
           if (d.shielding && d.inFront(dir, d.stats.core.arc)) {
             // reflect, and it's ours now
@@ -485,11 +479,32 @@ export class World {
     const va = a.vel.x * nx + a.vel.z * nz;
     const vb = -(b.vel.x * nx + b.vel.z * nz);
     const [atk, vic, dirx, dirz] = va >= vb ? [a, b, nx, nz] : [b, a, -nx, -nz];
-    if (atk.team === vic.team) { this.audio.play('bump', { at: atk.pos }); return; }
-    let mult = 1;
-    if (atk.dash) mult = atk.stats.drive.ramMult || 2;
-    else if (atk.lunge) mult = atk.stats.arm.ramMult || 1.5;
-    if (atk.isPlayer && this.game.hasPerk('ramplate')) mult *= 1.6;
+    if (atk.team === vic.team) {
+      // knocked into a workmate: a pile-up, and both of them feel it
+      const h = atk.lastHit;
+      if (atk.team !== 'k' && !atk.dash && !atk.lunge && speed > 4.5 && h && h.by && h.by.team !== atk.team && this.time - h.t < 1) {
+        const dmg = (speed - 3) * 2.2;
+        vic.lastHit = { by: h.by, t: this.time };
+        vic.damage(dmg, { by: h.by, kind: 'slam', dir: { x: dirx, z: dirz } });
+        atk.damage(dmg * 0.5, { by: h.by, kind: 'slam' });
+        vic.knock(dirx * speed * 0.6, dirz * speed * 0.6, 0.7);
+        if (vic.brain) vic.brain.provoke();
+        const mid = atk.pos.clone().lerp(vic.pos, 0.5); mid.y += 0.35;
+        this.fx.burst(mid, 0xffffff, 18, 3.5, 0.4, 0.1, 6);
+        this.fx.ring(mid.clone().setY(vic.pos.y), 0xffffff, 1.2, 0.3);
+        this.audio.play('slam', { at: mid });
+        this.game.word?.(mid, 'PILE-UP', 'slam');
+        if (h.by.team === 'k') this.game.hitStop = Math.max(this.game.hitStop || 0, 0.07);
+        this.shake(vic, 0.3);
+        return;
+      }
+      this.audio.play('bump', { at: atk.pos });
+      return;
+    }
+    let mult = 1, knockMult = 1;
+    if (atk.dash) mult = knockMult = atk.stats.drive.ramMult || 2;
+    else if (atk.lunge) { mult = atk.lunge.mult ?? (atk.stats.arm.ramMult || 1.5); knockMult = atk.lunge.knock ?? mult; }
+    if (atk.isPlayer && this.game.hasPerk('ramplate')) { mult *= 1.6; knockMult *= 1.3; }
     // a raised shield takes a ram head-on
     if (vic.shielding && vic.inFront({ x: dirx, z: dirz }, vic.stats.core.arc)) {
       atk.knock(-dirx * 6, -dirz * 6, 0.5);
@@ -499,31 +514,36 @@ export class World {
     }
     const dmg = (speed - 1.6) * 2.0 * Math.sqrt(atk.mass) * mult;
     vic.damage(dmg, { by: atk, kind: 'ram', dir: { x: dirx, z: dirz } });
-    const push = Math.min(vic.isPlayer ? 7 : 9, (2 + speed * 0.7) * mult * Math.sqrt(atk.mass / vic.mass));
-    vic.knock(dirx * push, dirz * push, atk.dash ? 0.5 : 0.15);
+    const charge = atk.lunge ? atk.lunge.charge || 0 : 0;
+    const push = Math.min(vic.isPlayer ? 7 : 9 + charge * 2, (2 + speed * 0.7) * knockMult * Math.sqrt(atk.mass / vic.mass));
+    vic.knock(dirx * push, dirz * push, atk.dash ? 0.5 : 0.15 + charge * 0.3);
     if (vic.brain) vic.brain.provoke();
     const mid = atk.pos.clone().lerp(vic.pos, 0.5); mid.y += 0.3;
     this.fx.burst(mid, 0xffffff, 10 + Math.floor(mult * 4), 3, 0.35, 0.09, 6);
     this.audio.play('ram', { at: mid, pitch: 1 / Math.sqrt(atk.mass) });
     if (atk.isPlayer || vic.isPlayer) {
       this.shake(atk, Math.min(0.5, 0.12 * mult + speed * 0.03));
-      if (mult >= 1.5 || dmg > 14) this.game.hitStop = Math.min(0.09, 0.03 + dmg * 0.002);
+      this.game.hitStop = Math.max(this.game.hitStop || 0, Math.min(0.1, 0.025 + dmg * 0.002 + charge * 0.03));
       if (atk.isPlayer && this.game.input) this.game.input.rumble(Math.min(1, 0.2 + dmg / 40), 90);
     }
+    // a dash or a shove lands once
     if (atk.dash) { atk.dash = null; atk.vel.x *= 0.2; atk.vel.z *= 0.2; }
+    if (atk.lunge) { atk.lunge = null; atk.vel.x *= 0.15; atk.vel.z *= 0.15; }
   }
 
   damageScale(d, src) {
     let k = 1;
     if (d.isPlayer) {
-      if (src.kind === 'ram' || src.kind === 'stomp') k *= 0.45;
+      if (src.kind === 'ram' || src.kind === 'stomp' || src.kind === 'slam') k *= 0.45;
       if (src.kind === 'bolt' && src.by && !src.by.isPlayer) k *= 0.75;
       if (this.game.settings.assist) k *= 0.55;
       if (this.game.hasPerk('plating')) k *= 0.8;
     } else if (d.team === 'k') {
       k *= 0.7;   // the gang is a little tougher than it looks
-    } else if (src.by && src.by.isPlayer) {
-      if (this.game.hasPerk('overcharge')) k *= 1.25;
+    } else if (src.by && src.by.team === 'k') {
+      if (src.by.isPlayer && this.game.hasPerk('overcharge')) k *= 1.25;
+      // a stunned droid can't brace: double damage
+      if (d.stunned && src.kind !== 'slam' && src.kind !== 'hazard') { k *= 2; src.crit = true; }
     }
     return k;
   }
@@ -541,6 +561,28 @@ export class World {
       this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + 3);
     }
     if (amount > 0.5) this.game.onDroidHurt?.(d, src);
+    this.game.hitFeedback?.(d, amount, src);
+  }
+
+  // A droid knocked flying into a wall: damage and a stun, credited to
+  // whoever sent it there.
+  onSlam(d, into, nx, nz) {
+    const h = d.lastHit;
+    if (d.slamT > 0 || !h || !h.by || h.by.team === d.team || this.time - h.t > 1) return;
+    d.slamT = 0.4;
+    const dmg = (Math.min(into, 12) - 4) * 1.5;
+    d.damage(dmg, { by: h.by, kind: 'slam', dir: { x: -nx, z: -nz } });
+    d.stun = Math.max(d.stun, Math.min(1.4, 0.6 + (into - 5) * 0.09) * (1 - (d.stats.drive.knockResist || 0) * 0.5));
+    if (d.brain) d.brain.provoke();
+    const at = d.pos.clone(); at.x -= nx * d.radius; at.z -= nz * d.radius; at.y += 0.3;
+    this.fx.burst(at, 0xffffff, 16, 3.2, 0.35, 0.09, 6);
+    this.fx.burst(at, d.accent, 10, 2.5, 0.4, 0.1, 4);
+    this.audio.play('slam', { at });
+    this.game.word?.(at, 'SLAM', 'slam');
+    if (h.by.team === 'k' || d.isPlayer) {
+      this.game.hitStop = Math.max(this.game.hitStop || 0, 0.06);
+      this.shake(d, 0.3);
+    }
   }
 
   onDestroyed(d, src) {
@@ -564,6 +606,7 @@ export class World {
   }
 
   removeDroid(d) {
+    if (this.lock && this.lock.target === d) this.lock.target = null;
     d.releaseParts();
     // anyone pulling this droid lets go
     for (const o of this.droids) if (o.mod.arm.target === d) o.releaseParts();
@@ -788,6 +831,8 @@ export class World {
     }
     resolveBodies(this.grid, this.bodies(), (a, b, s, nx, nz) => this.onImpact(a, b, s, nx, nz));
     this.updateBolts(dt);
+    this.lock.update(dt);
+    this.tele.update(dt);
     for (const dev of this.devices) dev.update(dt);
     for (const k of this.pickups) k.update(dt);
     this.scrap.update(dt);
@@ -823,6 +868,8 @@ export class World {
   }
 
   dispose() {
+    this.lock.dispose();
+    this.tele.dispose();
     for (const b of this.bolts) this.root.remove(b.mesh);
     for (const d of this.droids) d.model.dispose();
     this.scrap.dispose();

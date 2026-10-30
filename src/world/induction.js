@@ -57,7 +57,8 @@ export const INDUCTION_ROOMS = {
     ],
     droids: [{ family: 'spark', cls: 126, dozy: true }],
     signs: [
-      { x: 9, z: 6, text: 'Ram it, then hack it', sub: 'A dented droid hacks back weaker' },
+      { x: 9, z: 6, text: 'Shove it, then hack it', sub: 'A dented droid hacks back weaker' },
+      { x: 4, z: 9, text: '{drive} to swerve', sub: 'Its shots pass through you', wide: 4.2 },
       { x: 6, z: 1, text: 'Take its laser', sub: 'for the target to the north', wide: 3.8 },
     ],
   },
@@ -90,7 +91,7 @@ export const INDUCTION_ROOMS = {
       '             ',
     ],
     droids: [{ family: 'mite', cls: 104, dozy: true }, { family: 'mite', cls: 118, dozy: true }, { family: 'mite', cls: 109, dozy: true }],
-    signs: [{ x: 9, z: 5, text: 'Ram a droid off the edge', sub: 'A ring-out pays double scrap' }],
+    signs: [{ x: 9, z: 5, text: 'Hold {arm}, then let go', sub: 'Shove one off the edge: double scrap' }],
   },
   terminal: {
     id: 'ind-terminal', exits: [0, 2], map: [

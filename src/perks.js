@@ -13,7 +13,7 @@ export const PERKS = {
   reinforced: { name: 'Reinforced shell', line: '+30 maximum integrity, and a repair now.' },
   capacitor: { name: 'Capacitor', line: 'Energy comes back half as fast again.' },
   battery: { name: 'Battery', line: '+40 maximum energy.' },
-  ramplate: { name: 'Ram plate', line: 'Rams, lunges and dashes hit 60% harder.' },
+  ramplate: { name: 'Ram plate', line: 'Shoves, rams and dashes hit 60% harder.' },
   overcharge: { name: 'Overcharge', line: 'Your weapons do a quarter more damage.' },
   leech: { name: 'Leech', line: 'Laser hits give you back energy.' },
   longreach: { name: 'Long grapple', line: 'Grapple from further away.' },

@@ -35,6 +35,7 @@ export class Input {
     this.padButtons = [];
     this.padPrev = [];
     this.padAxes = [0, 0];
+    this.padAim = [0, 0];
     this.padStickPrev = { x: 0, y: 0 };
     this.padHold = new Set();   // buttons held through a menu, ignored until let go
     this.padConnected = false;
@@ -82,10 +83,15 @@ export class Input {
       const m = Math.hypot(x, y);
       if (m < 0.22) { x = 0; y = 0; } else { const k = (m - 0.22) / (1 - 0.22) / m; x *= k; y *= k; }
       this.padAxes = [x, y];
-      if (this.padButtons.some((b, i) => b && !this.padPrev[i]) || m > 0.5) this.lastDevice = 'pad';
+      // the right stick aims
+      let ax = p.axes[2] || 0, ay = p.axes[3] || 0;
+      const am = Math.hypot(ax, ay);
+      this.padAim = am < 0.35 ? [0, 0] : [ax / am, ay / am];
+      if (this.padButtons.some((b, i) => b && !this.padPrev[i]) || m > 0.5 || am > 0.5) this.lastDevice = 'pad';
     } else {
       this.padButtons = [];
       this.padAxes = [0, 0];
+      this.padAim = [0, 0];
     }
     // Stick flicks count as d-pad presses in menus and the hack board.
     this.stickHit = { up: false, down: false, left: false, right: false };
@@ -133,6 +139,12 @@ export class Input {
     const [ax, ay] = this.padAxes;
     if (Math.hypot(ax, ay) > Math.hypot(x, y)) { x = ax; y = -ay; }
     return { x, y };
+  }
+
+  // Right stick direction, screen-space (x right, y up), or null when let go.
+  aim() {
+    const [x, y] = this.padAim;
+    return x || y ? { x, y: -y } : null;
   }
 
   clear() {

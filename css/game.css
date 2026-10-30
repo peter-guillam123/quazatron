@@ -120,8 +120,22 @@ button, .button { font: inherit; }
 body.reduced .banner { animation: none; }
 
 .label { position: absolute; transform: translate(-50%, -100%); font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: 0.06em; color: var(--ink); text-shadow: 0 0 6px rgba(0, 0, 0, 0.9); white-space: nowrap; text-align: center; }
-.label .hp { display: block; width: 36px; height: 3px; margin: 2px auto 0; background: rgba(255, 255, 255, 0.15); }
+.label .hp { position: relative; display: block; width: 44px; height: 4px; margin: 3px auto 0; background: rgba(255, 255, 255, 0.15); border-radius: 1px; }
 .label .hp i { display: block; height: 100%; background: currentColor; }
+/* the two dent points: below each, it hacks back with a pulser fewer */
+.label .hp::before, .label .hp::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 1.5px; background: rgba(255, 255, 255, 0.75); }
+.label .hp::before { left: 34%; }
+.label .hp::after { left: 67%; }
+.label.locked { filter: drop-shadow(0 0 4px rgba(46, 242, 255, 0.8)); }
+.label.dented span { color: #ffc067; }
+.pop { position: absolute; left: 0; top: 0; pointer-events: none; font-family: var(--display); font-weight: 700; font-size: 15px; color: #fff; white-space: nowrap; text-shadow: 0 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.9); will-change: transform, opacity; }
+.pop.ally { color: var(--you); font-size: 13px; }
+.pop.hurt { color: #ff5a5a; }
+.pop.crit { color: #ffd25a; font-size: 20px; text-shadow: 0 1px 0 #000, 0 0 10px rgba(255, 190, 60, 0.8); }
+.pop.word { font-size: 14px; letter-spacing: 0.14em; }
+.pop.word.slam { color: #fff; font-size: 17px; text-shadow: 0 1px 0 #000, 0 0 12px rgba(255, 140, 60, 0.9); }
+.pop.word.dent { color: #ffc067; font-size: 12px; }
+.pop.word.dodge { color: var(--you); font-size: 12px; }
 .label.cmd { color: #fff; }
 .label.cmd::before { content: '◆ '; color: var(--ink); }
 .label.bounty { color: #ffcf6e; }
@@ -173,6 +187,8 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .card .slot-tag { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
 .card .line { color: var(--text); }
 .card .use { color: var(--muted); font-size: 12px; }
+.card .stats { color: #cfe9ee; font-size: 12px; font-family: var(--mono); }
+.card .stats:empty { display: none; }
 .card .swap { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 6px; margin-top: auto; }
 .card .swap b { color: var(--ink); font-weight: 600; }
 .card.better .swap b { color: var(--you); }
@@ -182,6 +198,7 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 /* loadout */
 .loadout { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .loadout .box { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.loadout .box .stats { color: #cfe9ee; font-size: 12px; font-family: var(--mono); }
 .loadout h3 { font-family: var(--display); margin: 0 0 6px; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .loadout .name { font-family: var(--display); font-weight: 700; font-size: 18px; display: flex; gap: 8px; align-items: center; }
 .loadout .name svg { color: var(--you); }
