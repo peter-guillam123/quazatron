@@ -2,22 +2,47 @@
 // along walls, roll up ramps, drop off ledges and bump into each other.
 import { STEP_UP, GRAVITY } from '../config.js';
 
-// Returns the index of the first tile that blocks a body at (x, z), or -1.
-export function blockingTile(grid, body, x, z, y) {
+// The tile that blocks a body at (x, z) most deeply, and how deep it
+// reaches into the body: { idx, depth }, with idx -1 when nothing does.
+const probeOut = { idx: -1, depth: 0 };
+function probe(grid, body, x, z, y) {
   const r = body.radius;
   const x0 = Math.floor(x - r), x1 = Math.floor(x + r);
   const z0 = Math.floor(z - r), z1 = Math.floor(z + r);
+  probeOut.idx = -1; probeOut.depth = 0;
   for (let tz = z0; tz <= z1; tz++) {
     for (let tx = x0; tx <= x1; tx++) {
       const cx = Math.max(tx, Math.min(tx + 1, x));
       const cz = Math.max(tz, Math.min(tz + 1, z));
       const dx = cx - x, dz = cz - z;
-      if (dx * dx + dz * dz >= r * r) continue;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= r * r) continue;
       const top = grid.collideTop(body, tx, tz, cx, cz);
-      if (top > y + STEP_UP) return grid.inside(tx, tz) ? grid.idx(tx, tz) : -2;
+      if (top > y + STEP_UP) {
+        const depth = r - Math.sqrt(d2);
+        if (depth > probeOut.depth || probeOut.idx === -1) { probeOut.depth = depth; probeOut.idx = grid.inside(tx, tz) ? grid.idx(tx, tz) : -2; }
+      }
     }
   }
-  return -1;
+  return probeOut;
+}
+
+// Returns the index of a tile that blocks a body at (x, z), or -1.
+export function blockingTile(grid, body, x, z, y) {
+  return probe(grid, body, x, z, y).idx;
+}
+
+// Can the body step to (x, z)? Yes if nothing's in the way, or if it's
+// already caught on something (say it dropped off a ledge and landed
+// against it) and this step takes it further out.
+function stepTo(grid, body, x, z) {
+  const y = body.pos.y;
+  const next = probe(grid, body, x, z, y);
+  if (next.idx === -1) return -1;
+  const idx = next.idx, depth = next.depth;
+  const now = probe(grid, body, body.pos.x, body.pos.z, y);
+  if (now.idx !== -1 && depth < now.depth - 1e-4) return -1;
+  return idx;
 }
 
 // Moves a body by (dx, dz), sliding along anything in the way.
@@ -29,11 +54,11 @@ export function moveBody(grid, body, dx, dz) {
   let hitX = -1, hitZ = -1;
   for (let i = 0; i < steps; i++) {
     if (sx !== 0) {
-      const b = blockingTile(grid, body, body.pos.x + sx, body.pos.z, body.pos.y);
+      const b = stepTo(grid, body, body.pos.x + sx, body.pos.z);
       if (b === -1) body.pos.x += sx; else hitX = b;
     }
     if (sz !== 0) {
-      const b = blockingTile(grid, body, body.pos.x, body.pos.z + sz, body.pos.y);
+      const b = stepTo(grid, body, body.pos.x, body.pos.z + sz);
       if (b === -1) body.pos.z += sz; else hitZ = b;
     }
   }
