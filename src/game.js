@@ -103,7 +103,8 @@ export class Game {
   }
 
   frame(now) {
-    const dt = Math.min(1 / 20, (now - this.last) / 1000) * (this.timeScale || 1);
+    // a frame's timestamp can be older than the last one we saw: never run backwards
+    const dt = Math.max(0, Math.min(1 / 20, (now - this.last) / 1000)) * (this.timeScale || 1);
     this.last = now;
     this.input.poll();
     this.input.capture = this.state === 'play' || this.state === 'hack';
