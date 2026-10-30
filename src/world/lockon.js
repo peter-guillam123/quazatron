@@ -81,13 +81,18 @@ export class LockOn {
 
   valid(o, p, range) {
     if (!o) return false;
-    if (o.kind === 'target') return !o.on;
-    if (o.kind === 'turret' ? o.integrity <= 0 : (!o.alive || o.state !== 'active')) return false;
-    if (o.team === p.team || o.cloaked) return false;
-    const oy = o.kind === 'turret' ? o.y : o.pos.y;
-    if (Math.abs(oy - p.pos.y) > 1.2) return false;
-    if (Math.hypot(o.pos.x - p.pos.x, o.pos.z - p.pos.z) > range) return false;
-    return this.world.canSee(p.pos, o.kind === 'turret' ? o.pos.clone().setY(o.y) : o.pos);
+    const droid = o.kind === 'droid';
+    if (o.kind === 'target') { if (o.on) return false; }
+    else if (droid ? !o.alive || o.state !== 'active' : o.integrity <= 0) return false;
+    else if (o.team === p.team || o.cloaked) return false;
+    const oy = droid ? o.pos.y : o.y;
+    if (Math.abs(oy - p.pos.y) > (o.kind === 'target' ? 1.6 : 1.2)) return false;
+    const dx = o.pos.x - p.pos.x, dz = o.pos.z - p.pos.z, dist = Math.hypot(dx, dz);
+    if (dist > range) return false;
+    if (droid) return this.world.canSee(p.pos, o.pos);
+    // turrets and switches fill their own tile, so look at the near edge of it
+    const k = Math.max(0, dist - 0.6) / (dist || 1);
+    return this.world.canSee(p.pos, { x: p.pos.x + dx * k, y: oy, z: p.pos.z + dz * k });
   }
 
   update(dt) {
