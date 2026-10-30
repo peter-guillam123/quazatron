@@ -26,12 +26,16 @@ export class Audio {
     this.muted = false;
   }
 
-  unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+  // Build the sound engine. Browsers keep it silent until the player
+  // presses a key or clicks, unless they already trust the site, so this
+  // runs as the game loads and unlock() wakes it on the first press.
+  init() {
+    if (this.ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
     this.ctx = ctx;
+    ctx.onstatechange = () => { if (this.onState) this.onState(this.running); };
     this.master = ctx.createGain();
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
@@ -50,6 +54,13 @@ export class Audio {
     this.applyVolume();
     if (this.pendingScore != null) this.startMusic(this.pendingScore);
   }
+
+  unlock() {
+    if (!this.ctx) this.init();
+    if (this.ctx && this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+  }
+
+  get running() { return !!this.ctx && this.ctx.state === 'running'; }
 
   applyVolume() {
     if (!this.ctx) return;

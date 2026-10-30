@@ -56,11 +56,18 @@ export class Game {
     this.ghostMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PLAYER_COLOUR).multiplyScalar(0.55), blending: THREE.AdditiveBlending, depthFunc: THREE.GreaterDepth, depthWrite: false });
     this.applySettings();
 
-    // sound can only start after a key press or click
+    // Sound starts now if the browser allows it, otherwise on the first key
+    // press or click. Listening before anything else sees the event means a
+    // menu can't swallow it. A gamepad can't start sound in any browser, so
+    // the title says so until it's on.
+    this.audio.onState = (on) => this.ui.soundHint(!on);
+    this.audio.init();
+    this.ui.soundHint(!!this.audio.ctx && !this.audio.running);
     const unlock = () => { this.audio.unlock(); };
-    window.addEventListener('keydown', unlock);
-    window.addEventListener('pointerdown', unlock);
+    for (const ev of ['keydown', 'pointerdown', 'mousedown', 'touchend', 'click']) window.addEventListener(ev, unlock, true);
     this.input.on((what) => {
+      // worth a try: it works if the page has had a click or key press before
+      if (what === 'pad') this.audio.unlock();
       if (what === 'blur' && this.state === 'play') this.pause();
       if (what === 'blur' && this.state === 'hack' && this.session) this.session.paused = true;
       if (what === 'pad' && !document.getElementById('screen-phone').hidden) this.toTitle();

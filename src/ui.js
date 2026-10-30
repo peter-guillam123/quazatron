@@ -148,6 +148,12 @@ export class UI {
     if (input.padHit('back')) this.back();
   }
 
+  // Sound is still waiting for a key press or click.
+  soundHint(show) {
+    const el = $('#sound-hint');
+    if (el) el.hidden = !show;
+  }
+
   // ------------------------------------------------------------------ announcements
   announce(text, urgent = false) {
     const el = urgent ? this.el.alert : this.el.announce;
