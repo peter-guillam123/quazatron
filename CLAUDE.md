@@ -38,6 +38,14 @@ beats them in a circuit-board duel and steals their parts.
   falling back to LINES), overheard droid-to-droid CHATS (some keyed to your
   history), ! and ? emotes, family body language in `DroidModel.manner`, and
   patrol habits by temper in `src/world/ai.js` (PATROL).
+- The Heap and progression: between runs KLP-2 is rebuilt in the Heap
+  (`src/world/heap.js`, deck 0, built by hand). Data from hacks persists
+  (`meta.data`); Nan's bench sells permanent notches (`src/progress.js`).
+  Fresh start is 70/70 (was 100/100); today's tower uses a fixed 80/80 kit.
+  The cast and every story line live in `src/story/cast.js` (`pick` chooses
+  by priority and marks once-only lines heard in `meta.heard`); portraits are
+  drawn in `src/story/portrait.js`. `START=70 node tests/sim.mjs` runs the
+  bot at a given starting strength.
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken
