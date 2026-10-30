@@ -239,7 +239,8 @@ export function generateBoard(rng, spec) {
   const owners = [];
   for (let r = 0; r < rows; r++) owners.push(r % 2);
   for (let i = owners.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [owners[i], owners[j]] = [owners[j], owners[i]]; }
-  best.cells = owners.map((o) => ({ owner: o, contested: false, flipT: 0 }));
+  // flipT counts from the last change of hands; a fresh board's cells are settled
+  best.cells = owners.map((o) => ({ owner: o, contested: false, flipT: 9 }));
   return best;
 }
 

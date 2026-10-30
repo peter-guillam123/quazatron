@@ -22,6 +22,10 @@ export const LINES = {
   gangIdle: ['NICE DECK.', 'ARE WE NEARLY THERE?', 'I USED TO WORK HERE.', 'WHERE ARE WE GOING?', 'I LIKE THE CYAN.', 'DOWN IS GOOD.'],
   allyKill: ['GOT ONE.', 'FOR K-2!', 'TIDY.', 'SCRAP FOR YOU.', 'OLD WORKMATE. SORRY.'],
   allyHit: ['OOF.', 'COVER ME.', 'THEY HIT BACK.'],
+  hackStart: ['LET\'S SEE IT, THEN.', 'FIREWALL UP.', 'GO ON.', 'COME IN. MIND THE WIRES.'],
+  hackAhead: ['IS THAT IT?', 'CUTE.', 'MY WIRES ARE BIGGER.', 'TICK TOCK.'],
+  hackBehind: ['WAIT. WAIT.', 'THAT\'S NOT FAIR.', 'STOP THAT.', 'REBOOTING... NO.'],
+  hackEmpty: ['OUT ALREADY?', 'NOTHING LEFT? SHAME.'],
   command: ['CLEARANCE DENIED.', 'THIS DECK IS MINE.', 'ACCESS: NO.', 'YOU WANT THE LIFT? COME AND GET IT.'],
   bounty: ['I AM {N}.', '{N} SEES YOU.', 'THEY CALL ME {N}.', '{N}. REMEMBER IT.', 'YOU KNOW WHO I AM.'],
 };
@@ -36,6 +40,9 @@ export const VOICES = {
     beaten: ['FINE. TAKE MY BRUSH.', 'I DIDN\'T WANT TO FIGHT ANYWAY.'],
     rejected: ['I WON? I WON!', 'DID THAT JUST HAPPEN?'],
     turned: ['I CAN BE BRAVE.', 'FRIENDS?', 'I WILL SWEEP FOR YOU.'],
+    hackStart: ['PLEASE BE GENTLE.', 'NOT THE BRUSHES.'],
+    hackAhead: ['OH! I\'M WINNING!'],
+    hackBehind: ['I KNEW IT.', 'TOLD YOU I ONLY SWEEP.'],
     gangIdle: ['THIS FLOOR IS FILTHY.', 'CAN I SWEEP THAT?', 'ARE WE BRAVE YET?', 'I\'M NOT SCARED. MUCH.'],
   },
   // a sentry who lives by the rulebook
@@ -47,6 +54,9 @@ export const VOICES = {
     beaten: ['I WAS ONLY FOLLOWING PROTOCOL.'],
     rejected: ['ACCESS DENIED. AS PER POLICY.'],
     turned: ['NEW SUPERVISOR. NOTED.', 'WHERE DO I SIGN?'],
+    hackStart: ['THIS IS A RESTRICTED SYSTEM.'],
+    hackAhead: ['AS PER PROCEDURE.'],
+    hackBehind: ['THIS IS HIGHLY IRREGULAR.'],
     gangIdle: ['I HAVE STARTED A LOG OF YOUR DECISIONS.', 'IS THIS ROUTE APPROVED?', 'NOTHING TO REPORT. I\'LL REPORT IT ANYWAY.'],
   },
   // always late, always in a hurry
@@ -58,6 +68,9 @@ export const VOICES = {
     beaten: ['MISSED MY SLOT.', 'RETURN TO SENDER.'],
     rejected: ['SIGNED, SEALED, DENIED.'],
     turned: ['WHERE ARE WE GOING? FAST?', 'FINALLY, A ROUTE WITH PURPOSE.'],
+    hackStart: ['MAKE IT QUICK.'],
+    hackAhead: ['TOO SLOW!'],
+    hackBehind: ['NO TIME FOR THIS!'],
     gangIdle: ['CAN WE GO FASTER?', 'I KNOW A SHORTCUT. IT\'S THE VOID.', 'ARE WE THERE YET? NOW?'],
   },
   // slow, heavy and quite friendly really
@@ -69,6 +82,9 @@ export const VOICES = {
     beaten: ['NAP TIME.'],
     rejected: ['DID I WIN? NICE.'],
     turned: ['I CARRY THINGS. I CAN CARRY YOU.', 'MATE.'],
+    hackStart: ['OH. A HACK.'],
+    hackAhead: ['HEH.'],
+    hackBehind: ['UH OH.'],
     gangIdle: ['NICE AND SLOW.', 'I LIKE YOU. YOU\'RE SMALL.', 'WANT ME TO PUSH SOMETHING?'],
   },
   // all nerves and static
@@ -79,6 +95,9 @@ export const VOICES = {
     low: ['RUNNING LOW. BZZT.'],
     beaten: ['SHORTED OUT.'],
     turned: ['POSITIVE! I FEEL POSITIVE!', 'GROUNDED. FINALLY.'],
+    hackStart: ['FEEL THAT CURRENT?'],
+    hackAhead: ['ZZZAP!'],
+    hackBehind: ['SHORTING... SHORTING...'],
     gangIdle: ['I CAN HEAR THE WIRES.', 'DOES ANYONE ELSE TINGLE?'],
   },
   // an inspector, and a snob
@@ -90,6 +109,9 @@ export const VOICES = {
     beaten: ['I SHALL BE WRITING TO SOMEONE.'],
     rejected: ['AS EXPECTED.'],
     turned: ['I SUPPOSE CYAN IS... IN.'],
+    hackStart: ['AMATEUR WIRING.'],
+    hackAhead: ['DREADFUL TECHNIQUE.'],
+    hackBehind: ['THIS WILL BE IN MY REPORT.'],
     gangIdle: ['I\'VE SEEN BETTER DECKS.', 'MIND THE PUDDLES.'],
   },
   // moves cargo, and you count as cargo
@@ -111,6 +133,9 @@ export const VOICES = {
     rejected: ['NO.'],
     turned: ['YES.'],
     gangIdle: ['...', 'GUARDING.'],
+    hackStart: ['NO.'],
+    hackAhead: ['NO.'],
+    hackBehind: ['...NO?'],
   },
   // whispers
   phantom: {
@@ -121,6 +146,9 @@ export const VOICES = {
     beaten: ['gone quiet.'],
     rejected: ['heh.'],
     turned: ['i\'ll be your shadow.'],
+    hackStart: ['you won\'t see it coming.'],
+    hackAhead: ['heh.'],
+    hackBehind: ['oh.'],
     gangIdle: ['i was here the whole time.', 'don\'t look round.'],
   },
   // a show-off
@@ -132,6 +160,9 @@ export const VOICES = {
     beaten: ['I LET YOU WIN.'],
     rejected: ['TOO EASY.'],
     turned: ['FINE. BUT I\'M THE FAST ONE.'],
+    hackStart: ['WATCH AND LEARN.'],
+    hackAhead: ['TOO EASY.'],
+    hackBehind: ['LUCKY. AGAIN.'],
     gangIdle: ['RACE YOU.', 'KEEP UP.'],
   },
   // pompous bodyguard
@@ -175,6 +206,9 @@ export const VOICES = {
     beaten: ['I\'LL ESCALATE THIS.'],
     rejected: ['THAT\'S A NO FROM ME.'],
     turned: ['HAPPY TO REPORT TO YOU.', 'NEW LINE MANAGER. EXCITING.'],
+    hackStart: ['LET\'S KEEP THIS BRIEF.'],
+    hackAhead: ['GOOD TALK.'],
+    hackBehind: ['THIS WASN\'T ON THE AGENDA.'],
     gangIdle: ['QUICK SYNC?', 'WHAT ARE OUR DELIVERABLES?'],
   },
   // the tower's senior staff
@@ -186,6 +220,9 @@ export const VOICES = {
     beaten: ['THIS NEVER HAPPENED.'],
     rejected: ['STILL UNDEFEATED.'],
     turned: ['I AM PREPARED TO CONSULT.'],
+    hackStart: ['I HAVE NEVER LOST A HACK.'],
+    hackAhead: ['AS EXPECTED.'],
+    hackBehind: ['IMPOSSIBLE.'],
     gangIdle: ['I USED TO OWN THIS FLOOR.'],
   },
 };

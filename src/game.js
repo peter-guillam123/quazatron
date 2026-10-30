@@ -418,6 +418,7 @@ export class Game {
       <div><h3>The hack</h3>
         <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
         <p>The dots next to YOU are your pulses, one per shot, with the number left beside them. Theirs are on the other side.</p>
+        <p>The bar across the top shows who owns more cells right now: get your colour past the middle mark. The fuse under it, and the clock, are the time left.</p>
         <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
         <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
         <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
