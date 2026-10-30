@@ -52,6 +52,16 @@ beats them in a circuit-board duel and steals their parts.
   a fuse and clock, faces either side when the window is wide enough, and
   family heckles from `session.heckle()` (lines `hackStart`, `hackAhead`,
   `hackBehind`, `hackEmpty`). The reveal is keyed on the board, not the round.
+- Books: the archive and the how-to share `src/book.js` (index of tabs on the
+  left, page on the right; focus turns the page). The archive
+  (`src/archive.js`, words in `src/story/fieldguide.js`) shows each family's
+  real model turning on a plinth (`src/render/studio.js`, its own WebGL
+  canvas) and fills in by tier: seen, hacked once, complete at three hacks
+  (+5 data, Nan's second note). Cast pages list story lines heard. The
+  how-to is `src/manual.js`: chapters with SVG drawings.
+- Static names each deck's bounty on the radio (`static`/`bounty` lines in
+  `src/story/cast.js`); each run deals its decks different bounty names
+  (`run.bountyNames`).
 - Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
   written from the run). KLP-1 is a rival family (`rival: true`, never
   generated): from your third run it may drop into a combat room on one deck
