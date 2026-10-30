@@ -7,6 +7,22 @@ import { T } from './grid.js';
 
 const TAU = Math.PI * 2;
 
+// How each temper passes the time before it notices you: how far it
+// wanders from home, how fast, how long it stands about, and whether it
+// looks around while it does.
+const PATROL = {
+  timid: { r: 3, speed: 0.42, wait: [0.3, 1.1] },               // a Mite scurries about
+  sniper: { r: 1.6, speed: 0.3, wait: [2, 4], scan: true },     // a sentry stands and watches
+  charger: { r: 6.5, speed: 0.9, wait: [0.4, 1.0] },            // a Courier runs errands
+  brute: { r: 3, speed: 0.24, wait: [2.5, 4.5] },               // a Hauler plods
+  guard: { r: 0.5, speed: 0.3, wait: [3, 6], scan: true },      // a Warden stands its ground
+  hunter: { r: 4, speed: 0.5, wait: [0.8, 1.6] },               // pacing
+  ambush: { r: 4, speed: 0.32, wait: [1, 2.2] },                // drifting
+  puller: { r: 3, speed: 0.35, wait: [1.5, 3], scan: true },
+  skirmish: { r: 5, speed: 0.75, wait: [0.5, 1.2] },
+};
+const PATROL_DEFAULT = { r: 4.5, speed: 0.45, wait: [2, 5] };
+
 export class Brain {
   constructor(d, world) {
     this.d = d;
@@ -60,7 +76,8 @@ export class Brain {
       const dist = d.pos.distanceTo(o.pos);
       if (o.cloaked && dist > 1.4) return false;
       if (dist < 1.6) return true;
-      return dist < range && w.canSee(d.pos, o.pos);
+      // two droids chatting aren't watching very hard
+      return dist < range * (d.chatting ? 0.6 : 1) && w.canSee(d.pos, o.pos);
     };
     if (this.ally) {
       let best = null, bd = Infinity;
@@ -117,7 +134,12 @@ export class Brain {
     // a dozy droid potters about until something wakes it
     if (d.dozy && !this.woke) {
       if (this.hitT > 0) this.woke = true;
-      else { this.patrol(dt); return; }
+      else {
+        this.zT = (this.zT ?? Math.random() * 2) - dt;
+        if (this.zT <= 0) { this.zT = 2.4 + Math.random(); w.game.onDozing?.(d); }
+        this.patrol(dt);
+        return;
+      }
     }
 
     if (this.sees) {
@@ -125,7 +147,7 @@ export class Brain {
       if (this.state === 'patrol' && this.seenT > this.reaction) { this.state = 'chase'; w.alertRoom(d); this.w.game.onSpotted?.(d); }
     } else {
       this.seenT = 0; this.lostT += dt;
-      if (this.state === 'chase' && this.lostT > 4 && this.hitT <= 0) this.state = 'patrol';
+      if (this.state === 'chase' && this.lostT > 4 && this.hitT <= 0) { this.state = 'patrol'; this.fleeing = false; w.game.onLost?.(d); }
     }
 
     if (this.state === 'patrol' || !target) {
@@ -205,6 +227,7 @@ export class Brain {
     }
     if (temper === 'timid' || this.fleeT > 0) {
       mx = -ux; mz = -uz;
+      if (!this.fleeing && !this.ally) { this.fleeing = true; w.game.onFlee?.(d); }
     } else if (arm === 'laser') {
       const want = 5;
       if (dist > want + 1.5) { mx = ux; mz = uz; } else if (dist < want - 1.5) { mx = -ux; mz = -uz; }
@@ -272,6 +295,7 @@ export class Brain {
     const a = { slot, t: 0, dur: Math.max(0.25, dur), ang: t ? Math.atan2(t.pos.x - d.pos.x, t.pos.z - d.pos.z) : d.facing };
     this.attack = a;
     this.w.audio.play('telegraph', { at: d.pos, pitch: slot === 'drive' ? 0.7 : 1 });
+    if (!this.ally) this.w.game.onWindup?.(d);
     // the tower's droids paint a warning on the floor; your gang doesn't need one
     if (!this.ally && this.w.tele) {
       const id = d.modId(slot);
@@ -301,25 +325,40 @@ export class Brain {
   }
 
   patrol(dt) {
-    const d = this.d, w = this.w;
+    const d = this.d;
     d.charge = 0;
+    const st = PATROL[this.temper] || PATROL_DEFAULT;
     this.wanderT -= dt;
-    if (!this.wander || this.wanderT <= 0 || Math.hypot(this.wander.x - d.pos.x, this.wander.z - d.pos.z) < 0.4) {
+    // standing about between errands, maybe looking round
+    if (this.waitT > 0) {
+      this.waitT -= dt;
+      if (st.scan) {
+        this.scanA = (this.scanA ?? d.facing) + dt * 0.6 * (this.strafe || 1);
+        const a = this.scanBase + Math.sin(this.scanA) * 1.1;
+        d.intent.aim = { x: Math.sin(a), z: Math.cos(a) };
+      }
+      return;
+    }
+    if (!this.wander || this.wanderT <= 0) {
       // pick a spot near home
       for (let i = 0; i < 8; i++) {
-        const a = Math.random() * TAU, r = 1 + Math.random() * 3.5;
+        const a = Math.random() * TAU, r = Math.min(st.r, 0.4 + Math.random() * st.r);
         const x = this.home.x + Math.cos(a) * r, z = this.home.z + Math.sin(a) * r;
         if (this.safe(x, z)) { this.wander = { x, z }; break; }
       }
-      this.wanderT = 2 + Math.random() * 3;
+      this.wanderT = 3 + Math.random() * 3;
     }
-    if (this.wander && Math.random() < 0.985) {
-      const dx = this.wander.x - d.pos.x, dz = this.wander.z - d.pos.z;
-      const m = Math.hypot(dx, dz);
-      if (m > 0.4) {
-        const s = this.steer(dx / m * 0.45, dz / m * 0.45);
-        d.intent.mx = s.x; d.intent.mz = s.z;
-      } else this.wander = null;
+    if (!this.wander) return;
+    const dx = this.wander.x - d.pos.x, dz = this.wander.z - d.pos.z;
+    const m = Math.hypot(dx, dz);
+    if (m > 0.4) {
+      const s = this.steer(dx / m * st.speed, dz / m * st.speed);
+      d.intent.mx = s.x; d.intent.mz = s.z;
+    } else {
+      // arrived: wait a moment before the next errand
+      this.wander = null;
+      this.waitT = st.wait[0] + Math.random() * (st.wait[1] - st.wait[0]);
+      this.scanBase = d.facing;
     }
   }
 

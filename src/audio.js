@@ -367,9 +367,9 @@ export class Audio {
         break;
       case 'chirp': {
         // a droid talking: a few quick beeps
-        if (!(d = O(0.28, 0.15))) return;
+        if (!(d = O(opts.soft ? 0.12 : 0.28, 0.15))) return;
         const n = 2 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < n; i++) this.osc('square', (500 + Math.random() * 700) * p, null, t + i * 0.055, 0.04, d, 0.07);
+        for (let i = 0; i < n; i++) this.osc(opts.soft ? 'sine' : 'square', (500 + Math.random() * 700) * p, null, t + i * 0.055, 0.04, d, 0.07);
         break;
       }
       case 'squeak':

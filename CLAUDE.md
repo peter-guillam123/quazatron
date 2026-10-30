@@ -34,6 +34,10 @@ beats them in a circuit-board duel and steals their parts.
   a floor warning that locks a moment before it lands (`src/render/telegraph.js`);
   damage numbers (setting) and dent marks on health bars; each combat room has
   a caged prize that opens when its droids are dealt with.
+- Droid personality: each family has its own voice in `src/lines.js` (VOICES,
+  falling back to LINES), overheard droid-to-droid CHATS (some keyed to your
+  history), ! and ? emotes, family body language in `DroidModel.manner`, and
+  patrol habits by temper in `src/world/ai.js` (PATROL).
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken

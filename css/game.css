@@ -138,6 +138,10 @@ body.reduced .banner { animation: none; }
 .pop.word { font-size: 14px; letter-spacing: 0.14em; }
 .pop.word.slam { color: #fff; font-size: 17px; text-shadow: 0 1px 0 #000, 0 0 12px rgba(255, 140, 60, 0.9); }
 .pop.word.dent { color: #ffc067; font-size: 12px; }
+.pop.emote { font-size: 22px; font-weight: 700; }
+.pop.emote.alert { color: #ffd25a; text-shadow: 0 1px 0 #000, 0 0 10px rgba(255, 190, 60, 0.8); }
+.pop.emote.puzzled { color: #e6ebf3; }
+.pop.emote.dozing { color: #9fd8ff; font-size: 15px; font-style: italic; }
 .pop.word.dodge { color: var(--you); font-size: 12px; }
 .pop.word.clear { color: #fff; font-size: 16px; text-shadow: 0 1px 0 #000, 0 0 12px rgba(46, 242, 255, 0.9); }
 .label.cmd { color: #fff; }

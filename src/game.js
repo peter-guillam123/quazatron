@@ -24,7 +24,7 @@ import { Pickup } from './world/devices.js';
 import { Brain } from './world/ai.js';
 import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
-import { line } from './lines.js';
+import { line, CHATS } from './lines.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
@@ -408,7 +408,8 @@ export class Game {
         <li>A stunned droid takes double damage.</li>
         <li>Before a droid attacks it paints a warning on the floor. When the warning stops moving, get out of the way. On wheels, swerve: shots pass straight through you.</li>
         <li>The two marks on a droid's health bar are its dent points. Below each, it hacks back with one pulser fewer. A stunned one starts late.</li>
-        <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li></ul></div>
+        <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
+        <li>A ! means a droid has seen you; a ? means it's given up looking. Two droids chatting are less watchful.</li></ul></div>
       <div><h3>Room prizes</h3>
         <p>Rooms with droids in them hold a prize in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens. The map shows each room's prize as a dot, hollow until it's open.</p></div>
       <div><h3>Bounties</h3>
@@ -501,6 +502,7 @@ export class Game {
   }
 
   disposeWorld() {
+    this.convo = null;
     if (this.world) { this.world.dispose(); this.world = null; }
     this.session = null;
     this.ui.setPrompt(null);
@@ -693,6 +695,7 @@ export class Game {
           if (m && !MODULES[m.id].starter) offers.push({ id: m.id, grade: m.grade });
         }
         this.powerDown(t);
+        this.say(t, 'beaten', true);
         // win by four or more and it's a clean hack: two parts, or a bonus
         const clean = session.roundsTotal === 1 && session.margin >= 4;
         if (clean && offers.length < 2) {
@@ -717,6 +720,7 @@ export class Game {
         p.knock((dx / m) * 3.5, (dz / m) * 3.5, 0.4);
         t.graceT = 2.5;
         if (t.brain) t.brain.provoke();
+        t.model.cheer();
         this.toast('Rejected. Feedback surge.');
         setTimeout(() => this.say(t, 'rejected', true), 250);
       } else {
@@ -779,7 +783,7 @@ export class Game {
     this.audio.play('turn', { at: d.pos });
     this.run.stats.turned = (this.run.stats.turned || 0) + 1;
     this.toast(`${FAMILIES[d.family].name} ${d.cls} joins your gang.`);
-    setTimeout(() => this.say(d, d.family === 'mite' ? 'turnedMite' : 'turned', true), 600);
+    setTimeout(() => this.say(d, 'turned', true), 600);
     this.hintOnce('gang', 'Your gang follows you, fights for you and rides the lift with you. Up to three at a time.', 7);
   }
 
@@ -1078,9 +1082,18 @@ export class Game {
 
   // ------------------------------------------------------------------ chatter
   say(d, kind, force = false) {
-    if (!d || !d.alive && kind !== 'fall') return;
-    const text = line(kind).replace('{N}', (d.bounty || '').toUpperCase());
-    if (this.ui.say(d, text, force)) this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1) });
+    if (!d || !d.alive && kind !== 'fall' && kind !== 'beaten') return false;
+    // bounties and command droids speak for their office, not their family
+    const own = kind === 'bounty' || kind === 'command' ? null : d.family;
+    const text = line(kind, own).replace('{N}', (d.bounty || '').toUpperCase());
+    return this.speak(d, text, force);
+  }
+
+  speak(d, text, force = false) {
+    if (!this.ui.say(d, text, force)) return false;
+    // whispers are quiet; big droids are low
+    this.audio.play('chirp', { at: d.pos, pitch: 1.25 / (d.scale || 1), soft: d.family === 'phantom' });
+    return true;
   }
 
   // ------------------------------------------------------------------ hit feedback
@@ -1128,11 +1141,26 @@ export class Game {
   }
 
   onSpotted(d) {
+    if (d.team === 'h') this.ui.emote(d, '!', 'alert');
+    if (this.convo && this.convo.who.includes(d)) this.convo = null;
     if (d.bounty) { this.say(d, 'bounty', true); return; }
-    if (d.family === 'mite') { this.audio.play('squeak', { at: d.pos }); this.say(d, 'spotMite', true); return; }
+    if (d.family === 'mite') { this.audio.play('squeak', { at: d.pos }); this.say(d, 'spot', true); return; }
     if (d.command) { this.say(d, 'command'); return; }
-    if (Math.random() < 0.5) this.say(d, 'spot');
+    if (Math.random() < 0.55) this.say(d, 'spot');
   }
+
+  // lost sight of you and gave up looking
+  onLost(d) {
+    this.ui.emote(d, '?', 'puzzled');
+    if (Math.random() < 0.35) this.say(d, 'lost');
+  }
+
+  onFlee(d) { if (Math.random() < 0.6) this.say(d, 'flee'); }
+
+  // about to attack: sometimes it says so, which is another warning
+  onWindup(d) { if (Math.random() < 0.3) this.say(d, 'windup'); }
+
+  onDozing(d) { this.ui.emote(d, 'z', 'dozing'); }
 
   onDroidHurt(d, src) {
     if (d.team === 'k') { if (Math.random() < 0.2) this.say(d, 'allyHit'); return; }
@@ -1144,11 +1172,46 @@ export class Game {
   // now and then, one of the gang passes a remark
   chatter(dt) {
     const w = this.world;
+    this.updateConvo(dt);
     this.chatT = (this.chatT ?? 20) - dt;
     if (this.chatT > 0) return;
     this.chatT = 18 + Math.random() * 16;
     const gang = w.allies().filter((d) => d.brain && d.brain.state === 'follow');
-    if (gang.length && !w.droids.some((d) => d.team === 'h' && d.brain && d.brain.state === 'chase')) this.say(gang[Math.floor(Math.random() * gang.length)], 'idle');
+    if (gang.length && !w.droids.some((d) => d.team === 'h' && d.brain && d.brain.state === 'chase')) this.say(gang[Math.floor(Math.random() * gang.length)], 'gangIdle');
+  }
+
+  // Two of the tower's droids talking shop, before they've noticed you.
+  // While they talk they're a little less watchful.
+  overhear(room) {
+    const w = this.world, p = w.player;
+    if (this.convo || !this.run || Math.random() > 0.7) return;
+    const near = w.droids.filter((d) => d.team === 'h' && d.room === room.index && d.alive && d.state === 'active' && !d.cloaked && d.brain && d.brain.state === 'patrol' && d.pos.distanceTo(p.pos) < 13);
+    if (near.length < 2) return;
+    this.run.heard = this.run.heard || [];
+    const pool = CHATS.filter((c, i) => (!c.when || c.when(this.meta)) && !this.run.heard.includes(i));
+    if (!pool.length) return;
+    const c = pool[Math.floor(Math.random() * pool.length)];
+    this.run.heard.push(CHATS.indexOf(c));
+    near.sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos));
+    this.convo = { who: [near[0], near[1]], lines: c.lines, i: 0, t: 1.2 };
+    for (const d of this.convo.who) d.chatting = true;
+  }
+
+  updateConvo(dt) {
+    const c = this.convo;
+    if (!c) return;
+    const over = c.i >= c.lines.length || c.who.some((o) => !o.alive || o.state !== 'active' || !o.brain || o.brain.state !== 'patrol');
+    if (over) {
+      for (const d of c.who) d.chatting = false;
+      this.convo = null;
+      return;
+    }
+    c.t -= dt;
+    if (c.t > 0) return;
+    const text = c.lines[c.i].replace('{DECK}', String(Math.max(2, this.meta.bestDeck || 2)));
+    this.speak(c.who[c.i % 2], text, true);
+    c.i += 1;
+    c.t = 1.4 + text.length * 0.05;
   }
 
   // ------------------------------------------------------------------ world callbacks
@@ -1201,6 +1264,7 @@ export class Game {
 
   onEnterRoom(room, first) {
     if (!first) return;
+    if (!room.signs && room.role !== 'start') this.overhear(room);
     if (room.signs) {
       // read the floor signs out, with the right keys in
       const keys = (t) => t.replace(/\{(\w+)\}/g, (m, k) => (k === 'move' ? (this.input.lastDevice === 'pad' ? 'Left stick' : 'WASD or the arrow keys') : this.input.label(k)));
