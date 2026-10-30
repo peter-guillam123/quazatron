@@ -184,20 +184,29 @@
   </div>
 </section>
 
-<section class="screen panel-screen" id="screen-howto" hidden aria-labelledby="howto-h">
-  <div class="panel wide scroll">
-    <h2 id="howto-h">How to play</h2>
-    <div class="howto" id="howto-body"></div>
-    <div class="row"><button data-act="back">Back</button></div>
+<section class="screen panel-screen book-screen" id="screen-howto" hidden aria-labelledby="howto-h">
+  <div class="panel book manual">
+    <header class="book-head">
+      <div><h2 id="howto-h">How to play</h2><p class="book-sub">The KLP-2 operator's manual</p></div>
+      <button data-act="back" class="book-back">Back</button>
+    </header>
+    <div class="book-body">
+      <nav class="book-index" id="howto-index" aria-label="Chapters"></nav>
+      <article class="book-page" id="howto-page" role="tabpanel" tabindex="0" data-scroll></article>
+    </div>
   </div>
 </section>
 
-<section class="screen panel-screen" id="screen-archive" hidden aria-labelledby="archive-h">
-  <div class="panel wide scroll">
-    <h2 id="archive-h">Droid archive</h2>
-    <p class="lede" id="archive-lede"></p>
-    <div class="archive" id="archive-body"></div>
-    <div class="row"><button data-act="back">Back</button></div>
+<section class="screen panel-screen book-screen" id="screen-archive" hidden aria-labelledby="archive-h">
+  <div class="panel book">
+    <header class="book-head">
+      <div><h2 id="archive-h">Droid archive</h2><p class="book-sub" id="archive-lede"></p></div>
+      <button data-act="back" class="book-back">Back</button>
+    </header>
+    <div class="book-body">
+      <nav class="book-index" id="archive-index" aria-label="Archive"></nav>
+      <article class="book-page" id="archive-page" role="tabpanel" tabindex="0" data-scroll></article>
+    </div>
   </div>
 </section>
 

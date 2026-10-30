@@ -2,21 +2,23 @@
 // rest of the game. Each look is a few shapes in the character's colours.
 import { CAST } from './cast.js';
 
-export function drawPortrait(canvas, who, t = 0) {
+// size is in CSS pixels; dark draws a silhouette, for someone not yet met.
+export function drawPortrait(canvas, who, t = 0, size = 120, dark = false) {
   const c = CAST[who];
   if (!c) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const S = 120;
-  if (canvas.width !== S * dpr) { canvas.width = S * dpr; canvas.height = S * dpr; }
+  const px = Math.round(size * dpr);
+  if (canvas.width !== px) { canvas.width = px; canvas.height = px; }
   const g = canvas.getContext('2d');
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.setTransform(px / S, 0, 0, px / S, 0, 0);
   g.clearRect(0, 0, S, S);
   // backdrop: a soft glow in their colour
   const bg = g.createRadialGradient(60, 70, 8, 60, 70, 70);
   bg.addColorStop(0, hexA(c.colour, 0.28));
   bg.addColorStop(1, hexA(c.colour, 0));
   g.fillStyle = bg;
-  g.fillRect(0, 0, S, S);
+  if (!dark) g.fillRect(0, 0, S, S);
   const blink = Math.sin(t * 1.7) > 0.985;
   switch (c.look) {
     case 'wide': nan(g, c, blink); break;
@@ -25,6 +27,19 @@ export function drawPortrait(canvas, who, t = 0) {
     case 'eye': eye(g, c, t); break;
     case 'klp': klp(g, c, blink); break;
     default: break;
+  }
+  if (dark) {
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = '#05060a';
+    g.fillRect(0, 0, S, S);
+    // a grey glow behind, so the shape shows
+    g.globalCompositeOperation = 'destination-over';
+    const back = g.createRadialGradient(60, 70, 8, 60, 70, 70);
+    back.addColorStop(0, 'rgba(150,160,185,0.3)');
+    back.addColorStop(1, 'rgba(150,160,185,0)');
+    g.fillStyle = back;
+    g.fillRect(0, 0, S, S);
+    g.globalCompositeOperation = 'source-over';
   }
 }
 

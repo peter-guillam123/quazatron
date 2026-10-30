@@ -37,11 +37,12 @@
       <li>Fights are about position. Shove a droid into a wall and it's slammed and stunned; into another droid and both get it; off an edge and it's gone. A stunned droid takes double damage, and every attack is painted on the floor before it lands.</li>
       <li>Each room with droids in it holds a caged prize, which opens once you've dealt with them all.</li>
       <li>Beat a droid in a hack and you choose: take a part, turn it cyan so it joins your gang, or strip it for scrap. Scrap also bursts out of anything you wreck, and buys repairs, upgrades and firmware at a fabricator.</li>
-      <li>One droid on each deck is a bounty, with a name, a gold ring and parts two grades better than its class.</li>
+      <li>One droid on each deck is a bounty, with a name, a gold ring and parts two grades better than its class. Static names it on the radio as the deck starts.</li>
       <li>Some rooms are sealed vaults that need a particular part: thrusters for a gap, treads for a heavy crate, phase for a force field. The way down never needs one, so a run can't jam.</li>
       <li>Each deck's lift is locked until you take its command droid, by hack or by force.</li>
       <li>When KLP-2 is destroyed its bits go up the scrap chute to the Heap, where Nan rebuilds it. Hacking downloads data, which reaches her whatever happens to you, and she spends it on small permanent upgrades. Any part you have ever stolen can come back down the chute with you.</li>
-      <li>There's a cast: Nan in the Heap, Static on the radio between decks, Ledger in every fabricator, and the Mainframe, which has a word for you on every deck. They remember how your runs went.</li>
+      <li>There's a cast: Nan in the Heap, Static on the radio as each deck starts, Ledger in every fabricator, and the Mainframe, which has a word for you on every deck. They remember how your runs went.</li>
+      <li>The droid archive is a field guide that fills in as you see and hack each kind of droid, with notes from Nan in the margins and pages for the cast.</li>
       <li>Your first run starts with the induction, a hand-built first deck with signs on the floor. Today's tower gives everyone the same five decks for the day.</li>
     </ul>
 
@@ -63,9 +64,9 @@
     <p>I don't write code. I described what I wanted to Claude, Anthropic's AI model, working in Claude Code, and it did the typing, the testing and a good deal of the design. My part was the brief, the decisions and the fussing.</p>
     <ul>
       <li>It's built with <a href="https://threejs.org">three.js</a> in plain JavaScript, with no build step. It runs as static files.</li>
-      <li>There are no image files in the game. Floors, walls and displays are drawn on canvases when it loads; droids are put together from simple shapes.</li>
+      <li>There are no image files in the game. Floors, walls and displays are drawn on canvases when it loads; droids are put together from simple shapes, and the archive photographs them in a small studio of its own.</li>
       <li>Every sound is made in the browser with the Web Audio API, including a small score for each deck that gets busier when you're in a fight.</li>
-      <li>The fonts are Chakra Petch and IBM Plex, both under the Open Font License, served from this site.</li>
+      <li>The fonts are Chakra Petch, IBM Plex and, for Nan's handwriting, Kalam, all under the Open Font License and served from this site.</li>
       <li>It's desktop only, played with a keyboard or a gamepad. The movement and the timed hack both want quick, precise input, and touch controls would have been a poor copy. A controller paired to a phone will work.</li>
       <li>The menus are real buttons, so they work by keyboard, gamepad and screen reader, and the game announces what happens. It follows your system's reduced motion setting, and there are options to take less damage and slow the hack timer. The action itself still needs sight and quick hands, and I won't pretend otherwise.</li>
       <li>Your settings, the archive and your records are kept in your browser and go nowhere else.</li>
@@ -75,6 +76,14 @@
   <section class="diary">
     <h2>Diary</h2>
     <p class="note">Newest first.</p>
+
+    <article class="entry">
+      <p class="date"><time datetime="2026-10-30">30 October 2026</time></p>
+      <h3>A field guide, a manual, and Static on the bounty</h3>
+      <p>The droid archive was a grid of text boxes. Now it's a field guide. Each droid has a page with its real model turning on a plinth, lit in the colour of the deck it lives on, and the page fills in as you go: a dark outline until you've seen one, then its habits and something it says, then its parts, its numbers and how to take one after your first hack. Hack three and the page is stamped complete, and some data goes up the chute to Nan. She has written in the margins, by hand ("They fire in straight lines. Don't stand in straight lines. That's the whole trick."), and adds a second note when a page is finished. The cast have pages too, which keep every story line you've heard and count the ones you haven't.</p>
+      <p>How to play was the plainest screen in the game: one long page of grey text. It's now a manual in the same kind of book, with twelve short chapters, each with a drawing made of the game's own shapes: the lock-on bracket, a shove into a wall, a floor warning and a swerve, a hack board with its forks and gates.</p>
+      <p>And Static now names each deck's bounty on the radio as the deck starts, often with a tip ("Grudge has a Mk VI shield and thinks that makes it clever. A Warden, shield up. Go round the side."). Checking that, Claude found that nearly half of all runs met the same bounty name twice, which would have stood out once Static started saying them aloud. Each run now deals out different names.</p>
+    </article>
 
     <article class="entry">
       <p class="date"><time datetime="2026-10-30">30 October 2026</time></p>

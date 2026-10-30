@@ -16,7 +16,7 @@ import { generateDeck } from './world/deckgen.js';
 import { World } from './world/world.js';
 import { Grid, T } from './world/grid.js';
 import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg, roman, statDiff } from './world/modules.js';
-import { FAMILIES } from './world/roster.js';
+import { FAMILIES, BOUNTY_NAMES } from './world/roster.js';
 import { HackSession } from './hack/session.js';
 import { LESSONS } from './hack/lessons.js';
 import { HackView } from './hack/view.js';
@@ -103,7 +103,8 @@ export class Game {
   }
 
   frame(now) {
-    const dt = Math.min(1 / 20, (now - this.last) / 1000) * (this.timeScale || 1);
+    // a frame's timestamp can be older than the last one we saw: never run backwards
+    const dt = Math.max(0, Math.min(1 / 20, (now - this.last) / 1000)) * (this.timeScale || 1);
     this.last = now;
     this.input.poll();
     this.input.capture = this.state === 'play' || this.state === 'hack';
@@ -400,58 +401,7 @@ export class Game {
   }
 
   showHowto() {
-    const L = (a) => `<kbd>${this.input.label(a)}</kbd>`;
-    document.getElementById('howto-body').innerHTML = `
-      <div><h3>Controls</h3><dl>
-        <dt><kbd>WASD</kbd> / arrows</dt><dd>Move. Up is up the screen.</dd>
-        <dt><kbd>Space</kbd></dt><dd>Grapple a droid or terminal, pick things up, use the lift</dd>
-        <dt><kbd>J</kbd> or <kbd>Z</kbd></dt><dd>Use your arm part (fire, discharge, pull). With the bumper, tap to jab or hold to wind up a shove.</dd>
-        <dt><kbd>K</kbd> or <kbd>X</kbd></dt><dd>Use your drive part. Wheels swerve, thrusters dash, hover floats, treads stamp.</dd>
-        <dt><kbd>L</kbd> or <kbd>C</kbd></dt><dd>Use your core part (shield, cloak, phase)</dd>
-        <dt>${L('loadout')}</dt><dd>Parts and firmware</dd>
-        <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Zoom in and out</dd>
-        <dt>${L('pause')}</dt><dd>Pause</dd>
-      </dl><p>A gamepad works too: left stick moves, right stick aims, A grapple, X arm, B drive, Y core.</p></div>
-      <div><h3>The idea</h3>
-        <p>You are KLP-2, a small droid in a tower full of bigger ones. You can't win a straight fight, so you steal.</p>
-        <p>Get close and grapple a droid to start a hack. Win, and you can take one of its parts. Every droid is built from the parts it carries: what you see on it is what you get.</p>
-        <p>Each deck has a lift down, locked until you take its <b>◆ command droid</b>, by hack or by force.</p></div>
-      <div><h3>The hack</h3>
-        <p>Two sides of a circuit fight over the column of cells in the middle. Pick the side whose wires run cleaner, then fire pulses down your wires. A powered cell takes your colour. Own more cells when the timer ends and you win.</p>
-        <p>The dots next to YOU are your pulses, one per shot, with the number left beside them. Theirs are on the other side.</p>
-        <p>The bar across the top shows who owns more cells right now: get your colour past the middle mark. The fuse under it, and the clock, are the time left.</p>
-        <p>Forks reach two cells. AND gates need two wires lit at once. Inverts paint their colour. Locks stay lit. ∞ wires cost nothing.</p>
-        <p>The wire you've selected shows a faint trail in the colour it would paint. An invert's ring is split: in one colour, out the other.</p>
-        <p>While you're learning, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. & means it needs a second wire. Turn on Wire hints in the settings to keep them.</p>
-        <p>Your first hacks are small boards that bring in one part at a time.</p></div>
-      <div><h3>Fighting</h3>
-        <ul><li>A cyan bracket marks the droid your arm will hit. You fire at it whichever way you're rolling, so you can back off and shoot. On a gamepad the right stick picks.</li>
-        <li>Hold the bumper to wind up a shove, and let go. Knock a droid off an edge for a ring-out, worth double scrap. Into a wall, it's slammed: hurt and stunned. Into another droid, both get it.</li>
-        <li>A stunned droid takes double damage.</li>
-        <li>Before a droid attacks it paints a warning on the floor. When the warning stops moving, get out of the way. On wheels, swerve: shots pass straight through you.</li>
-        <li>The two marks on a droid's health bar are its dent points. Below each, it hacks back with one pulser fewer. A stunned one starts late.</li>
-        <li>Destroy a droid and its parts are lost. Hack it and they're yours.</li>
-        <li>A ! means a droid has seen you; a ? means it's given up looking. Two droids chatting are less watchful.</li></ul></div>
-      <div><h3>Room prizes</h3>
-        <p>Rooms with droids in them hold a prize in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens. The map shows each room's prize as a dot, hollow until it's open.</p></div>
-      <div><h3>Bounties</h3>
-        <p>One droid on each deck has a name, a brass shell and better parts than its class should allow. Take it down, by hack or by force, for scrap and a firmware chip.</p></div>
-      <div><h3>KLP-1</h3>
-        <p>Once you've been at it a while, the KLP before you starts turning up: thrusters, a laser, a shield, and a grudge. Beat it in a hack three times, across as many runs as it takes, and you can bring it home.</p></div>
-      <div><h3>Your gang</h3>
-        <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
-      <div><h3>Scrap</h3>
-        <p>Wrecked droids burst into scrap, which KLP-2 picks up as it rolls past. Win a hack and you can strip the droid for scrap instead of taking a part.</p>
-        <p>Spend it at a <b>fabricator</b>, near each deck's lift, where Ledger sells repairs, spot welds and spare cells (small boosts for this run), better grades of the parts you have, and firmware.</p>
-        <p>Win a hack by four cells or more and it's a clean hack: take two parts.</p></div>
-      <div><h3>Parts</h3>
-        <p>Three sockets: drive, arm and core. Taking a part drops the old one at your feet, so you can swap back. A part's grade comes from the class of the droid you took it from.</p>
-        <p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p></div>
-      <div><h3>The Heap, and data</h3>
-        <p>When KLP-2 is destroyed, its bits go up the scrap chute to the Heap, where Nan rebuilds it. Hacking things downloads <b>data</b>, which reaches her whatever happens to you. Spend it on her bench for small permanent upgrades. Scrap only lasts for the run.</p>
-        <p>Nan keeps every part you've ever stolen: take one down the chute with you. Static talks to you on the radio between decks.</p>
-        <p><b>Today's tower</b> is the same five decks for everyone, all day. Only your first go counts, and you get a line of squares to share.</p></div>`;
-    this.ui.show('howto', { push: true });
+    this.ui.manual(this.input);
   }
 
   // ------------------------------------------------------------------ runs
@@ -483,6 +433,8 @@ export class Game {
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0, data: 0 },
       induction: !!opts.induction, bounties: [],
     };
+    // a different bounty name on every deck of the run
+    this.run.bountyNames = makeRng(this.run.seed ^ 0x5bd1e995).shuffle(BOUNTY_NAMES.slice());
     // KLP-1 turns up on some runs, once you've been at it a while
     const m = this.meta;
     if (!opts.daily && !opts.induction && (m.runs || 0) >= 2 && !m.klp1Turned && (Math.random() < 0.6 || (!m.klp1Met && m.runs >= 3))) {
@@ -562,7 +514,7 @@ export class Game {
     if (!heap) this.forceSeed = null;
     const induction = this.run.induction && n === 1;
     // today's tower must come out the same for everyone, whatever they carry
-    const build = generateDeck(n, makeRng(seed), { heap, induction, playerMods: this.run.daily ? null : this.run.mods });
+    const build = generateDeck(n, makeRng(seed), { heap, induction, playerMods: this.run.daily ? null : this.run.mods, bountyName: this.run.bountyNames && this.run.bountyNames[n - 1] });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
@@ -596,19 +548,32 @@ export class Game {
     this.input.clear();
     if (record) setTimeout(() => this.addData(dataFor('record'), `New deepest deck: ${n}`), 1200);
     // Static, on the radio, once the deck card has gone
-    if (n >= 2) setTimeout(() => this.radioLift(n, w), 3600);
+    if (!heap && !induction) setTimeout(() => this.radioLift(n, w), 3600);
     if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 9000);
   }
 
-  // Static's bit between decks: a remark on the last one, then what's next.
+  // Static's bit as a deck starts: a remark on the last one, what's on this
+  // one, and who has a price on their head.
   radioLift(n, w) {
     if (this.world !== w || !this.run) return;
-    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {} });
-    const remark = this.run.prev ? pick('static', 'remark', ctx) : null;
-    const intro = pick('static', 'lift', ctx);
+    const b = w.bounty;
+    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {}, bounty: b && b.alive && !b.bountyDone && b.team === 'h' ? this.bountyFacts(b) : null });
+    const remark = n >= 2 && this.run.prev ? pick('static', 'remark', ctx) : null;
+    const intro = n >= 2 ? pick('static', 'lift', ctx) : null;
+    const wanted = ctx.bounty ? pick('static', 'bounty', ctx) : null;
     if (remark) this.ui.radio('static', remark.pages[0], 5);
     if (intro) this.ui.radio('static', intro.pages[0], 6);
+    if (wanted) for (const page of wanted.pages) this.ui.radio('static', page, 6);
     saveMeta(this.meta);
+  }
+
+  // What Static can tell you about a bounty: its name, its family and the
+  // best part it carries.
+  bountyFacts(b) {
+    const m = b.mods.arm && b.mods.arm.id !== 'ram' ? b.mods.arm : b.mods.core || (b.mods.drive.id !== 'wheels' ? b.mods.drive : null);
+    const name = m ? `Mk ${roman(m.grade)} ${MODULES[m.id].name.toLowerCase()}` : '';
+    const part = !m ? 'better parts' : /s$/.test(MODULES[m.id].name) ? name : `a ${name}`;
+    return { name: b.bounty, family: b.family, familyName: FAMILIES[b.family].name, part };
   }
 
   saveRunFromPlayer() {
@@ -1526,7 +1491,15 @@ export class Game {
   archiveSee(d, how) {
     if (!d.family) return;
     const a = this.meta.archive[d.family] || (this.meta.archive[d.family] = { hacked: 0, destroyed: 0, best: 0 });
-    if (how === 'hacked') { a.hacked++; a.best = Math.max(a.best || 0, d.cls); }
+    if (how === 'hacked') {
+      a.hacked++;
+      a.best = Math.max(a.best || 0, d.cls);
+      // three hacks fill in the family's page in the archive
+      if (a.hacked >= 3 && !a.complete && !FAMILIES[d.family].rival) {
+        a.complete = true;
+        setTimeout(() => this.addData(dataFor('page'), `Archive page complete: ${FAMILIES[d.family].name}`), 1600);
+      }
+    }
     else if (how === 'destroyed') a.destroyed++;
     saveMeta(this.meta);
   }
