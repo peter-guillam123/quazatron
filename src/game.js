@@ -1542,7 +1542,15 @@ export class Game {
   archiveSee(d, how) {
     if (!d.family) return;
     const a = this.meta.archive[d.family] || (this.meta.archive[d.family] = { hacked: 0, destroyed: 0, best: 0 });
-    if (how === 'hacked') { a.hacked++; a.best = Math.max(a.best || 0, d.cls); }
+    if (how === 'hacked') {
+      a.hacked++;
+      a.best = Math.max(a.best || 0, d.cls);
+      // three hacks fill in the family's page in the archive
+      if (a.hacked >= 3 && !a.complete && !FAMILIES[d.family].rival) {
+        a.complete = true;
+        setTimeout(() => this.addData(dataFor('page'), `Archive page complete: ${FAMILIES[d.family].name}`), 1600);
+      }
+    }
     else if (how === 'destroyed') a.destroyed++;
     saveMeta(this.meta);
   }

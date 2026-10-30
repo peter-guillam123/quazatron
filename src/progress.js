@@ -78,6 +78,7 @@ export function dataFor(kind, cls = 0) {
     case 'claim': return 3;
     case 'family': return 3;     // first of a family you've ever hacked
     case 'record': return 4;     // a new deepest deck
+    case 'page': return 5;       // a page of the droid archive filled in
     default: return 0;
   }
 }

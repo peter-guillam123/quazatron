@@ -159,6 +159,7 @@ const MF = {
   5: 'TURN BACK. THIS IS NOT A REQUEST. IT IS A RECOMMENDATION. ALSO A REQUEST.',
   6: 'COME DOWN, THEN.',
 };
+export const MAINFRAME_DECK = MF;
 for (const [n, text] of Object.entries(MF)) say('mainframe', 'deck', text, { pri: 5, again: true, when: (c) => c.deck === +n });
 say('mainframe', 'deck', 'YOU AGAIN.', { pri: 6, again: true, when: (c) => c.deck === 1 && (c.meta.runs || 0) >= 3 && Math.random() < 0.5 });
 say('mainframe', 'deck', 'THE CHUTE IS NOT AN ENTRANCE.', { id: 'mf.chute', pri: 7, when: (c) => c.deck === 1 && (c.meta.runs || 0) >= 5 });

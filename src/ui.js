@@ -8,6 +8,7 @@ import { BENCH, rank, nextCost, benchNow } from './progress.js';
 import { FAMILIES, FAMILY_ORDER } from './world/roster.js';
 import { PERKS } from './perks.js';
 import { PLAYER_HEX } from './config.js';
+import { Archive } from './archive.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -51,6 +52,8 @@ export class UI {
       }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         if (e.target.type === 'range' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
+        // inside a book's page the arrows scroll it (left goes back to the index)
+        if (e.target.closest && e.target.closest('[data-scroll]')) return;
         e.preventDefault();
         this.moveFocus(e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1);
       }
@@ -116,6 +119,20 @@ export class UI {
     if (!this.screen) return;
     const a = document.activeElement;
     const slider = a && a.type === 'range';
+    // a book: the right stick scrolls the page; inside the page, the d-pad
+    // scrolls too and left goes back to the index
+    const page = this.screen.querySelector('.book-page');
+    if (page) {
+      const y = input.padAim[1];
+      if (y) page.scrollTop += y * 14;
+    }
+    if (page && a && page.contains(a)) {
+      if (input.padHit('up')) page.scrollTop -= 90;
+      if (input.padHit('down')) page.scrollTop += 90;
+      if (input.padHit('left')) this.screen.querySelector('[role="tab"][aria-selected="true"]')?.focus();
+      if (input.padHit('back')) this.back();
+      return;
+    }
     if (slider && (input.padHit('left') || input.padHit('right'))) {
       if (input.padHit('left')) a.stepDown(); else a.stepUp();
       a.dispatchEvent(new Event('input'));
@@ -735,19 +752,7 @@ export class UI {
   }
 
   archive(meta) {
-    const seen = FAMILY_ORDER.filter((k) => meta.archive[k]).length;
-    $('#archive-lede').textContent = `${seen} of ${FAMILY_ORDER.length} families on file. Droids you see go in; hack one to read its parts. The archive stays with you between runs.`;
-    $('#archive-body').innerHTML = FAMILY_ORDER.map((k) => {
-      const F = FAMILIES[k];
-      const a = meta.archive[k];
-      if (!a) return `<div class="droid unknown"><h3>Unknown <span>${F.rival ? '???' : `${F.min}–${F.max}`}</span></h3><p>Not yet seen.</p></div>`;
-      const parts = [F.drive, F.arm, F.core].filter(Boolean).map((m) => `<span title="${esc(MODULES[m].name)}">${iconSvg(m, 20)}</span>`).join('');
-      const names = [F.drive, F.arm, F.core].filter(Boolean).map((m) => MODULES[m].name).join(', ');
-      return `<div class="droid"><h3>${esc(F.name)} <span>${F.min}–${F.max}</span></h3>
-        ${a.hacked ? `<div class="parts" aria-label="Parts: ${esc(names)}">${parts}</div>` : '<p class="tally">Hack one to read its parts.</p>'}
-        <p>${esc(F.role)}. ${esc(F.blurb)}</p>
-        <p class="tally">Hacked ${a.hacked || 0} · destroyed ${a.destroyed || 0}${a.best ? ` · best class ${a.best}` : ''}</p></div>`;
-    }).join('');
-    this.show('archive', { push: !!this.screen });
+    this.archiveBook = this.archiveBook || new Archive(this);
+    this.archiveBook.open(meta);
   }
 }
