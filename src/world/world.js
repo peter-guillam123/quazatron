@@ -8,8 +8,9 @@ import { Droid } from './droid.js';
 import { Brain } from './ai.js';
 import { resolveBodies } from './physics.js';
 import {
-  deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup, Fabricator,
+  deviceMaterials, Door, Field, Bridge, Crate, Plate, Target, Conduit, Terminal, Turret, Repair, Lift, Pickup, Fabricator, Chute, Reader,
 } from './devices.js';
+import { HEAP_NPCS } from './heap.js';
 import { ScrapField, scrapFor } from './scrap.js';
 import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor, rareMods } from './roster.js';
 import { makeRng } from '../rng.js';
@@ -77,8 +78,9 @@ export class World {
     this.makeDroids(build.droids);
     if (this.bounty) this.makeBountyMarker();
     this.makePrizes();
+    this.makeNpcs(build.things);
     this.makePlayer(run);
-    this.claimTotal = this.droids.filter((d) => !d.isPlayer).length
+    this.claimTotal = this.droids.filter((d) => !d.isPlayer && d.team !== 'n').length
       + this.devices.filter((d) => d.kind === 'turret' || d.kind === 'terminal' || d.kind === 'archive').length;
     for (const g of run.gang || []) this.spawnAlly(g);
     this.evaluateChannels();
@@ -111,6 +113,8 @@ export class World {
         case 'M': dev = new Mainframe(this, t); this.mainframe = dev; break;
         case 'm': dev = new Pickup(this, t, { type: 'cache', offer: t.offer }); this.pickups.push(dev); break;
         case '$': dev = new Pickup(this, t, { type: 'chip' }); this.pickups.push(dev); break;
+        case 'U': dev = new Chute(this, t); this.chute = dev; break;
+        case 'Y': dev = new Reader(this, t); break;
         default: break;
       }
       if (!dev) continue;
@@ -177,6 +181,33 @@ export class World {
     }
   }
 
+  // The cast who live in the Heap. They stand still, face you, and talk.
+  makeNpcs(things) {
+    this.npcs = [];
+    for (const t of things) {
+      const spec = HEAP_NPCS[t.t];
+      if (!spec || (spec.needs && !this.game.meta[spec.needs])) continue;
+      const d = new Droid(this, {
+        x: t.x + 0.5, z: t.z + 0.5, y: t.h * LEVEL_H, mods: spec.mods, accent: spec.accent, team: 'n', look: spec.look,
+        facing: Math.PI * 0.25,
+      });
+      d.fixed = true;
+      d.npc = { id: spec.id, name: spec.name };
+      this.root.add(d.model.group);
+      this.droids.push(d);
+      this.npcs.push(d);
+    }
+  }
+
+  npcNear(p) {
+    let best = null, bd = 1.5;
+    for (const d of this.npcs) {
+      const dist = Math.hypot(d.pos.x - p.pos.x, d.pos.z - p.pos.z) - d.radius;
+      if (dist < bd) { bd = dist; best = d; }
+    }
+    return best;
+  }
+
   // Each fighting room's prize, caged until its droids are dealt with.
   makePrizes() {
     this.prizeT = 0;
@@ -219,6 +250,7 @@ export class World {
     p.integrity = Math.min(run.integrity, p.maxIntegrity);
     p.maxEnergy = run.maxEnergy;
     p.energy = p.maxEnergy;
+    p.speedBonus = run.speed || 1;
     p.onRefresh = () => this.game.onPlayerRefresh(p);
     this.root.add(p.model.group);
     this.droids.unshift(p);
@@ -307,7 +339,7 @@ export class World {
 
   hostilesOf(d) {
     const out = [];
-    for (const o of this.droids) if (o !== d && o.alive && o.state === 'active' && o.team !== d.team) out.push(o);
+    for (const o of this.droids) if (o !== d && o.alive && o.state === 'active' && o.team !== d.team && o.team !== 'n') out.push(o);
     for (const t of this.devices) if (t.kind === 'turret' && t.integrity > 0 && t.team !== d.team) out.push(t);
     return out;
   }
@@ -655,7 +687,8 @@ export class World {
   onFellIntoVoid(d) {
     if (d.isPlayer) {
       this.audio.play('fall');
-      d.damage(TUNING.voidDamage, { force: true, kind: 'void' });
+      // nothing up in the Heap can hurt you
+      if (!this.build.heap) d.damage(TUNING.voidDamage, { force: true, kind: 'void' });
       if (!d.alive || d.integrity <= 0) return;
       d.pos.copy(d.lastSafe);
       d.vel.x = d.vel.z = 0; d.vy = 0; d.dash = null; d.hovering = false;
@@ -767,7 +800,7 @@ export class World {
     const reach = 0.55 + (this.game.hasPerk('longreach') ? 0.6 : 0);
     let best = null, bd = Infinity;
     for (const d of this.droids) {
-      if (d === p || !d.alive || d.state !== 'active' || d.team === p.team) continue;
+      if (d === p || !d.alive || d.state !== 'active' || d.team === p.team || d.team === 'n') continue;
       if (d.graceT > 0) continue;
       if (Math.abs(d.pos.y - p.pos.y) > 0.7) continue;
       const dist = Math.hypot(d.pos.x - p.pos.x, d.pos.z - p.pos.z) - d.radius - p.radius;
@@ -813,6 +846,12 @@ export class World {
     const p = this.player;
     if (!p || !p.alive || p.state !== 'active') return null;
     if (this.onLift(p)) return { kind: 'lift', ready: this.clearance };
+    if (this.chute && Math.hypot(this.chute.pos.x - p.pos.x, this.chute.pos.z - p.pos.z) < 0.9) return { kind: 'chute', target: this.chute };
+    const n = this.npcs.length ? this.npcNear(p) : null;
+    if (n) return { kind: 'talk', target: n };
+    for (const r of this.devices) {
+      if (r.kind === 'reader' && Math.hypot(r.pos.x - p.pos.x, r.pos.z - p.pos.z) < 1.3) return { kind: 'reader', target: r };
+    }
     const k = this.pickupNear(p);
     if (k) return { kind: 'pickup', target: k };
     const f = this.fabNear(p);
@@ -857,6 +896,11 @@ export class World {
   update(dt) {
     this.time += dt;
     for (const d of this.droids) if (d.graceT > 0) d.graceT -= dt;
+    // the Heap's residents turn to look at you when you come near
+    for (const d of this.npcs) {
+      const p = this.player;
+      d.intent.aim = p && d.pos.distanceTo(p.pos) < 5 ? { x: p.pos.x - d.pos.x, z: p.pos.z - d.pos.z } : null;
+    }
     for (const d of this.droids) if (d.brain && d.alive && d.state === 'active') d.brain.update(dt);
     for (let i = this.droids.length - 1; i >= 0; i--) {
       const d = this.droids[i];

@@ -621,6 +621,57 @@ export class Fabricator extends Device {
   }
 }
 
+// ------------------------------------------------------------------ the Heap: chute and archive reader
+// The chute: a hatch in the floor of the Heap that drops into the tower.
+export class Chute extends Device {
+  constructor(world, t) {
+    super(world, t);
+    this.kind = 'chute';
+    const m = world.mats;
+    this.mesh(G('chuteRim', () => new THREE.CylinderGeometry(0.7, 0.78, 0.16, 40, 1, true)), m.metal, [0, 0.08, 0]);
+    this.mesh(G('chuteLip', () => new THREE.TorusGeometry(0.7, 0.05, 8, 48)), m.steel, [0, 0.16, 0], [Math.PI / 2, 0, 0]);
+    // a dark well with light far down it
+    const well = new THREE.Mesh(G('chuteWell', () => new THREE.CircleGeometry(0.66, 40)), new THREE.MeshBasicMaterial({ color: 0x020203 }));
+    well.rotation.x = -Math.PI / 2; well.position.y = 0.03;
+    this.group.add(well);
+    this.glowMat = new THREE.MeshBasicMaterial({ color: CYAN.clone().multiplyScalar(1.3), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
+    this.glow = new THREE.Mesh(G('chuteGlow', () => new THREE.RingGeometry(0.2, 0.6, 40)), this.glowMat);
+    this.glow.rotation.x = -Math.PI / 2; this.glow.position.y = 0.035;
+    this.group.add(this.glow);
+    this.padMat = glowMat(world.deck.ink, 1.6);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      this.mesh(G('chuteStud', () => new THREE.BoxGeometry(0.1, 0.05, 0.16)), this.padMat, [Math.cos(a) * 0.74, 0.17, Math.sin(a) * 0.74], [0, -a, 0], false);
+    }
+    this.t = 0;
+  }
+  update(dt) {
+    this.t += dt;
+    this.glow.rotation.z += dt * 0.6;
+    this.glowMat.opacity = 0.35 + Math.sin(this.t * 2) * 0.12;
+  }
+}
+
+// The archive reader: a terminal in the Heap that shows the droid archive.
+export class Reader extends Device {
+  constructor(world, t) {
+    super(world, t);
+    this.kind = 'reader';
+    this.solid = true;
+    const m = world.mats;
+    this.mesh(G('termBase', () => new THREE.BoxGeometry(0.7, 0.18, 0.6)), m.metal, [0, 0.09, 0]);
+    this.mesh(G('termBodyT', () => new THREE.BoxGeometry(0.56, 1.0, 0.42)), m.panel, [0, 0.68, -0.02]);
+    this.screenMat = new THREE.MeshBasicMaterial({ map: screenTexture(), color: new THREE.Color(0xffffff).multiplyScalar(1.4) });
+    this.mesh(G('termScreen', () => new THREE.PlaneGeometry(0.46, 0.36)), this.screenMat, [0, 1.0, 0.2], [-0.3, 0, 0], false);
+    this.lightMat = glowMat(0xffffff, 1.6);
+    this.halo = this.mesh(G('termHalo', () => new THREE.TorusGeometry(0.42, 0.025, 8, 40)), this.lightMat, [0, 1.45, 0], [Math.PI / 2, 0, 0], false);
+    this.group.rotation.y = Math.PI * 0.25;
+    this.block(1);
+    this.radius = 0.5;
+  }
+  update(dt) { this.halo.rotation.z += dt * 0.5; }
+}
+
 // ------------------------------------------------------------------ lift
 export class Lift extends Device {
   constructor(world, t) {

@@ -24,7 +24,14 @@ const { chromium } = require('playwright');
   await step('title', async () => {
     await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.lesson = 99; window.klepto.meta.inductionDone = true; });
   });
-  await step('deck1', () => page.keyboard.press('Enter'), 3000);
+  // New run goes up to the Heap first, where Nan says hello
+  await step('heap', () => page.keyboard.press('Enter'), 3000);
+  await step('hello', async () => {
+    const heap = await page.evaluate(() => !!(window.klepto.run && window.klepto.run.heap));
+    if (!heap) errors.push('expected the Heap after New run');
+    await page.evaluate(() => { const k = window.klepto; if (k.ui.screen && k.ui.screen.id === 'screen-talk') k.onAction('talk', 'close'); });
+  });
+  await step('deck1', () => page.evaluate(() => window.klepto.newRun()), 3000);
   await step('move', async () => { await page.keyboard.down('ArrowUp'); await page.waitForTimeout(600); await page.keyboard.up('ArrowUp'); });
   await step('grapple', async () => {
     // try droids nearest first until one is standing somewhere we can reach

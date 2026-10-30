@@ -118,6 +118,24 @@ export function statLine(mod) {
   }
 }
 
+// What one grade more would change, for the fabricator: "9 → 11 a hit".
+export function statDiff(mod) {
+  const a = moduleStats(mod), b = moduleStats({ id: mod.id, grade: mod.grade + 1 });
+  const r1 = (v) => Math.round(v * 10) / 10;
+  switch (mod.id) {
+    case 'laser': return `${Math.round(a.damage)} → ${Math.round(b.damage)} a hit, ${r1(1 / a.cooldown)} → ${r1(1 / b.cooldown)} shots a second`;
+    case 'arc': return `${Math.round(a.damage)} → ${Math.round(b.damage)} a hit, stuns ${r1(a.stun)}s → ${r1(b.stun)}s`;
+    case 'tractor': return `pulls from ${r1(a.range)} → ${r1(b.range)} tiles`;
+    case 'thrusters': return `dash costs ${a.cost} → ${b.cost} energy, rams ${r1(a.ramMult)}× → ${r1(b.ramMult)}×`;
+    case 'hover': return `${Math.round(a.drain)} → ${Math.round(b.drain)} energy a second`;
+    case 'treads': return `stamp ${Math.round(a.damage)} → ${Math.round(b.damage)} damage, stuns ${r1(a.stun)}s → ${r1(b.stun)}s`;
+    case 'shield': return `${r1(a.drain)} → ${r1(b.drain)} energy a second`;
+    case 'cloak': return `${r1(a.drain)} → ${r1(b.drain)} energy a second`;
+    case 'phase': return `${r1(a.time)}s → ${r1(b.time)}s of phase`;
+    default: return '';
+  }
+}
+
 export function gradeFromClass(cls) {
   return clamp(Math.floor(cls / 100), 1, 9);
 }

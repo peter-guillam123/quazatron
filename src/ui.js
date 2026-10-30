@@ -2,6 +2,9 @@
 // hints. Menus are real buttons, so they work with a keyboard, a screen
 // reader or a gamepad (which moves the focus for you).
 import { MODULES, SLOTS, SLOT_NAMES, iconSvg, moduleLabel, roman, statLine } from './world/modules.js';
+import { CAST } from './story/cast.js';
+import { drawPortrait } from './story/portrait.js';
+import { BENCH, rank, nextCost, benchNow } from './progress.js';
 import { FAMILIES, FAMILY_ORDER } from './world/roster.js';
 import { PERKS } from './perks.js';
 import { PLAYER_HEX } from './config.js';
@@ -152,6 +155,8 @@ export class UI {
     this.announce(this.el.hint.textContent);
   }
 
+  clearHint() { this.el.hint.classList.remove('on'); this.hintT = 0; }
+
   // A big word across the screen, for ring-outs and the like.
   banner(title, sub = '', tone = '') {
     const b = this.el.banner;
@@ -173,25 +178,159 @@ export class UI {
     if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
 
+  setData(n, bump = false) {
+    const el = $('#hud-data');
+    el.querySelector('b').textContent = String(n);
+    if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  }
+
   showHud(on) { this.el.hud.hidden = !on; if (!on) this.clearLabels(); }
 
+  // ------------------------------------------------------------------ the cast
+  // A conversation: pages of text, typed out, then a choice of replies.
+  // t: { who, pages: [text], options: [{ act, label }] }
+  talk(t) {
+    const c = CAST[t.who];
+    this.talkState = { ...t, page: 0 };
+    const scr = $('#screen-talk');
+    scr.style.setProperty('--who', c.colour);
+    $('#talk-name').textContent = c.name;
+    $('#talk-role').textContent = c.role;
+    this.show('talk');
+    this.talkPage();
+  }
+
+  talkPage() {
+    const s = this.talkState;
+    const text = s.pages[s.page];
+    const last = s.page >= s.pages.length - 1;
+    $('#talk-said').textContent = `${CAST[s.who].name}: ${text}`;
+    const opts = last ? (s.options && s.options.length ? s.options : [{ act: 'close', label: 'Bye' }]) : [{ act: 'next', label: 'Go on' }];
+    $('#talk-opts').innerHTML = opts.map((o) => `<button data-act="${o.act}">${esc(o.label)}</button>`).join('');
+    this.typeOut($('#talk-text'), text, s.who);
+    requestAnimationFrame(() => { const b = $('#talk-opts button'); if (b) b.focus({ preventScroll: true }); });
+  }
+
+  // Type a line out a few letters at a time, with a little voice.
+  typeOut(el, text, who) {
+    clearInterval(this.typeT);
+    this.typing = null;
+    if (document.body.classList.contains('reduced')) { el.textContent = text; return; }
+    let i = 0;
+    el.textContent = '';
+    this.typing = { el, text };
+    const pitch = { nan: 0.8, static: 1.35, ledger: 1.05, mainframe: 0.55, klp1: 0.95 }[who] || 1;
+    this.typeT = setInterval(() => {
+      i = Math.min(text.length, i + 2);
+      el.textContent = text.slice(0, i);
+      if (i % 6 === 0 && text[i - 1] !== ' ') this.game.audio.play('blip', { pitch: pitch * (0.92 + Math.random() * 0.16) });
+      if (i >= text.length) { clearInterval(this.typeT); this.typing = null; }
+    }, 26);
+  }
+
+  // Skip to the end of the line being typed. True if there was one.
+  finishTyping() {
+    if (!this.typing) return false;
+    clearInterval(this.typeT);
+    this.typing.el.textContent = this.typing.text;
+    this.typing = null;
+    return true;
+  }
+
+  // A line on the radio: in a box at the bottom, typed out, gone after a while.
+  radio(who, text, secs = 7) {
+    this.radioQ = this.radioQ || [];
+    this.radioQ.push({ who, text, secs });
+    if (!this.radioOn) this.nextRadio();
+  }
+
+  nextRadio() {
+    const el = $('#radio');
+    const r = this.radioQ.shift();
+    clearTimeout(this.radioT);
+    if (!r) { el.classList.add('out'); this.radioT = setTimeout(() => { el.hidden = true; this.radioOn = null; }, 400); return; }
+    const c = CAST[r.who];
+    this.radioOn = r;
+    el.style.setProperty('--who', c.colour);
+    $('#radio-name').textContent = c.name;
+    el.hidden = false;
+    el.classList.remove('out');
+    this.typeRadio($('#radio-text'), r.text, r.who);
+    this.announce(`${c.name}: ${r.text}`);
+    this.radioT = setTimeout(() => this.nextRadio(), (r.secs + r.text.length * 0.03) * 1000);
+  }
+
+  typeRadio(el, text, who) {
+    clearInterval(this.radioTypeT);
+    if (document.body.classList.contains('reduced')) { el.textContent = text; return; }
+    let i = 0;
+    el.textContent = '';
+    this.radioTypeT = setInterval(() => {
+      i = Math.min(text.length, i + 2);
+      el.textContent = text.slice(0, i);
+      if (i % 8 === 0 && text[i - 1] !== ' ') this.game.audio.play('blip', { pitch: who === 'static' ? 1.35 : 1, soft: true });
+      if (i >= text.length) clearInterval(this.radioTypeT);
+    }, 30);
+  }
+
+  clearRadio() {
+    this.radioQ = [];
+    clearTimeout(this.radioT);
+    clearInterval(this.radioTypeT);
+    $('#radio').hidden = true;
+    this.radioOn = null;
+  }
+
+  // Keep the faces on screen alive: blinking, the radio's aerial.
+  tickPortraits(t) {
+    if (this.screen && this.screen.id === 'screen-talk' && this.talkState) drawPortrait($('#talk-portrait'), this.talkState.who, t);
+    if (this.radioOn) drawPortrait($('#radio-portrait'), this.radioOn.who, t);
+    if (this.screen && this.screen.id === 'screen-fab') drawPortrait($('#fab-portrait'), 'ledger', t);
+    if (this.screen && this.screen.id === 'screen-bench') drawPortrait($('#bench-portrait'), 'nan', t);
+  }
+
+  // Nan's bench: permanent upgrades, a notch at a time.
+  bench(meta, line, focus) {
+    const data = meta.data || 0;
+    const wallet = $('#bench-wallet');
+    wallet.querySelector('b').textContent = String(data);
+    wallet.setAttribute('aria-label', `You have ${data} data`);
+    $('#bench-line').textContent = line || '';
+    $('#bench-list').innerHTML = BENCH.map((b) => {
+      const r = rank(meta, b.id);
+      const cost = nextCost(meta, b);
+      const [now, next, what] = benchNow(meta, b);
+      const full = cost == null;
+      const short = !full && cost > data;
+      const notches = `<span class="notches" aria-label="${r} of ${b.ranks}">${Array.from({ length: b.ranks }, (_, i) => `<i class="${i < r ? 'on' : ''}"></i>`).join('')}</span>`;
+      const line = full ? `Full: ${what} ${now}.` : `Each notch: ${b.each}. ${what[0].toUpperCase()}${what.slice(1)} ${now} → ${next}.`;
+      return `<button class="fab-item" data-act="buy" data-id="${b.id}"${full || short ? ' disabled' : ''}>
+        <span class="fab-name">${esc(b.name)}${notches}</span>
+        <span class="fab-line">${esc(line)}</span>
+        <span class="fab-cost">${full ? '' : short ? `${cost} data · need ${cost - data} more` : `${cost} data`}</span>
+      </button>`;
+    }).join('');
+    this.show('bench', focus ? { focus: `[data-id="${focus}"]` } : {});
+  }
+
   setDeck(deck, n, daily = false) {
-    this.el.deck.textContent = `${daily ? 'Today’s tower · ' : ''}Deck ${n} · ${deck.name}`;
+    this.el.deck.textContent = n === 0 ? deck.name : `${daily ? 'Today’s tower · ' : ''}Deck ${n} · ${deck.name}`;
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 
-  deckCard(deck, n, bounty = '', label = '') {
+  deckCard(deck, n, bounty = '', label = '', quote = '') {
     const c = this.el.deckCard;
-    $('#deck-num').textContent = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
+    $('#deck-num').textContent = label || (n === 6 ? 'THE BOTTOM OF THE TOWER' : `DECK ${n} OF 5`);
     $('#deck-title').textContent = deck.name;
     $('#deck-blurb').textContent = deck.blurb;
     $('#deck-bounty').textContent = bounty;
+    $('#deck-quote').textContent = quote;
     c.hidden = true;
     void c.offsetWidth;
     c.hidden = false;
     clearTimeout(this.deckCardT);
     this.deckCardT = setTimeout(() => { c.hidden = true; }, 3400);
-    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb} ${bounty ? `${bounty}.` : ''}`);
+    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb} ${bounty ? `${bounty}.` : ''}${quote ? ` The Mainframe says: ${quote}` : ''}`);
   }
 
   buildSockets(player) {
@@ -247,6 +386,9 @@ export class UI {
     if (boss) {
       cl.textContent = boss.beaten ? 'The tower is yours' : boss.relaysUp > 0 ? `Relays holding the shield: ${boss.relaysUp}` : 'Shield down: grapple the Mainframe';
       cl.classList.toggle('ok', !boss.relaysUp);
+    } else if (world.build.heap) {
+      cl.textContent = 'The chute at the bottom leads down into the tower';
+      cl.classList.add('ok');
     } else {
       cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
       cl.classList.toggle('ok', world.clearance);
@@ -320,7 +462,9 @@ export class UI {
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
       const dent = d.team === 'k' ? 0 : d.dentShown || 0;
-      const txt = `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}${dent ? ` −${dent}` : ''}`;
+      const txt = d.npc ? d.npc.name : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}${dent ? ` −${dent}` : ''}`;
+      el.classList.toggle('npc', !!d.npc);
+      if (d.npc) el.style.color = `#${d.accent.toString(16).padStart(6, '0')}`; else el.style.color = '';
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
       el.classList.toggle('dented', dent > 0);
       el.classList.toggle('locked', world.lock && world.lock.target === d);
@@ -529,7 +673,8 @@ export class UI {
     </button>`;
   }
 
-  fab(items, scrap, focus) {
+  fab(items, scrap, focus, line = null) {
+    if (line != null) $('#fab-line').textContent = line;
     const wallet = $('#fab-wallet');
     const was = wallet.dataset.n;
     wallet.querySelector('b').textContent = String(scrap);

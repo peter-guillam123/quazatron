@@ -7,20 +7,23 @@ import { DECKS } from '../config.js';
 import { FAMILIES, familiesForRange, BOUNTY_NAMES, hasParts } from './roster.js';
 import { STEALABLE } from './modules.js';
 import { inductionPlan } from './induction.js';
+import { heapPlan, HEAP_DECK } from './heap.js';
 
-const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M', 'B']);
+const FLOOR_CHARS = new Set(['.', 'd', 'k', 'S', 'm', '$', 'p', 'P', '+', 'c', 'C', 'A', 'T', 't', 'x', 'g', 'L', 'D', 'F', 'f', 'R', 'M', 'B', 'N', 'Q', 'J', 'Y', 'U']);
 
 export function generateDeck(n, rng, opts = {}) {
-  const deck = DECKS[n - 1];
+  // the Heap, between runs, is built by hand
+  const heap = !!opts.heap;
+  const deck = heap ? HEAP_DECK : DECKS[n - 1];
   // the first run's first deck is built by hand
   const induction = !!opts.induction && n === 1;
-  const plan = induction ? inductionPlan() : layout(n, rng, opts);
+  const plan = heap ? heapPlan() : induction ? inductionPlan() : layout(n, rng, opts);
   const CELL = n === 6 ? 24 : 16;
 
   // ---- choose templates
   const used = new Set();
   const available = availableModules(deck, opts.playerMods);
-  for (const cell of induction ? [] : plan.cells) {
+  for (const cell of induction || heap ? [] : plan.cells) {
     const need = cell.links.map((o) => dirTo(cell, o));
     const tag = cell.role;
     let cands = ROOMS.filter((r) => r.tags.includes(tag) && (r.minDeck || 1) <= n && (r.maxDeck || 9) >= n);
@@ -126,7 +129,7 @@ export function generateDeck(n, rng, opts = {}) {
   const start = { x: startThing.x + 0.5, z: startThing.z + 0.5, h: startThing.h };
 
   // ---- droids
-  const droids = induction ? placeInduction(rooms) : placeDroids(n, deck, rng, rooms, opts);
+  const droids = heap ? [] : induction ? placeInduction(rooms) : placeDroids(n, deck, rng, rooms, opts);
 
   // ---- module caches get their contents now, so a seed replays the same
   for (const t of things) {
@@ -139,7 +142,7 @@ export function generateDeck(n, rng, opts = {}) {
 
   // ---- a caged prize in each fighting room, opened by dealing with its droids.
   // Drawn last, so a seed's layout and droids don't change.
-  if (!induction && n <= 5) {
+  if (!induction && !heap && n <= 5) {
     const taken = new Set(things.map((t) => `${t.x},${t.z}`));
     for (const room of rooms) {
       if (room.role !== 'combat' || !droids.some((d) => d.room === room.index)) continue;
@@ -155,7 +158,7 @@ export function generateDeck(n, rng, opts = {}) {
     }
   }
 
-  return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL, signs, induction };
+  return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL, signs, induction, heap };
 }
 
 // The open floor tile nearest the middle of a room, with flat floor round it.

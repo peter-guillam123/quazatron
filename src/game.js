@@ -15,7 +15,7 @@ import { DECKS, PLAYER_COLOUR, PLAYER_HEX, TUNING, LEVEL_H } from './config.js';
 import { generateDeck } from './world/deckgen.js';
 import { World } from './world/world.js';
 import { Grid, T } from './world/grid.js';
-import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg, roman } from './world/modules.js';
+import { MODULES, STEALABLE, SLOTS, moduleLabel, iconSvg, roman, statDiff } from './world/modules.js';
 import { FAMILIES } from './world/roster.js';
 import { HackSession } from './hack/session.js';
 import { LESSONS } from './hack/lessons.js';
@@ -25,6 +25,8 @@ import { Brain } from './world/ai.js';
 import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
 import { line, CHATS } from './lines.js';
+import { runStats, dataFor, BENCH, rank, nextCost, cheapest } from './progress.js';
+import { pick, hasNew } from './story/cast.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
@@ -192,11 +194,14 @@ export class Game {
 
     this.fx.update(dt, r.camera);
     r.render(dt);
+    this.ui.tickPortraits(performance.now() / 1000);
   }
 
   // ------------------------------------------------------------------ title
   toTitle() {
     this.disposeWorld();
+    this.ui.clearRadio();
+    this.run = null;
     this.state = 'title';
     this.ui.showHud(false);
     this.buildTitleScene();
@@ -204,6 +209,7 @@ export class Game {
     const rec = [];
     if (m.runs) rec.push(`${m.runs} run${m.runs === 1 ? '' : 's'}`);
     if (m.bestDeck) rec.push(`deepest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
+    if (m.data) rec.push(`${m.data} data for Nan`);
     document.getElementById('title-records').textContent = rec.join(' · ');
     document.getElementById('btn-induction').hidden = !m.inductionDone;
     const done = m.daily && m.daily[today()];
@@ -283,7 +289,7 @@ export class Game {
   onAction(screen, act, el) {
     switch (screen) {
       case 'title':
-        if (act === 'new') { if (this.meta.inductionDone) this.newRun(); else this.ui.show('first'); }
+        if (act === 'new') { if (this.meta.inductionDone) this.goHeap(); else this.ui.show('first'); }
         else if (act === 'induction') this.startRun(null, { induction: true });
         else if (act === 'daily') this.startRun(null, { daily: today() });
         else if (act === 'archive') this.ui.archive(this.meta);
@@ -292,22 +298,34 @@ export class Game {
         break;
       case 'first':
         if (act === 'induction') this.startRun(null, { induction: true });
-        else if (act === 'skip') { this.meta.inductionDone = true; saveMeta(this.meta); this.newRun(); }
+        else if (act === 'skip') { this.meta.inductionDone = true; saveMeta(this.meta); this.goHeap(); }
         else if (act === 'back') this.ui.show('title');
         break;
       case 'phone':
         if (act === 'anyway') this.toTitle();
         break;
       case 'kit':
-        if (act === 'back') this.toTitle();
+        if (act === 'back') this.resume();
         else if (act === 'kit') this.startRun(el.dataset.id || null);
+        break;
+      case 'talk':
+        // a press while a line is still typing finishes the line
+        if (act !== 'back' && this.ui.finishTyping()) break;
+        if (act === 'next') { this.ui.talkState.page++; this.ui.talkPage(); }
+        else if (act === 'bench') this.showBench();
+        else if (act === 'more') this.talkTo(this.talking, 'talk');
+        else { this.talking = null; this.resume(); }
+        break;
+      case 'bench':
+        if (act === 'buy') this.buyBench(el.dataset.id);
+        else if (act === 'back') this.resume();
         break;
       case 'pause':
         if (act === 'resume' || act === 'back') this.resume();
         else if (act === 'loadout') this.ui.loadout(this.world.player, this.run.perks, this.playerPulsers());
         else if (act === 'howto') this.showHowto();
         else if (act === 'settings') this.showSettings();
-        else if (act === 'abandon') this.endRun(false, 'abandoned');
+        else if (act === 'abandon') { if (this.run.heap) this.toTitle(); else this.endRun(false, 'abandoned'); }
         break;
       case 'loadout':
         if (act === 'back') this.resume();
@@ -324,7 +342,7 @@ export class Game {
         break;
       case 'end':
         if (act === 'copy') this.copyShare();
-        else if (act === 'again') this.newRun();
+        else if (act === 'again') this.goHeap({ wake: true });
         else if (act === 'title' || act === 'back') this.toTitle();
         break;
       default: break;
@@ -335,7 +353,9 @@ export class Game {
     if (this.state !== 'play') return;
     this.state = 'menu';
     const w = this.world;
-    document.getElementById('pause-info').textContent = `Deck ${this.run.deck}, ${w.deck.name}. ${Math.round(w.claim * 100)}% claimed.`;
+    const heap = !!this.run.heap;
+    document.getElementById('pause-info').textContent = heap ? 'The Heap. Take the chute when you\'re ready.' : `Deck ${this.run.deck}, ${w.deck.name}. ${Math.round(w.claim * 100)}% claimed.`;
+    document.querySelector('#screen-pause [data-act=abandon]').textContent = heap ? 'Title screen' : 'Abandon run';
     this.ui.show('pause');
     this.ui.setPrompt(null);
   }
@@ -418,41 +438,82 @@ export class Game {
         <p>After a won hack you can <b>turn</b> the droid instead of taking a part. It goes cyan, follows you, fights for you and rides the lift down with you. Up to three at a time.</p></div>
       <div><h3>Scrap</h3>
         <p>Wrecked droids burst into scrap, which KLP-2 picks up as it rolls past. Win a hack and you can strip the droid for scrap instead of taking a part.</p>
-        <p>Spend it at a <b>fabricator</b>, near each deck's lift: repairs, better grades of the parts you have, and firmware.</p>
+        <p>Spend it at a <b>fabricator</b>, near each deck's lift, where Ledger sells repairs, spot welds and spare cells (small boosts for this run), better grades of the parts you have, and firmware.</p>
         <p>Win a hack by four cells or more and it's a clean hack: take two parts.</p></div>
       <div><h3>Parts</h3>
         <p>Three sockets: drive, arm and core. Taking a part drops the old one at your feet, so you can swap back. A part's grade comes from the class of the droid you took it from.</p>
         <p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p></div>
-      <div><h3>Between runs</h3>
-        <p>When KLP-2 is destroyed the run ends. You keep the droid archive, and any part you've ever stolen can come with you, at grade I, on the next run.</p>
+      <div><h3>The Heap, and data</h3>
+        <p>When KLP-2 is destroyed, its bits go up the scrap chute to the Heap, where Nan rebuilds it. Hacking things downloads <b>data</b>, which reaches her whatever happens to you. Spend it on her bench for small permanent upgrades. Scrap only lasts for the run.</p>
+        <p>Nan keeps every part you've ever stolen: take one down the chute with you. Static talks to you on the radio between decks.</p>
         <p><b>Today's tower</b> is the same five decks for everyone, all day. Only your first go counts, and you get a line of squares to share.</p></div>`;
     this.ui.show('howto', { push: true });
   }
 
   // ------------------------------------------------------------------ runs
+  // Down the chute: pick a part to take, if you've ever stolen one.
   newRun() {
     const stolen = STEALABLE.filter((id) => this.meta.stolen[id]);
     if (!stolen.length) { this.startRun(null); return; }
+    const g = runStats(this.meta).kitGrade;
+    this.state = 'menu';
+    document.querySelector('#screen-kit .lede').textContent = `Nan keeps every part you've ever stolen. Take one down with you, at Mk ${roman(g)}, or go in with wheels and a bumper.`;
     document.getElementById('kit-cards').innerHTML = [
       `<button class="card" data-act="kit" data-id=""><span class="slot-tag">Nothing extra</span><span class="card-head">${iconSvg('wheels', 26)}Wheels and bumper</span><span class="line">The way KLP-2 left the factory.</span></button>`,
-      ...stolen.map((id) => this.ui.moduleCard({ id, grade: 1 }, null, { act: 'kit' })),
+      ...stolen.map((id) => this.ui.moduleCard({ id, grade: g }, null, { act: 'kit' })),
     ].join('');
     this.ui.show('kit');
   }
 
   startRun(kit, opts = {}) {
     this.ui.hide();
+    this.ui.clearRadio();
+    // what Nan's bench gives you; today's tower is the same for everyone
+    const st = runStats(this.meta, !!opts.daily);
     const mods = { drive: { id: 'wheels', grade: 1 }, arm: null, core: null };
-    if (kit) mods[MODULES[kit].slot] = { id: kit, grade: 1 };
+    if (kit) mods[MODULES[kit].slot] = { id: kit, grade: st.kitGrade };
     this.run = {
       seed: opts.daily ? dailySeed(opts.daily) : randomSeed(), daily: opts.daily || null, deck: 1, mods,
-      integrity: TUNING.playerIntegrity, maxIntegrity: TUNING.playerIntegrity, maxEnergy: TUNING.playerEnergy,
-      perks: [], lastGaspUsed: false, newStolen: [], scrap: 0, fabPerks: 0, gang: [],
-      stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0 },
-      induction: !!opts.induction,
+      integrity: st.integrity, maxIntegrity: st.integrity, maxEnergy: st.energy, speed: st.speed, hackTime: st.hackTime, cradle: st.cradle,
+      perks: [], lastGaspUsed: false, newStolen: [], scrap: st.scrap, fabPerks: 0, gang: [], welds: 0, cells: 0,
+      stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0, data: 0 },
+      induction: !!opts.induction, bounties: [],
     };
     this.disposeTitleScene();
     this.loadDeck(1);
+  }
+
+  // A run-shaped stand-in for the time spent in the Heap.
+  heapRun() {
+    const st = runStats(this.meta);
+    return {
+      heap: true, seed: 1, deck: 0, mods: { drive: { id: 'wheels', grade: 1 }, arm: null, core: null },
+      integrity: st.integrity, maxIntegrity: st.integrity, maxEnergy: st.energy, speed: st.speed, hackTime: st.hackTime, cradle: st.cradle,
+      perks: [], newStolen: [], scrap: 0, fabPerks: 0, gang: [], welds: 0, cells: 0, bounties: [],
+      stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0, data: 0 },
+    };
+  }
+
+  // Up to the Heap, between runs. After a run, Nan has something to say.
+  async goHeap(opts = {}) {
+    this.ui.hide();
+    this.ui.clearRadio();
+    this.run = this.heapRun();
+    this.disposeTitleScene();
+    await this.loadDeck(0);
+    const ctx = this.storyContext();
+    const said = opts.wake ? pick('nan', 'wake', ctx) : hasNew('nan', 'hello', ctx) ? pick('nan', 'hello', ctx) : null;
+    if (said) {
+      saveMeta(this.meta);
+      setTimeout(() => { if (this.state === 'play' && this.run && this.run.heap) this.talkTo(this.world.npcs.find((d) => d.npc.id === 'nan'), null, said); }, 700);
+    }
+  }
+
+  // What the cast know when they choose what to say.
+  storyContext(extra = {}) {
+    const meta = this.meta;
+    const c = cheapest(meta);
+    return { meta, affordable: c != null && (meta.data || 0) >= c, ...extra };
   }
 
   async loadDeck(n) {
@@ -465,11 +526,12 @@ export class Game {
     this.disposeTitleScene();
     this.fx.clear();
     this.slowT = 0; this.koStreak = 0; this.koLast = -99;
-    const seed = this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
-    this.forceSeed = null;
+    const heap = n === 0;
+    const seed = heap ? 1 : this.forceSeed != null ? this.forceSeed : this.run.seed + n * 7919;
+    if (!heap) this.forceSeed = null;
     const induction = this.run.induction && n === 1;
     // today's tower must come out the same for everyone, whatever they carry
-    const build = generateDeck(n, makeRng(seed), { induction, playerMods: this.run.daily ? null : this.run.mods });
+    const build = generateDeck(n, makeRng(seed), { heap, induction, playerMods: this.run.daily ? null : this.run.mods });
     this.world = new World(this, build, this.run);
     const w = this.world;
     const centre = new THREE.Vector3(build.grid.w / 2, 0, build.grid.d / 2);
@@ -477,19 +539,45 @@ export class Game {
     this.renderer.zoomTarget = 1; this.renderer.zoom = 1;
     this.renderer.follow(w.player.pos, 0, true);
     this.ui.setDeck(w.deck, n, !!this.run.daily);
+    this.ui.el.hud.classList.toggle('in-heap', heap);
+    this.ui.clearHint();
     this.ui.buildSockets(w.player);
     this.ui.setScrap(this.run.scrap);
+    this.ui.setData(this.meta.data || 0);
     this.ui.showHud(true);
     this.audio.startMusic(w.deck.music);
-    this.run.stats.decks = Math.max(this.run.stats.decks, n);
-    this.meta.bestDeck = Math.max(this.meta.bestDeck || 0, n);
+    this.run.deckStats = { hacked: 0, ringouts: 0, bounty: null, t0: this.run.stats.time };
+    let record = false;
+    if (!heap) {
+      this.run.stats.decks = Math.max(this.run.stats.decks, n);
+      record = n > 1 && n > (this.meta.bestDeck || 0);
+      this.meta.bestDeck = Math.max(this.meta.bestDeck || 0, n);
+    }
     saveMeta(this.meta);
     fade.classList.remove('on');
-    if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
-    else this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '', this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE TOP' : `DECK ${n} OF 5`}` : '');
+    if (heap) this.ui.announce('The Heap. Nan, Static, the archive and the chute down into the tower.');
+    else if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
+    else {
+      const mf = pick('mainframe', 'deck', this.storyContext({ deck: n }));
+      this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '', this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE BOTTOM' : `DECK ${n} OF 5`}` : '', mf ? mf.pages[0] : '');
+    }
     this.state = 'play';
     this.input.clear();
-    if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 3400);
+    if (record) setTimeout(() => this.addData(dataFor('record'), `New deepest deck: ${n}`), 1200);
+    // Static, on the radio, once the deck card has gone
+    if (n >= 2) setTimeout(() => this.radioLift(n, w), 3600);
+    if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 9000);
+  }
+
+  // Static's bit between decks: a remark on the last one, then what's next.
+  radioLift(n, w) {
+    if (this.world !== w || !this.run) return;
+    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {} });
+    const remark = this.run.prev ? pick('static', 'remark', ctx) : null;
+    const intro = pick('static', 'lift', ctx);
+    if (remark) this.ui.radio('static', remark.pages[0], 5);
+    if (intro) this.ui.radio('static', intro.pages[0], 6);
+    saveMeta(this.meta);
   }
 
   saveRunFromPlayer() {
@@ -565,6 +653,14 @@ export class Game {
       this.ui.setPrompt(`${key}Use the fabricator<span class="sub">${this.run.scrap} scrap</span>`);
       return;
     }
+    if (it.kind === 'talk') {
+      const who = it.target.npc;
+      const sub = who.id === 'nan' ? `${this.meta.data || 0} data for the bench` : '';
+      this.ui.setPrompt(`${key}Talk to ${who.name}${sub ? `<span class="sub">${sub}</span>` : ''}`);
+      return;
+    }
+    if (it.kind === 'chute') { this.ui.setPrompt(`${key}Take the chute<span class="sub">down into the tower</span>`); return; }
+    if (it.kind === 'reader') { this.ui.setPrompt(`${key}Read the droid archive`); return; }
     if (it.kind === 'pickup') {
       const k = it.target;
       if (k.what.type === 'module') this.ui.setPrompt(`${key}Take ${moduleLabel(k.what.mod)}`);
@@ -601,6 +697,9 @@ export class Game {
     }
     if (it.kind === 'pickup') { this.usePickup(it.target); return; }
     if (it.kind === 'fabricator') { this.openFab(it.target); return; }
+    if (it.kind === 'talk') { this.talkTo(it.target, 'talk'); return; }
+    if (it.kind === 'chute') { this.audio.play('descend'); this.newRun(); return; }
+    if (it.kind === 'reader') { this.state = 'menu'; this.ui.setPrompt(null); this.ui.archive(this.meta); return; }
     this.tryGrapple(it.target);
   }
 
@@ -687,7 +786,11 @@ export class Game {
       p.energy = p.maxEnergy;
       if (t.kind === 'droid') {
         this.stat('hacked');
+        if (this.run.deckStats) this.run.deckStats.hacked++;
+        // the first of a family you've ever hacked is worth extra to Nan
+        const newFamily = !(this.meta.archive[t.family] && this.meta.archive[t.family].hacked);
         this.archiveSee(t, 'hacked');
+        this.addData(dataFor('droid', t.cls) + (newFamily ? dataFor('family') : 0), newFamily ? `New in the archive: ${FAMILIES[t.family].name}` : '');
         if (t.bounty) this.bountyClaimed(t, 'hacked');
         const offers = [];
         for (const s of SLOTS) {
@@ -707,6 +810,7 @@ export class Game {
         this.state = 'menu';
       } else {
         t.onHackWin();
+        this.addData(dataFor(t.kind === 'archive' ? 'archive' : 'device'));
         if (t.kind === 'terminal') this.toast('Terminal hacked.');
         if (t.kind === 'turret') this.toast('Turret hacked. It works for you now.');
       }
@@ -954,6 +1058,7 @@ export class Game {
     this.koStreak = now - (this.koLast ?? -99) < 6 ? (this.koStreak || 1) + 1 : 1;
     this.koLast = now;
     this.run.stats.ringouts += 1;
+    if (this.run.deckStats) this.run.deckStats.ringouts++;
     const n = scrapFor(d.cls) * 2;
     const word = ['', '', 'Double', 'Triple', 'Quadruple'][this.koStreak] || `${this.koStreak} in a row:`;
     const title = this.koStreak > 1 ? `${word} ring out` : 'Ring out';
@@ -996,6 +1101,9 @@ export class Game {
     const n = 10 + 3 * Math.min(5, this.run.deck);
     this.addScrap(n, 0, true);
     this.run.stats.bounties = (this.run.stats.bounties || 0) + 1;
+    this.run.bounties.push(d.bounty);
+    if (this.run.deckStats) this.run.deckStats.bounty = d.bounty;
+    this.addData(dataFor('bounty'));
     const at = w.freeSpotNear(p.pos, 1.1) || p.pos.clone();
     const x = Math.floor(at.x), z = Math.floor(at.z);
     const chip = new Pickup(w, { t: '$', x, z, h: w.grid.hAt(x, z), room: -1, ch: '' }, { type: 'chip' });
@@ -1008,12 +1116,18 @@ export class Game {
     this.ui.announce(`Bounty claimed: ${d.bounty}. ${n} scrap, and a firmware chip by your side.`);
   }
 
+  // Ledger runs every fabricator, through its screen.
   openFab(f) {
     this.state = 'menu';
     this.fab = f;
     this.ui.setPrompt(null);
-    this.showFab();
-    this.ui.announce(`Fabricator. You have ${this.run.scrap} scrap.`);
+    const p = this.world.player;
+    const items = this.fabItems().filter((i) => i.ok);
+    const broke = items.length && Math.min(...items.map((i) => i.cost)) > this.run.scrap;
+    const said = pick('ledger', broke ? 'broke' : 'open', this.storyContext({ scrap: this.run.scrap, hurt: p.integrity < p.maxIntegrity * 0.5 }));
+    saveMeta(this.meta);
+    this.showFab(null, said ? said.pages[0] : '');
+    this.ui.announce(`Fabricator. Ledger says: ${said ? said.pages[0] : ''} You have ${this.run.scrap} scrap.`);
     this.hintOnce('fab', 'Scrap comes from wrecked droids. Knock one into the void and you get double.', 7);
   }
 
@@ -1022,14 +1136,18 @@ export class Game {
     const deck = Math.min(5, r.deck);
     const items = [];
     const missing = p.maxIntegrity - p.integrity;
-    const fix = Math.round(Math.min(missing, p.maxIntegrity * 0.35));
-    items.push({ id: 'repair', name: 'Repair', line: missing > 0.5 ? `Patch up ${fix} integrity.` : 'You’re in one piece.', cost: 5 + 2 * deck, ok: missing > 0.5 });
+    const fix = Math.round(Math.min(missing, p.maxIntegrity * 0.3));
+    const now = Math.ceil(p.integrity);
+    items.push({ id: 'repair', name: 'Repair', line: missing > 0.5 ? `Patch up ${fix} integrity: ${now} → ${Math.min(Math.round(p.maxIntegrity), now + fix)}.` : 'You’re in one piece.', cost: 4 + 2 * deck, ok: missing > 0.5 });
+    // small, cheap notches for this run only
+    items.push({ id: 'weld', name: 'Spot weld', line: r.welds < 6 ? `+5 maximum integrity for this run: ${Math.round(p.maxIntegrity)} → ${Math.round(p.maxIntegrity) + 5}.` : 'No room for more welds.', cost: 5 + 2 * r.welds, ok: r.welds < 6 });
+    items.push({ id: 'cell', name: 'Spare cell', line: r.cells < 6 ? `+5 maximum energy for this run: ${Math.round(p.maxEnergy)} → ${Math.round(p.maxEnergy) + 5}.` : 'No room for more cells.', cost: 5 + 2 * r.cells, ok: r.cells < 6 });
     for (const slot of SLOTS) {
       const m = p.mods[slot];
       if (!m || MODULES[m.id].starter) continue;
       items.push({
         id: `up-${slot}`, name: `Upgrade ${MODULES[m.id].name}`, icon: m.id,
-        line: m.grade < 9 ? `Mk ${roman(m.grade)} to Mk ${roman(m.grade + 1)}.` : 'Already Mk IX, as good as it gets.',
+        line: m.grade < 9 ? `Mk ${roman(m.grade)} → Mk ${roman(m.grade + 1)}: ${statDiff(m)}.` : 'Already Mk IX, as good as it gets.',
         cost: 8 + 3 * m.grade, ok: m.grade < 9,
       });
     }
@@ -1043,8 +1161,8 @@ export class Game {
     return items;
   }
 
-  showFab(focus) {
-    this.ui.fab(this.fabItems(), this.run.scrap, focus);
+  showFab(focus, line = null) {
+    this.ui.fab(this.fabItems(), this.run.scrap, focus, line);
   }
 
   buyFab(id) {
@@ -1056,9 +1174,17 @@ export class Game {
     this.audio.play('buy');
     setTimeout(() => this.ui.announce(`${r.scrap} scrap left.`), 600);
     if (id === 'repair') {
-      p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.35);
+      p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.3);
       this.world.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
       this.toast('Repaired');
+    } else if (id === 'weld') {
+      r.welds += 1;
+      p.maxIntegrity += 5; p.integrity += 5; r.maxIntegrity += 5;
+      this.toast(`Spot weld: ${Math.round(p.maxIntegrity)} maximum integrity`);
+    } else if (id === 'cell') {
+      r.cells += 1;
+      p.maxEnergy += 5; p.energy += 5; r.maxEnergy += 5;
+      this.toast(`Spare cell: ${Math.round(p.maxEnergy)} maximum energy`);
     } else if (id === 'gang') {
       for (const d of this.world.allies()) {
         d.integrity = d.maxIntegrity;
@@ -1077,7 +1203,69 @@ export class Game {
       this.offerFirmware('fab');
       return;
     }
-    this.showFab(id);
+    const said = pick('ledger', 'buy', this.storyContext());
+    this.showFab(id, said ? said.pages[0] : null);
+  }
+
+  // ------------------------------------------------------------------ the cast
+  // Talk to someone in the Heap. `said` is a line already chosen.
+  talkTo(d, on = 'talk', said = null) {
+    if (!d) return;
+    const who = d.npc.id;
+    const line = said || pick(who, on, this.storyContext()) || { who, pages: ['...'] };
+    saveMeta(this.meta);
+    this.talking = d;
+    this.state = 'menu';
+    this.ui.setPrompt(null);
+    d.facing = Math.atan2(this.world.player.pos.x - d.pos.x, this.world.player.pos.z - d.pos.z);
+    const options = who === 'nan'
+      ? [{ act: 'bench', label: 'The bench (upgrades)' }, { act: 'more', label: 'Anything else?' }, { act: 'close', label: 'Bye' }]
+      : [{ act: 'more', label: 'Anything else?' }, { act: 'close', label: 'Bye' }];
+    this.ui.talk({ who, pages: line.pages, options });
+  }
+
+  showBench(focus, said) {
+    const line = said || pick('nan', 'bench', this.storyContext());
+    this.state = 'menu';
+    this.ui.bench(this.meta, line ? line.pages[0] : '', focus);
+  }
+
+  buyBench(id) {
+    const b = BENCH.find((x) => x.id === id);
+    const cost = b && nextCost(this.meta, b);
+    if (cost == null || cost > (this.meta.data || 0)) {
+      this.audio.play('empty');
+      this.showBench(id, pick('nan', 'broke', this.storyContext()));
+      return;
+    }
+    this.meta.data -= cost;
+    this.meta.bench = this.meta.bench || {};
+    this.meta.bench[id] = rank(this.meta, id) + 1;
+    saveMeta(this.meta);
+    this.audio.play('buy');
+    this.ui.setData(this.meta.data, true);
+    // the next run starts with it; KLP-2 in the Heap gets it now too
+    if (this.run && this.run.heap && this.world) {
+      const st = runStats(this.meta), p = this.world.player;
+      p.maxIntegrity = st.integrity; p.integrity = st.integrity;
+      p.maxEnergy = st.energy; p.energy = st.energy;
+      p.speedBonus = st.speed;
+    }
+    this.ui.announce(`${b.name} fitted. ${this.meta.data} data left.`);
+    this.showBench(id, pick('nan', 'bought', this.storyContext()));
+  }
+
+  // Data comes up the chute to Nan whatever happens to KLP-2.
+  addData(n, why = '') {
+    if (!n || !this.run) return;
+    this.meta.data = (this.meta.data || 0) + n;
+    this.meta.dataTotal = (this.meta.dataTotal || 0) + n;
+    this.run.stats.data = (this.run.stats.data || 0) + n;
+    saveMeta(this.meta);
+    this.ui.setData(this.meta.data, true);
+    const p = this.world && this.world.player;
+    if (p) this.word(p.pos.clone().setY(p.pos.y + p.model.height + 0.55), `+${n} DATA`, 'data');
+    if (why) this.toast(`${why}: +${n} data`);
   }
 
   // ------------------------------------------------------------------ chatter
@@ -1173,6 +1361,15 @@ export class Game {
   chatter(dt) {
     const w = this.world;
     this.updateConvo(dt);
+    // in the Heap, a resident with something new to say shows it
+    if (w.npcs.length) {
+      this.npcT = (this.npcT ?? 1) - dt;
+      if (this.npcT <= 0) {
+        this.npcT = 3.5;
+        const ctx = this.storyContext();
+        for (const d of w.npcs) if (hasNew(d.npc.id, 'talk', ctx) || (d.npc.id === 'nan' && ctx.affordable)) this.ui.emote(d, '…', 'talky');
+      }
+    }
     this.chatT = (this.chatT ?? 20) - dt;
     if (this.chatT > 0) return;
     this.chatT = 18 + Math.random() * 16;
@@ -1253,6 +1450,7 @@ export class Game {
 
   deckClaimed() {
     const w = this.world, p = w.player;
+    this.addData(dataFor('claim'));
     p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.3);
     this.toast('Deck claimed. Every machine here is yours.');
     const x = Math.floor(p.pos.x), z = Math.floor(p.pos.z);
@@ -1325,16 +1523,25 @@ export class Game {
     w.lift.group.position.y = p.pos.y;
     if (this.descendT > 1.1 && this.state === 'descending') {
       this.state = 'transition';
+      // how the deck went, for Static
+      const ds = this.run.deckStats || {};
+      this.run.prev = {
+        hacked: ds.hacked || 0, ringouts: ds.ringouts || 0, bounty: ds.bounty, time: this.run.stats.time - (ds.t0 || 0),
+        hurt: p.integrity < p.maxIntegrity * 0.35, gang: w.allies().length, claimed: !!w.fullyClaimed,
+      };
       this.run.deck += 1;
       this.saveRunFromPlayer();
       // the lift's cradle patches KLP-2 up on the way down
-      this.run.integrity = Math.min(this.run.maxIntegrity, this.run.integrity + this.run.maxIntegrity * 0.25);
+      this.run.integrity = Math.min(this.run.maxIntegrity, this.run.integrity + this.run.maxIntegrity * (this.run.cradle ?? 0.25));
       this.loadDeck(this.run.deck);
     }
   }
 
-  playerDied() {
+  playerDied(src = {}) {
     const w = this.world, p = w.player;
+    // remember what did it, for Nan
+    const by = src.by;
+    this.run.diedTo = by ? (by.npc ? by.npc.id : by.family || by.kind || 'droid') : src.kind || 'unknown';
     if (this.state === 'won' || this.state === 'end') { p.integrity = 1; return; }
     if (this.hasPerk('lastgasp') && !this.run.lastGaspUsed) {
       this.run.lastGaspUsed = true;
@@ -1391,7 +1598,14 @@ export class Game {
     if (!r) { this.toTitle(); return; }
     this.meta.runs = (this.meta.runs || 0) + 1;
     if (won) this.meta.wins = (this.meta.wins || 0) + 1;
+    // what Nan will want to talk about when you're back in the Heap
+    this.meta.lastRun = {
+      deck: r.deck, how, won, killer: won ? null : how === 'abandoned' ? 'abandoned' : r.diedTo || 'unknown',
+      hacked: r.stats.hacked, ringouts: r.stats.ringouts, turned: r.stats.turned || 0, bounty: (r.bounties || []).slice(-1)[0] || null,
+      time: Math.round(r.stats.time), data: r.stats.data || 0, daily: !!r.daily,
+    };
     saveMeta(this.meta);
+    this.ui.clearRadio();
     this.state = 'end';
     this.audio.stopMusic(1.5);
     this.ui.showHud(false);
@@ -1404,11 +1618,13 @@ export class Game {
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
-      ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Bounties', st.bounties || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
+      ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Bounties', st.bounties || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Data', st.data || 0], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
-    document.getElementById('end-unlocks').textContent = r.newStolen.length
-      ? `New starting parts: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.`
-      : '';
+    const data = r.stats.data || 0;
+    document.getElementById('end-unlocks').textContent = [
+      data ? `${data} data went up the chute to Nan. You have ${this.meta.data || 0} to spend.` : 'No data this time: hack things, and it goes up the chute to Nan.',
+      r.newStolen.length ? `New parts in Nan's spares: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.` : '',
+    ].filter(Boolean).join(' ');
     // today's tower: the first go counts, and you get a line to share
     const share = document.getElementById('end-share');
     share.hidden = !r.daily;

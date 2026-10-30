@@ -23,6 +23,7 @@ export class Droid {
     this.cls = o.cls || 0;
     this.command = !!o.command;
     this.bounty = o.bounty || null;
+    this.look = o.look || null;
     this.kind = 'droid';
     this.pos = new THREE.Vector3(o.x, o.y ?? 0, o.z);
     this.vel = { x: 0, z: 0 };
@@ -121,6 +122,7 @@ export class Droid {
       player: this.isPlayer,
       command: this.command,
       family: this.family,
+      ...(this.look || {}),
     };
     const old = this.model;
     this.model = new DroidModel(spec);
@@ -234,7 +236,7 @@ export class Droid {
     // movement
     const ds = this.stats.drive;
     // KLP-2 is a little quicker than the tower's droids, so it can catch a Mite
-    const top = ds.speed * (this.isPlayer ? TUNING.playerSpeed : 1);
+    const top = ds.speed * (this.isPlayer ? TUNING.playerSpeed * (this.speedBonus || 1) : 1);
     let speed = top;
     if (this.shielding) speed *= 0.55;
     if (this.charge > 0 && !this.isPlayer) speed *= 0.5;

@@ -104,7 +104,8 @@ export class HackSession {
     freeFirst[es] = false;
     if (g.hasPerk('scanner')) for (const col of this.board.sides[ps].grid) for (const c of col) if (c) c.hidden = false;
     // a fresh copy of the cells, since choosing didn't change anything
-    const timer = L ? L.timer : s.timer;
+    // Nan's Patience notches add a little time to every hack
+    const timer = (L ? L.timer : s.timer) + ((g.run && g.run.hackTime) || 0);
     this.round = new HackRound(this.board, { timer: timer * (g.settings.slowHack ? 1.5 : 1), pulsers, duration, travel, freeFirst });
     this.startPulsers = pulsers.slice();
     let delay = 0.5 + Math.random() * 0.4;
