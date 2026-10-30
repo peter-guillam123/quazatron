@@ -27,6 +27,13 @@ beats them in a circuit-board duel and steals their parts.
   balance relies on the old generator's habits). Dents (a third, two thirds
   of integrity) cost the droid pulsers and are shown on the board. Wire hints
   colour each port by where it lands: on in lessons, or via the setting.
+- Combat (October 2026 review): lock-on bracket (`src/world/lockon.js`) picks the
+  arm's target, right stick aims; bumper taps to jab, holds to wind up a shove;
+  wheels swerve (bolts pass through); knocks into walls slam and stun, into
+  droids pile up; stunned droids take double damage; every enemy attack paints
+  a floor warning that locks a moment before it lands (`src/render/telegraph.js`);
+  damage numbers (setting) and dent marks on health bars; each combat room has
+  a caged prize that opens when its droids are dealt with.
 - Three sockets: DRIVE, ARM, CORE. Taking a module drops the old one as a
   pickup. Module grade comes from the class number of the droid you took it from.
 - Colour: the player is always cyan. Each deck has its own hostile colour taken

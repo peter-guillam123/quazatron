@@ -24,9 +24,10 @@ the story of how it was made.
 | | Keyboard | Gamepad |
 |---|---|---|
 | Move | WASD or arrow keys | Left stick |
+| Aim (the bracket picks a target for you) | | Right stick |
 | Grapple, pick up, use the lift or a fabricator | Space | A |
-| Arm part (fire, discharge, pull) | J or Z | X |
-| Drive part (dash, hover, stamp) | K, X or Shift | B |
+| Arm part (fire, discharge, pull; hold the bumper to wind up a shove) | J or Z | X |
+| Drive part (swerve on wheels, dash, hover, stamp) | K, X or Shift | B |
 | Core part (shield, cloak, phase) | L or C | Y |
 | Parts and firmware | Tab or I | Back |
 | Pause | Esc or P | Start |
