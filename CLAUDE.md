@@ -82,6 +82,14 @@ beats them in a circuit-board duel and steals their parts.
 - Static names each deck's bounty on the radio (`static`/`bounty` lines in
   `src/story/cast.js`); each run deals its decks different bounty names
   (`run.bountyNames`).
+- Bosses and pieces of you (`src/story/relics.js`): each generated deck's
+  command droid is its boss (`Droid.boss`, tougher by deck, `bossMult`) and,
+  while it still has one, wears a piece of the old KLP-2 (`Droid.relic`, a
+  cyan core on its back). Beating it (`World.grantClearance` checks it's
+  really down) offers the remaining pieces for that deck; one is kept in
+  `meta.relics` and shows on KLP-2 (`buildWear`). Effects go through
+  `Game.hasRelic` (off in today's tower), `Game.applyRelics` and
+  `World.refreshRelics`.
 - Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
   written from the run). KLP-1 is a rival family (`rival: true`, never
   generated): from your third run it may drop into a combat room on one deck

@@ -210,6 +210,17 @@ export class DroidModel {
 
     // KLP-2 as far as Nan has mended it
     if (s.player && s.wear) this.buildWear(s.wear);
+    // a boss wearing a piece of the old KLP-2: a cyan core on its back
+    if (s.relic) {
+      const cyan = new THREE.Color(0x2ef2ff);
+      this.mats.relic = new THREE.MeshStandardMaterial({ color: 0x050505, emissive: cyan, emissiveIntensity: 3 });
+      const g2 = new THREE.Group();
+      g2.position.set(0, this.bodyMidY + 0.12, -this.frontZ - 0.06);
+      add(g2, G('relicCore', () => new THREE.OctahedronGeometry(0.075)), this.mats.relic);
+      this.relicRing = add(g2, G('relicRing', () => new THREE.TorusGeometry(0.13, 0.012, 8, 32)), this.mats.relic);
+      b.add(g2);
+      this.relicCore = g2;
+    }
 
     if (s.command) {
       // command droids wear a crown of three lit spikes
@@ -310,6 +321,27 @@ export class DroidModel {
     }
     // chrome hubs once the bearings are done
     if (w.servos >= 5) m.metal.color.set(0xdfe6f0);
+    // pieces of the old KLP-2, taken back from the bosses
+    const rel = new Set(w.relics || []);
+    if (rel.has('claw') && this.claw) {
+      this.claw.scale.setScalar(1.6);
+      add(this.claw, G('clawRing', () => new THREE.TorusGeometry(0.075, 0.012, 8, 24)), m.accent, [0, 0, 0.09]);
+    }
+    if (rel.has('plate')) add(b, G('ramPlate', () => new THREE.BoxGeometry(0.28, 0.07, 0.03)), m.metal, [0, y0 + 0.02, shape.r + 0.03]);
+    if (rel.has('plate')) add(b, G('ramPlateEdge', () => new THREE.BoxGeometry(0.28, 0.012, 0.032)), m.accent, [0, y0 + 0.06, shape.r + 0.03]);
+    if (rel.has('gyro')) this.gyro = add(this.group, G('gyro', () => new THREE.TorusGeometry(0.33, 0.014, 8, 48)), m.accent, [0, 0.14, 0], [Math.PI / 2, 0, 0]);
+    if (rel.has('magnet')) add(b, G('magnet', () => new THREE.TorusGeometry(0.05, 0.016, 8, 16, Math.PI)), new THREE.MeshStandardMaterial({ color: 0xc23a3a, roughness: 0.4 }), [0.1, y0 + shape.h + 0.02, -shape.r - 0.02], [0, 0, Math.PI]);
+    if (rel.has('capacitor')) {
+      for (const x of [-0.07, 0.07]) add(b, G('cap', () => new THREE.CylinderGeometry(0.028, 0.028, 0.12, 12)), m.accent, [x, y0 + shape.h * 0.6, -shape.r - 0.025]);
+    }
+    if (rel.has('insulation')) add(b, G('skirt2', () => new THREE.CylinderGeometry(0.33, 0.37, 0.05, 28, 1, true)), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95, side: THREE.DoubleSide }), [0, 0.07, 0]);
+    if (rel.has('firewall')) add(b, G('shade', () => new THREE.CylinderGeometry(this.visorR + 0.02, this.visorR + 0.02, 0.025, 32, 1, true, -0.8, 1.6)), m.dark, [0, this.visorY + 0.05, 0]);
+    if (rel.has('optic')) {
+      const eye = add(b, G('optic', () => new THREE.SphereGeometry(0.035, 12, 10)), m.accent, [0.14, this.visorY + 0.06, shape.r * 0.62]);
+      eye.castShadow = false;
+    }
+    if (rel.has('corekey')) add(b, G('chestCore', () => new THREE.SphereGeometry(0.04, 14, 10)), m.accent, [0, y0 + shape.h * 0.35, shape.r + 0.012]);
+    if (rel.has('override')) this.halo = add(b, G('halo', () => new THREE.TorusGeometry(0.16, 0.012, 8, 40)), m.accent, [0, this.top + 0.08, 0], [Math.PI / 2, 0, 0]);
     this.flicker = Math.max(0, 1 - w.cells / 8);
     this.wobble = Math.max(0, 1 - w.servos / 5);
     this.flickT = 0;
@@ -380,6 +412,9 @@ export class DroidModel {
       this.body.rotation.z = Math.sin(this.t * (moving ? 11 : 3)) * (moving ? 0.035 : 0.012) * this.wobble;
     }
     if (this.flap) this.flap.rotation.x = 0.35 + Math.sin(this.t * 6) * 0.25 + (info.speed || 0) * 0.06;
+    if (this.gyro) this.gyro.rotation.z += dt * 3;
+    if (this.halo) { this.halo.rotation.z += dt * 1.2; this.halo.position.y = this.top + 0.08 + Math.sin(this.t * 2) * 0.01; }
+    if (this.relicCore) { this.relicCore.rotation.y += dt * 1.6; this.relicRing.rotation.x += dt * 2.4; }
     if (this.aerialTip) this.aerialTip.visible = Math.sin(this.t * 4) > -0.2;
 
     this.flash = Math.max(0, this.flash - dt * 5);

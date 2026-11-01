@@ -60,7 +60,7 @@ export class ScrapField {
       if (p && p.alive && b.t > 0.4) {
         const dx = p.pos.x - b.x, dy = p.pos.y + 0.35 - b.y, dz = p.pos.z - b.z;
         const d = Math.hypot(dx, dy, dz);
-        if (d < MAGNET + b.pull) {
+        if (d < MAGNET * (this.world.game.hasRelic?.('magnet') ? 2 : 1) + b.pull) {
           b.rest = false;
           const k = 26 / Math.max(0.4, d);
           b.vx += (dx / d) * k * dt; b.vy += (dy / d) * k * dt; b.vz += (dz / d) * k * dt;

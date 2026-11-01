@@ -71,6 +71,10 @@ export class LockOn {
 
   // How far each arm reaches, for picking a target.
   range(p) {
+    return this.baseRange(p) * (this.world.lockScale || 1);
+  }
+
+  baseRange(p) {
     const id = p.modId('arm');
     const s = p.stats.arm;
     if (id === 'laser') return s.range * 0.9;

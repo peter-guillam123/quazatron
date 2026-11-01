@@ -61,9 +61,11 @@ export class Droid {
     this.room = o.room ?? -1;
     this.damageTaken = 0;
 
-    const scale = this.isPlayer ? 1.0 : 0.92 + 0.045 * Math.max(1, Math.floor(this.cls / 100)) + (this.command ? 0.12 : 0) + (this.bounty ? 0.1 : 0);
+    this.boss = o.boss || null;     // the deck's boss: { name, line }
+    this.relic = !!o.relic;         // carrying a piece of the old KLP-2
+    const scale = this.isPlayer ? 1.0 : 0.92 + 0.045 * Math.max(1, Math.floor(this.cls / 100)) + (this.command ? 0.12 : 0) + (this.boss ? 0.1 : 0) + (this.bounty ? 0.1 : 0);
     this.scale = scale;
-    this.maxIntegrity = o.integrity ?? (this.isPlayer ? TUNING.playerIntegrity : integrityFor(this.cls) * (this.command ? 1.4 : 1) * (this.bounty ? 1.35 : 1));
+    this.maxIntegrity = o.integrity ?? (this.isPlayer ? TUNING.playerIntegrity : integrityFor(this.cls) * (this.command ? 1.4 : 1) * (this.boss ? o.bossMult || 1.3 : 1) * (this.bounty ? 1.35 : 1));
     this.integrity = this.maxIntegrity;
     this.maxEnergy = this.isPlayer ? TUNING.playerEnergy : 100;
     this.energy = this.maxEnergy;
@@ -103,6 +105,7 @@ export class Droid {
       arm: this.modStats('arm'),
       core: this.mods.core ? moduleStats(this.mods.core) : null,
     };
+    if (this.isPlayer && this.world.game && this.world.game.applyRelics) this.world.game.applyRelics(this);
     this.mass = this.stats.drive.mass * (0.8 + this.scale * 0.25) * (this.command ? 1.3 : 1);
     this.radius = 0.36 * this.scale;
     if (this.hovering && this.mods.drive.id !== 'hover') this.hovering = false;
@@ -122,6 +125,7 @@ export class Droid {
       core: this.mods.core ? this.mods.core.id : null,
       player: this.isPlayer,
       command: this.command,
+      relic: this.relic && this.team === 'h',
       family: this.family,
       ...(this.look || {}),
     };
@@ -160,7 +164,7 @@ export class Droid {
   // moves them and they won't go over an edge. Worn down past the line
   // on their health bar, they're open.
   get sealed() { return !this.isPlayer && this.team === 'h' && !this.open; }
-  get open() { return !this.isPlayer && this.integrity <= this.maxIntegrity * OPEN_AT; }
+  get open() { return !this.isPlayer && this.integrity <= this.maxIntegrity * (this.world.openAt || OPEN_AT); }
   get critical() { return !this.isPlayer && this.integrity <= this.maxIntegrity * CRIT_AT; }
 
   moveDir() {
@@ -403,7 +407,8 @@ export class Droid {
     const m = this.model;
     m.group.position.copy(this.pos);
     let vis = 1;
-    if (this.cloaked) vis = this.isPlayer ? 0.28 : 0.06 + (this.revealT || 0) * 0.5;
+    // your old optic sees through a cloak, mostly
+    if (this.cloaked) vis = this.isPlayer ? 0.28 : (this.world.seeCloaked ? 0.4 : 0.06) + (this.revealT || 0) * 0.5;
     if (this.phasing) vis = Math.min(vis, 0.45);
     let look = 0;
     const p = this.world.player;

@@ -111,6 +111,13 @@ say('static', 'remark', 'That was quick. Were you even there?', { pri: 4, again:
 say('static', 'remark', 'You met KLP-1. I\'ve been trying to get it on the show for years. It doesn\'t do interviews.', { pri: 10, again: true, when: (c) => !!c.prev.klp1 });
 say('static', 'remark', 'Every machine on that deck, cyan. Show-off.', { pri: 8, again: true, when: (c) => c.prev.claimed });
 
+// the deck's boss, while it still has a piece of you
+say('static', 'boss', ['One more thing, KLP. Every deck is run by a boss with a ◆ over it. When they wiped you, they handed your best parts round the bosses like medals.', '{BOSS} runs this one. It\'s wearing a piece of you. Go and get it back.'],
+  { id: 'static.boss1', pri: 20, when: (c) => !!c.boss });
+say('static', 'boss', '{BOSS} runs this deck, and it\'s still wearing a piece of you.', { pri: 5, again: true, when: (c) => !!c.boss });
+say('static', 'boss', 'Watch out for {BOSS}. It\'s got something of yours, and it knows it.', { pri: 5, again: true, when: (c) => !!c.boss });
+say('static', 'boss', '{BOSS} is on this deck. Big. Wearing your old parts like a medal.', { pri: 5, again: true, when: (c) => !!c.boss });
+
 // naming the bounty on each deck, once the deck card has gone
 const has = (c, ...fams) => !!c.bounty && fams.includes(c.bounty.family);
 say('static', 'bounty', ['Static here, on the radio. Every deck has a bounty: one droid with a name, a gold ring and better parts than it should have.', 'On this deck it\'s {NAME}, {A} {FAMILY} with {PART}. Hack it and the part is yours.'],
@@ -185,6 +192,7 @@ function fill(text, c) {
     .replace('{BOUNTY}', (c.prev && c.prev.bounty) || 'the bounty')
     .replace('{RINGOUTS}', String((c.prev && c.prev.ringouts) || 0))
     .replace('{DATA}', String(c.meta.data || 0))
+    .replaceAll('{BOSS}', c.boss || 'the boss')
     .replaceAll('{NAME}', (c.bounty && c.bounty.name) || 'the bounty')
     .replaceAll('{FAMILY}', (c.bounty && c.bounty.familyName) || 'droid')
     .replaceAll('{PART}', (c.bounty && c.bounty.part) || 'better parts')

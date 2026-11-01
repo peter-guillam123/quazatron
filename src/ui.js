@@ -453,7 +453,8 @@ export class UI {
       cl.textContent = 'The chute leads up into the tower';
       cl.classList.add('ok');
     } else {
-      cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
+      const bn = world.bossDroid ? world.bossDroid.boss.name : 'the ◆ command droid';
+      cl.textContent = world.clearance ? 'Clearance granted: find the lift' : `Lift locked: beat ◆ ${bn}`;
       cl.classList.toggle('ok', world.clearance);
     }
     // this room's prize, and what stands between you and it
@@ -507,7 +508,7 @@ export class UI {
     const p = world.player;
     for (const d of world.droids) {
       if (d.isPlayer || !d.alive || d.state !== 'active') continue;
-      if (d.cloaked) continue;
+      if (d.cloaked && !world.seeCloaked) continue;
       if (p && d.pos.distanceTo(p.pos) > 13) continue;
       const v = d.pos.clone();
       v.y += d.model.height + 0.25;
@@ -524,7 +525,7 @@ export class UI {
       el.hidden = false;
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
-      const txt = d.npc ? d.npc.name : d.family === 'klp1' ? 'KLP-1' : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}`;
+      const txt = d.npc ? d.npc.name : d.family === 'klp1' ? 'KLP-1' : d.boss && d.team === 'h' ? d.boss.name : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}`;
       el.classList.toggle('rival', d.family === 'klp1' && d.team !== 'k');
       el.classList.toggle('npc', !!d.npc);
       if (d.npc) el.style.color = `#${d.accent.toString(16).padStart(6, '0')}`; else el.style.color = '';
@@ -534,6 +535,7 @@ export class UI {
       el.classList.toggle('crit', hostile && d.critical);
       el.classList.toggle('locked', world.lock && world.lock.target === d);
       el.classList.toggle('cmd', d.command && d.team !== 'k');
+      el.classList.toggle('relic', !!d.relic && d.team === 'h');
       el.classList.toggle('bounty', !!d.bounty && d.team !== 'k');
       el.classList.toggle('ally', d.team === 'k');
       const hp = d.integrity / d.maxIntegrity;
@@ -731,6 +733,16 @@ export class UI {
     </button>`;
   }
 
+  // A piece of the old KLP-2, offered when a boss falls.
+  relicCard(id, r) {
+    return `<button class="card relic" data-act="relic" data-id="${id}">
+      <span class="slot-tag kept">Kept for good</span>
+      <span class="card-head">${iconSvg(r.icon, 26)}${esc(r.name)}</span>
+      <span class="line">${esc(r.line)}</span>
+      <span class="use">Shows on KLP-2: ${esc(r.look)}.</span>
+    </button>`;
+  }
+
   // KLP-1 won't join a gang. Beat it enough times and it'll go home instead.
   homeCard(wins, need) {
     const ready = wins >= need;
@@ -832,6 +844,7 @@ export class UI {
       <div class="loadout">
         <div class="box kept"><h3>Data</h3><p><b>${o.data}</b> data for Nan's bench in the Heap. Hacking brings more.</p></div>
         <div class="box kept"><h3>Nan's spares</h3><p>Parts you've ever stolen, one to take up the chute each run: ${spares}.</p></div>
+        <div class="box kept"><h3>Pieces of you</h3>${o.relics.length ? `<ul>${o.relics.map((r) => `<li><b>${esc(r.name)}</b>: ${esc(r.line)}</li>`).join('')}</ul>` : '<p>None yet. Each deck\'s boss is wearing two pieces of the old KLP-2.</p>'}${o.daily ? '<p>They stay at home for today\'s tower.</p>' : ''}</div>
         <div class="box kept"><h3>Archive</h3><p>${o.archived} droid${o.archived === 1 ? '' : 's'} on file.</p></div>
       </div>`;
     this.show('loadout', { push: true });

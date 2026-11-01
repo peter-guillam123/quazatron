@@ -27,6 +27,7 @@ import { makeRng, randomSeed } from './rng.js';
 import { line, CHATS } from './lines.js';
 import { runStats, dataFor, BENCH, rank, nextCost, cheapest, wear } from './progress.js';
 import { pick, hasNew } from './story/cast.js';
+import { BOSSES, RELICS, RELIC_ORDER, relicsLeft } from './story/relics.js';
 import { frontPage } from './story/gazette.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
@@ -533,6 +534,7 @@ export class Game {
     this.renderer.follow(w.player.pos, 0, true);
     this.ui.setDeck(w.deck, n, !!this.run.daily);
     this.ui.setCondition(this.klpWear());
+    document.getElementById('labels').style.setProperty('--open-at', `${Math.round(w.openAt * 100)}%`);
     this.ui.el.hud.classList.toggle('in-heap', heap);
     this.ui.clearHint();
     this.ui.buildSockets(w.player);
@@ -553,7 +555,9 @@ export class Game {
     else if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
     else {
       const mf = pick('mainframe', 'deck', this.storyContext({ deck: n }));
-      this.ui.deckCard(w.deck, n, w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : '', this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE BOTTOM' : `DECK ${n} OF 5`}` : '', mf ? mf.pages[0] : '');
+      const bd = w.bossDroid;
+      const lines = [bd ? `Boss: ◆ ${bd.boss.name}, a ${FAMILIES[bd.family].name} ${bd.cls}${bd.relic ? ' · it has a piece of you' : ''}` : '', w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : ''].filter(Boolean).join('\n');
+      this.ui.deckCard(w.deck, n, lines, this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE BOTTOM' : `DECK ${n} OF 5`}` : '', mf ? mf.pages[0] : '');
     }
     this.state = 'play';
     this.input.clear();
@@ -572,8 +576,11 @@ export class Game {
     const remark = n >= 2 && this.run.prev ? pick('static', 'remark', ctx) : null;
     const intro = n >= 2 ? pick('static', 'lift', ctx) : null;
     const wanted = ctx.bounty ? pick('static', 'bounty', ctx) : null;
+    const bd = w.bossDroid;
+    const boss = bd && bd.relic ? pick('static', 'boss', { ...ctx, boss: bd.boss.name }) : null;
     if (remark) this.ui.radio('static', remark.pages[0], 5);
     if (intro) this.ui.radio('static', intro.pages[0], 6);
+    if (boss) for (const page of boss.pages) this.ui.radio('static', page, 6);
     if (wanted) for (const page of wanted.pages) this.ui.radio('static', page, 6);
     saveMeta(this.meta);
   }
@@ -604,11 +611,22 @@ export class Game {
     this.ui.clearLabels();
   }
 
-  // How mended KLP-2 looks. Today's tower lends everyone the same middling
-  // kit, so it looks the same for everyone too.
+  // How mended KLP-2 looks, and the pieces of the old one it has back.
+  // Today's tower lends everyone the same middling kit, so it looks the
+  // same for everyone too.
   klpWear() {
-    if (this.run && this.run.daily) return { plating: 4, cells: 4, servos: 2, patience: 1, pockets: 0, condition: 0.45 };
-    return wear(this.meta);
+    if (this.run && this.run.daily) return { plating: 4, cells: 4, servos: 2, patience: 1, pockets: 0, condition: 0.45, relics: [] };
+    return { ...wear(this.meta), relics: this.relicList() };
+  }
+
+  // Pieces of the old KLP-2 you've taken back from the bosses. They stay at
+  // home for today's tower.
+  hasRelic(id) { return !!(this.meta.relics || {})[id] && !(this.run && this.run.daily); }
+  relicList() { return RELIC_ORDER.filter((id) => (this.meta.relics || {})[id]); }
+
+  // Called whenever KLP-2's parts change: the pieces that change its stats.
+  applyRelics(p) {
+    if (this.hasRelic('gyro') && p.stats.drive.cost) p.stats.drive.cost *= 0.6;
   }
 
   // The KLP-2 sheet: kept for good against this run only.
@@ -618,6 +636,7 @@ export class Game {
       player: w.player, run: r, kept: runStats(this.meta, !!r.daily), daily: !!r.daily, pulsers: this.playerPulsers(),
       data: this.meta.data || 0, gang: w.allies(), spares: STEALABLE.filter((id) => this.meta.stolen[id]),
       archived: Object.keys(this.meta.archive || {}).length,
+      relics: this.relicList().map((id) => RELICS[id]),
     });
   }
 
@@ -625,7 +644,7 @@ export class Game {
     const mods = this.world && this.world.player ? this.world.player.mods : this.run ? this.run.mods : {};
     let g = 0;
     for (const s of SLOTS) { const m = mods[s]; if (m && !MODULES[m.id].starter) g += m.grade; }
-    return Math.min(8, 4 + Math.floor(g / 6) + (this.hasPerk('overclock') ? 1 : 0));
+    return Math.min(8, 4 + Math.floor(g / 6) + (this.hasPerk('overclock') ? 1 : 0) + (this.hasRelic('corekey') ? 1 : 0));
   }
 
   hasPerk(id) { return !!this.run && this.run.perks.includes(id); }
@@ -694,7 +713,7 @@ export class Game {
     const t = it.target;
     let name, sub = '';
     if (t.kind === 'droid') {
-      name = t.family === 'klp1' ? 'KLP-1' : `${FAMILIES[t.family].name} ${t.cls}`;
+      name = t.family === 'klp1' ? 'KLP-1' : t.boss && t.team === 'h' ? `${t.boss.name}, ${FAMILIES[t.family].name} ${t.cls}` : `${FAMILIES[t.family].name} ${t.cls}`;
       const p = this.world.player;
       if (t.sealed && !p.cloaked) {
         this.ui.setPrompt(`${name} is sealed<span class="sub">wear it down past the line on its bar</span>`, true);
@@ -856,8 +875,10 @@ export class Game {
         if (t.kind === 'turret') this.toast('Turret hacked. It works for you now.');
       }
     } else {
-      const dmg = 6 + (session.spec.cls || 100) / 60;
-      p.damage(dmg, { force: true, kind: 'feedback' });
+      // your old firewall takes the burn
+      const dmg = this.hasRelic('firewall') ? 0 : 6 + (session.spec.cls || 100) / 60;
+      if (dmg) p.damage(dmg, { force: true, kind: 'feedback' });
+      else this.toast('Your old firewall took the burn.');
       this.renderer.flash('#ff3030', 0.3);
       this.renderer.addShake(0.4);
       if (t.kind === 'droid') {
@@ -922,6 +943,8 @@ export class Game {
     // the recruit, and it hits about as hard as it looks
     d.integrity = Math.max(1, d.integrity);
     d.condition = 0.4 + 0.6 * (d.integrity / d.maxIntegrity);
+    // your old override puts it back in working order
+    if (this.hasRelic('override')) { d.integrity = d.maxIntegrity; d.condition = 1; }
     d.model.body.rotation.x = 0;
     d.setAccent(PLAYER_COLOUR);
     d.brain = new Brain(d, w);
@@ -1051,6 +1074,7 @@ export class Game {
   onOffer(act, el) {
     const o = this.offerState;
     if (!o) { this.resume(); return; }
+    if (o.kind === 'relic') { if (act === 'relic') this.takeRelic(el.dataset.id); return; }
     if (act === 'take') {
       this.equip({ id: el.dataset.id, grade: +el.dataset.grade });
       if (o.kind === 'cache' && o.pickup) this.world.removePickup(o.pickup);
@@ -1104,6 +1128,7 @@ export class Game {
   // ------------------------------------------------------------------ scrap and the fabricator
   addScrap(n, chain = 0, quiet = false) {
     if (!this.run) return;
+    if (this.hasRelic('magnet')) n = Math.round(n * 1.25);
     this.run.scrap += n;
     this.run.stats.scrap += n;
     if (!quiet) this.audio.play('scrap', { pitch: 1 + Math.min(chain, 16) * 0.045 });
@@ -1506,6 +1531,64 @@ export class Game {
     this.hintOnce('energy', 'Out of energy. It comes back when you stop using parts for a moment.');
   }
 
+  // A deck's boss is down. If it was carrying a piece of the old KLP-2,
+  // you get to choose which piece to take back, once any salvage is done.
+  bossBeaten(d, how) {
+    const n = this.world.deck.n, boss = d.boss;
+    this.meta.bossWins = this.meta.bossWins || {};
+    this.meta.bossWins[n] = (this.meta.bossWins[n] || 0) + 1;
+    saveMeta(this.meta);
+    const left = d.relic ? relicsLeft(this.meta, n) : [];
+    this.ui.banner(`${boss.name} is down`, left.length ? 'It was carrying a piece of you' : 'The lift is open', left.length ? 'gold' : '');
+    if (!left.length) return;
+    this.renderer.flash(PLAYER_HEX, 0.45);
+    this.audio.play('bounty');
+    // wait for any salvage choice to be made first
+    const w = this.world;
+    const wait = setInterval(() => {
+      if (this.world !== w) { clearInterval(wait); return; }
+      if (this.state !== 'play' || this.ui.screen) return;
+      clearInterval(wait);
+      this.offerRelic(n, boss, left);
+    }, 300);
+  }
+
+  offerRelic(n, boss, left) {
+    this.state = 'menu';
+    this.offerState = { kind: 'relic', deck: n };
+    const cards = left.map((id) => this.ui.relicCard(id, RELICS[id]));
+    this.ui.offer({
+      title: 'A piece of you',
+      lede: `${boss.name} was wearing parts of the old KLP-2. Take one back: it's yours for good, and it shows.${left.length > 1 ? ` The other stays with ${boss.name} until you beat it again, on another run.` : ''}`,
+      cards, extra: '',
+    });
+  }
+
+  takeRelic(id) {
+    const r = RELICS[id];
+    this.meta.relics = this.meta.relics || {};
+    this.meta.relics[id] = true;
+    saveMeta(this.meta);
+    if (this.run) (this.run.relicsTaken = this.run.relicsTaken || []).push(id);
+    this.offerState = null;
+    this.ui.hide();
+    this.state = 'play';
+    this.input.clear();
+    const w = this.world, p = w.player;
+    w.refreshRelics();
+    if (w.bossDroid) w.bossDroid.relic = false;
+    const wr = this.klpWear();
+    p.look = { wear: wr };
+    p.refresh();
+    document.getElementById('labels').style.setProperty('--open-at', `${Math.round(w.openAt * 100)}%`);
+    w.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 40, 3, 0.8, 0.12, -1);
+    w.fx.ring(p.pos, PLAYER_COLOUR, 1.8, 0.6);
+    this.renderer.flash(PLAYER_HEX, 0.5);
+    this.audio.play('unlock');
+    this.ui.banner('Kept for good', r.name, '');
+    this.ui.announce(`${r.name}, kept for good. ${r.line}`);
+  }
+
   onClearance(how) {
     this.toast(how === 'hacked' ? 'Clearance taken. The lift is open.' : 'Clearance code recovered. The lift is open.');
     this.audio.play('unlock');
@@ -1538,7 +1621,7 @@ export class Game {
       return;
     }
     if (room.role === 'vault' && room.hint) this.hint(`A sealed vault. ${room.hint}`, 6);
-    if (room.role === 'lift' && !this.world.clearance) this.hintOnce('lift', 'The lift is here, locked. The droid marked <b>◆</b> holds the clearance: hack it or destroy it.', 8);
+    if (room.role === 'lift' && !this.world.clearance) this.hintOnce('lift', `The lift is here, locked. <b>◆ ${this.world.bossDroid ? this.world.bossDroid.boss.name : 'The command droid'}</b>, the deck's boss, holds the clearance: beat it, by hack or by force.`, 8);
     if (room.role === 'archive') this.hintOnce('archive', 'An archive terminal. Hack it to pick a firmware upgrade.', 6);
   }
 
@@ -1679,6 +1762,7 @@ export class Game {
       data ? `<b>${data} data</b> fell down the chute to Nan. You have ${this.meta.data || 0} to spend on repairs.` : 'No data this time. Hack things, and it falls down the chute to Nan.',
       r.newStolen.length ? `New in Nan's spares: ${e(r.newStolen.map((id) => MODULES[id].name).join(', '))}.` : '',
       r.stats.archived ? `${r.stats.archived} new droid${r.stats.archived > 1 ? 's' : ''} in the archive.` : '',
+      (r.relicsTaken || []).length ? `Taken back: ${e(r.relicsTaken.map((id) => RELICS[id].name).join(', '))}.` : '',
     ].filter(Boolean);
     const parts = SLOTS.map((s) => mods[s]).filter((m) => m && !MODULES[m.id].starter).map((m) => moduleLabel(m));
     const gang = this.world ? this.world.allies().map((d) => `${FAMILIES[d.family].name} ${d.cls}`) : [];
