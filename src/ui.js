@@ -348,7 +348,7 @@ export class UI {
 
   deckCard(deck, n, bounty = '', label = '', quote = '') {
     const c = this.el.deckCard;
-    $('#deck-num').textContent = label || (n === 6 ? 'THE BOTTOM OF THE TOWER' : `DECK ${n} OF 5`);
+    $('#deck-num').textContent = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
     $('#deck-title').textContent = deck.name;
     $('#deck-blurb').textContent = deck.blurb;
     $('#deck-bounty').textContent = bounty;
@@ -415,7 +415,7 @@ export class UI {
       cl.textContent = boss.beaten ? 'The tower is yours' : boss.relaysUp > 0 ? `Relays holding the shield: ${boss.relaysUp}` : 'Shield down: grapple the Mainframe';
       cl.classList.toggle('ok', !boss.relaysUp);
     } else if (world.build.heap) {
-      cl.textContent = 'The chute at the bottom leads down into the tower';
+      cl.textContent = 'The chute leads up into the tower';
       cl.classList.add('ok');
     } else {
       cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
@@ -688,7 +688,7 @@ export class UI {
     return `<button class="card turn" data-act="turn">
       <span class="slot-tag">Your gang</span>
       <span class="card-head">${iconSvg('gang', 26)}Turn it</span>
-      <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift down with you.</span>
+      <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift up with you.</span>
       <span class="use">${parts.length ? `It keeps its ${esc(parts.join(' and '))}.` : 'It has only its bumper, but it will use it.'}</span>
       <span class="strength${d.critical ? ' frail' : ''}"><i style="width:${Math.round(100 * d.integrity / d.maxIntegrity)}%"></i></span>
       <span class="use">${d.critical ? 'Joins badly damaged: frail, and it hits softly.' : d.open ? 'Joins damaged: it hits a little softer.' : 'Joins in full working order.'} ${Math.round(100 * d.integrity / d.maxIntegrity)}% integrity.</span>
@@ -702,7 +702,7 @@ export class UI {
     return `<button class="card turn${ready ? '' : ' dim'}" data-act="${ready ? 'home' : 'notyet'}"${ready ? '' : ' aria-disabled="true"'}>
       <span class="slot-tag">KLP-1</span>
       <span class="card-head">${iconSvg('gang', 26)}${ready ? 'Bring it home' : 'Not yet'}</span>
-      <span class="line">${ready ? 'KLP-1 goes up the chute to the Heap, to Nan. It won\'t come for you again.' : 'It won\'t follow you, and it won\'t go home. Not yet.'}</span>
+      <span class="line">${ready ? 'KLP-1 goes down the chute to the Heap, to Nan. It won\'t come for you again.' : 'It won\'t follow you, and it won\'t go home. Not yet.'}</span>
       <span class="swap">Beaten in a hack ${Math.min(wins, need)} of ${need} times</span>
     </button>`;
   }

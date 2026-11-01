@@ -622,7 +622,9 @@ export class Fabricator extends Device {
 }
 
 // ------------------------------------------------------------------ the Heap: chute and archive reader
-// The chute: a hatch in the floor of the Heap that drops into the tower.
+// The chute: where the tower's rubbish lands in the Heap. A shaft of light
+// runs up it into the tower, and KLP-2 climbs it to start a run; bits of
+// data drift down it to Nan.
 export class Chute extends Device {
   constructor(world, t) {
     super(world, t);
@@ -630,10 +632,14 @@ export class Chute extends Device {
     const m = world.mats;
     this.mesh(G('chuteRim', () => new THREE.CylinderGeometry(0.7, 0.78, 0.16, 40, 1, true)), m.metal, [0, 0.08, 0]);
     this.mesh(G('chuteLip', () => new THREE.TorusGeometry(0.7, 0.05, 8, 48)), m.steel, [0, 0.16, 0], [Math.PI / 2, 0, 0]);
-    // a dark well with light far down it
-    const well = new THREE.Mesh(G('chuteWell', () => new THREE.CircleGeometry(0.66, 40)), new THREE.MeshBasicMaterial({ color: 0x020203 }));
-    well.rotation.x = -Math.PI / 2; well.position.y = 0.03;
-    this.group.add(well);
+    // a landing pad under the shaft, and the light coming down it
+    const pad = new THREE.Mesh(G('chutePad', () => new THREE.CircleGeometry(0.66, 40)), new THREE.MeshBasicMaterial({ color: 0x0b1418 }));
+    pad.rotation.x = -Math.PI / 2; pad.position.y = 0.03;
+    this.group.add(pad);
+    this.beamMat = new THREE.MeshBasicMaterial({ color: CYAN.clone().multiplyScalar(0.55), transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    this.beam = new THREE.Mesh(G('chuteBeam', () => new THREE.CylinderGeometry(0.5, 0.62, 7, 32, 1, true)), this.beamMat);
+    this.beam.position.y = 3.5;
+    this.group.add(this.beam);
     this.glowMat = new THREE.MeshBasicMaterial({ color: CYAN.clone().multiplyScalar(1.3), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
     this.glow = new THREE.Mesh(G('chuteGlow', () => new THREE.RingGeometry(0.2, 0.6, 40)), this.glowMat);
     this.glow.rotation.x = -Math.PI / 2; this.glow.position.y = 0.035;
@@ -649,6 +655,12 @@ export class Chute extends Device {
     this.t += dt;
     this.glow.rotation.z += dt * 0.6;
     this.glowMat.opacity = 0.35 + Math.sin(this.t * 2) * 0.12;
+    this.beamMat.opacity = 0.16 + Math.sin(this.t * 1.3) * 0.04;
+    // data drifting down the shaft
+    if (Math.random() < dt * 4) {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * 0.4;
+      this.world.fx.emit(this.pos.x + Math.cos(a) * r, this.y + 5.5, this.pos.z + Math.sin(a) * r, 0, -2.4, 0, CYAN, 2.2, 0.07, 0, 0);
+    }
   }
 }
 

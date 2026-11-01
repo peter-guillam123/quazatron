@@ -419,14 +419,14 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .art .comet { animation: art-comet 1.8s linear infinite; }
 .art .spin { transform-box: fill-box; transform-origin: center; animation: art-spin 7s linear infinite; }
 .art .bolt { animation: art-bolt 1.6s linear infinite; }
-.art .rise { animation: art-rise 2.4s linear infinite; }
+.art .fall { animation: art-fall 2.4s linear infinite; }
 @keyframes art-pulse { 50% { opacity: 0.45; } }
 @keyframes art-dash { to { stroke-dashoffset: -16; } }
 @keyframes art-dash2 { to { stroke-dashoffset: -32; } }
 @keyframes art-comet { from { stroke-dashoffset: 14; } to { stroke-dashoffset: -240; } }
 @keyframes art-spin { to { transform: rotate(360deg); } }
 @keyframes art-bolt { 85% { opacity: 1; } to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
-@keyframes art-rise { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(-186px); opacity: 0; } }
+@keyframes art-fall { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(186px); opacity: 0; } }
 body.reduced .art *, body.reduced .thumb-wait, body.reduced .entry, body.reduced .chapter { animation: none !important; }
 .chapter-body p, .points li { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: #cdd3de; }
 .chapter-body p { margin: 0 0 12px; max-width: 64ch; }

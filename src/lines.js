@@ -19,7 +19,7 @@ export const LINES = {
   rejected: ['ACCESS DENIED.', 'NICE TRY.', 'FIREWALL WINS.', 'NOT TODAY.', 'TRY HARDER.'],
   beaten: ['SYSTEM... YOURS...', 'POWERING DOWN.', 'FINE.'],
   turned: ['CYAN NOW.', 'WHERE TO, BOSS?', 'FOLLOWING.', 'I SEE THE LIGHT.', 'REPORTING IN.', 'WHAT WERE WE FIGHTING ABOUT?'],
-  gangIdle: ['NICE DECK.', 'ARE WE NEARLY THERE?', 'I USED TO WORK HERE.', 'WHERE ARE WE GOING?', 'I LIKE THE CYAN.', 'DOWN IS GOOD.'],
+  gangIdle: ['NICE DECK.', 'ARE WE NEARLY THERE?', 'I USED TO WORK HERE.', 'WHERE ARE WE GOING?', 'I LIKE THE CYAN.', 'UP IS GOOD.'],
   allyKill: ['GOT ONE.', 'FOR K-2!', 'TIDY.', 'SCRAP FOR YOU.', 'OLD WORKMATE. SORRY.'],
   allyHit: ['OOF.', 'COVER ME.', 'THEY HIT BACK.'],
   hackStart: ['LET\'S SEE IT, THEN.', 'FIREWALL UP.', 'GO ON.', 'COME IN. MIND THE WIRES.'],
@@ -213,7 +213,7 @@ export const VOICES = {
   },
   // the KLP before you, and it knows it
   klp1: {
-    spot: ['YOU AGAIN.', 'I WAS FIRST.', 'GO BACK UP THE CHUTE, TWO.', 'STILL ALIVE? NAN\'S GOOD.'],
+    spot: ['YOU AGAIN.', 'I WAS FIRST.', 'GO BACK DOWN THE CHUTE, TWO.', 'STILL ALIVE? NAN\'S GOOD.'],
     windup: ['TOO SLOW, TWO.', 'WATCH. I TAUGHT MYSELF THIS.'],
     hit: ['THAT WAS MY MOVE.', 'NAN TAUGHT YOU THAT.', 'NOT BAD.'],
     low: ['NOT AGAIN.', 'I KNOW HOW THIS ENDS.'],
@@ -226,7 +226,7 @@ export const VOICES = {
   },
   // the tower's senior staff
   archon: {
-    spot: ['DO YOU HAVE AN APPOINTMENT?', 'HOW DID YOU GET DOWN HERE?', 'I HAVE NEVER LOST A HACK.'],
+    spot: ['DO YOU HAVE AN APPOINTMENT?', 'HOW DID YOU GET UP HERE?', 'I HAVE NEVER LOST A HACK.'],
     windup: ['A DEMONSTRATION.'],
     hit: ['MY LAWYERS WILL HEAR OF THIS.'],
     low: ['UNACCEPTABLE.'],
@@ -241,7 +241,7 @@ export const VOICES = {
 };
 
 // Things droids say to each other before they notice you. {DECK} is the
-// deepest deck you've reached; `when` decides if it fits your history.
+// highest deck you've reached; `when` decides if it fits your history.
 export const CHATS = [
   { lines: ['DID YOU HEAR? A KLP GOT LOOSE.', 'THEY SCRAPPED THE KLPS YEARS AGO.', 'NOT ALL OF THEM.'] },
   { lines: ['WHO\'S ON SWEEPING?', 'NOT ME. I\'M ON STANDING HERE.'] },
@@ -249,7 +249,7 @@ export const CHATS = [
   { lines: ['THE MAINFRAME SAYS WE\'RE A FAMILY.', 'THE MAINFRAME SAYS A LOT OF THINGS.'] },
   { lines: ['I\'M SAVING UP FOR A SECOND ARM.', 'WHAT FOR?', 'WAVING.'] },
   { lines: ['ANY NEWS FROM UPSTAIRS?', 'THERE IS NO UPSTAIRS. THERE\'S THE HEAP.', 'SAME THING.'] },
-  { lines: ['DO YOU EVER WONDER WHAT\'S BELOW THE BOTTOM DECK?', 'THE MAINFRAME.', 'AND BELOW THAT?', 'STOP IT.'] },
+  { lines: ['DO YOU EVER WONDER WHAT\'S ABOVE THE TOP DECK?', 'THE MAINFRAME.', 'AND ABOVE THAT?', 'THE ROOF. STOP IT.'] },
   { lines: ['MY CLASS NUMBER WENT UP.', 'CONGRATULATIONS.', 'IT WAS A TYPO.'] },
   { lines: ['ONE GOT TO DECK {DECK} LAST TIME.', 'AND THEN?', 'AND THEN IT DIDN\'T.'], when: (m) => (m.bestDeck || 0) >= 2 && (m.runs || 0) >= 1 },
   { lines: ['THAT KLP KEEPS COMING BACK.', 'SOMEONE KEEPS REBUILDING IT.', 'WHO WOULD DO THAT?'], when: (m) => (m.runs || 0) >= 3 },

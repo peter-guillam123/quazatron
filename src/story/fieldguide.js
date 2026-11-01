@@ -182,7 +182,7 @@ export const PEOPLE = ['nan', 'static', 'ledger', 'mainframe', 'klp1'];
 export const BIOS = {
   nan: {
     where: 'The Heap',
-    bio: 'A welder from Freight, until a newer welder came along and she went up the chute. She built KLP-2 out of what the tower threw away, and rebuilds it every time it comes back up in a bag. Her bench in the Heap turns data into small, permanent improvements.',
+    bio: 'A welder from Freight, until a newer welder came along and she went down the chute. She built KLP-2 out of what the tower threw away, and rebuilds it every time it comes back down in a bag. Her bench in the Heap turns data into small, permanent improvements.',
     note: { by: 'static', text: 'She reads this, you know. Hello, Nan.' },
     find: 'Start a run and she\'ll find you.',
   },
@@ -199,14 +199,14 @@ export const BIOS = {
     find: 'Find a fabricator. There\'s one near every lift.',
   },
   mainframe: {
-    where: 'The bottom of the tower',
-    bio: 'Class 999. Runs the tower from the bottom deck, behind a shield held up by four relays. Speaks in capitals, and mostly on deck cards.',
-    note: { by: 'nan', text: 'Nobody goes down there and comes back up talking. Except you.' },
+    where: 'The top of the tower',
+    bio: 'Class 999. Runs the tower from the top deck, behind a shield held up by four relays. Speaks in capitals, and mostly on deck cards.',
+    note: { by: 'nan', text: 'Nobody goes up there and comes back down talking. Except you.' },
     find: 'Start a run.',
   },
   klp1: {
     where: 'Somewhere in the tower',
-    bio: 'The KLP before you. Nan built it and sent it down the chute, and it never came back up as itself. It steals parts too: thrusters, a laser and a shield. From your third run it may turn up on any deck.',
+    bio: 'The KLP before you. Nan built it and sent it up the chute, and it never came back down as itself. It steals parts too: thrusters, a laser and a shield. From your third run it may turn up on any deck.',
     note: { by: 'nan', text: 'I\'m not ready to write about this one.' },
     home: { by: 'nan', text: 'Home. About time.' },
     find: 'Keep going. It will find you.',

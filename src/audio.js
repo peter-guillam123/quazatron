@@ -456,10 +456,12 @@ export class Audio {
         if (!(d = O(0.3, 0.1))) return;
         this.osc('triangle', 660, 440, t, 0.08, d, 0.12);
         break;
-      case 'descend':
+      case 'ascend':
+        // a lift winding up the shaft
         if (!(d = O(0.8, 0.6))) return;
-        this.osc('sawtooth', 300, 40, t, 2.2, d, 0.2, 0.3);
-        this.noise(t, 2.2, d, 0.2, 'lowpass', 1200, 80, 1, 0.4);
+        this.osc('sawtooth', 60, 340, t, 2.2, d, 0.2, 0.3);
+        this.osc('triangle', 120, 680, t + 0.2, 2, d, 0.08, 0.4);
+        this.noise(t, 2.2, d, 0.18, 'bandpass', 200, 1800, 2, 0.4);
         break;
       default:
         break;

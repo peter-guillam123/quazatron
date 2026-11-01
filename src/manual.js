@@ -225,15 +225,17 @@ const ART = {
   'A wrecked droid bursts into scrap that KLP-2 picks up. Ledger sells repairs and upgrades for scrap at a fabricator.', 222),
 
   heap: () => {
-    const slabs = [{ name: 'The Heap', ink: 0xffa040 }, ...DECKS];
+    // top to bottom: the Mainframe, the decks, and the Heap where the rubbish lands
+    const slabs = [...DECKS].reverse().concat([{ name: 'The Heap', ink: 0xffa040, heap: true }]);
     return art(`
-      ${slabs.map((d, i) => { const y = 22 + i * 34; return `<rect x="100" y="${y}" width="200" height="22" rx="5" fill="${hex(d.ink)}" fill-opacity="${i ? 0.16 : 0.28}" stroke="${hex(d.ink)}"/>${txt(90, y + 15, d.name, { c: hex(d.ink), a: 'end' })}`; }).join('')}
-      <path d="M330 236V34H300" fill="none" stroke="${LINE}" stroke-width="10" stroke-linejoin="round"/>
-      <path d="M330 236V34H300" fill="none" stroke="#0b0e16" stroke-width="6" stroke-linejoin="round"/>
-      ${[0, 1, 2, 3].map((i) => `<rect class="rise" x="326" y="220" width="8" height="8" rx="2" fill="${Y}" filter="url(#glow)" style="animation-delay:${-i * 0.6}s"/>`).join('')}
-      ${txt(346, 140, 'The chute', { c: T, a: 'start' })}${txt(346, 154, 'data goes up,', { a: 'start' })}${txt(346, 168, 'whatever happens', { a: 'start' })}${txt(346, 182, 'to you', { a: 'start' })}
-      ${droid(280, 33, 8, '#ffa64a', 270)}${txt(266, 37, 'Nan', { c: '#ffa64a', a: 'end' })}`,
-    'The tower in cross-section: the Heap at the top, six decks below it, and the scrap chute running from the bottom back up to the Heap, carrying data.', 262);
+      ${slabs.map((d, i) => { const y = 22 + i * 34; return `<rect x="100" y="${y}" width="200" height="22" rx="5" fill="${hex(d.ink)}" fill-opacity="${d.heap ? 0.28 : 0.16}" stroke="${hex(d.ink)}"/>${txt(90, y + 15, d.name, { c: hex(d.ink), a: 'end' })}`; }).join('')}
+      <path d="M300 33H330V237H300" fill="none" stroke="${LINE}" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M300 33H330V237H300" fill="none" stroke="#0b0e16" stroke-width="6" stroke-linejoin="round"/>
+      ${[0, 1, 2, 3].map((i) => `<rect class="fall" x="326" y="40" width="8" height="8" rx="2" fill="${Y}" filter="url(#glow)" style="animation-delay:${-i * 0.6}s"/>`).join('')}
+      ${txt(346, 104, 'The chute', { c: T, a: 'start' })}${txt(346, 118, 'data falls down', { a: 'start' })}${txt(346, 132, 'to Nan, whatever', { a: 'start' })}${txt(346, 146, 'happens to you', { a: 'start' })}
+      <path d="M200 220V36" stroke="${Y}" stroke-width="2" stroke-dasharray="3 6" marker-end="url(#ah-y)" opacity="0.7"/>${txt(212, 130, 'You climb', { c: Y, a: 'start' })}
+      ${droid(280, 237, 8, '#ffa64a', 270)}${txt(266, 241, 'Nan', { c: '#ffa64a', a: 'end' })}`,
+    'The tower in cross-section: the Heap at the bottom, the decks above it with the Mainframe at the top. KLP-2 climbs up; the scrap chute runs down the side, carrying data to Nan in the Heap.', 262);
   },
 
   daily: () => {
@@ -264,7 +266,7 @@ function chapters(input) {
       lede: 'You are KLP-2, a small droid in a tower full of bigger ones. You can\'t win a straight fight, so you steal.',
       art: ART.idea(), cap: 'Every droid is built from the parts it carries: what you see on it is what you get.',
       body: `<p>A droid in full working order is sealed: it won't let you in. Wear it down past the white line on its health bar and it sparks open. Then get close and grapple it to start a hack. Win, and you can take one of its parts.</p>
-        <p>Each deck has a lift down. It stays locked until you take the deck's <b>◆ command droid</b>, by hack or by force.</p>
+        <p>You climb the tower deck by deck. Each deck has a lift up, locked until you take the deck's <b>◆ command droid</b>, by hack or by force.</p>
         <p class="tip"><b>Start here.</b> Your first hacks are small boards that bring in one new idea at a time. Mites don't fight back, so practise on them.</p>`,
     },
     {
@@ -334,7 +336,7 @@ function chapters(input) {
       key: 'parts', title: 'Parts', sub: 'Drive, arm and core', ink: Y,
       lede: 'KLP-2 has three sockets. Taking a part drops the old one at your feet, so you can swap back.',
       art: ART.parts(), cap: 'A part\'s grade comes from the class of the droid you took it from.',
-      body: `<p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way down never does.</p>
+      body: `<p>Sealed vaults need the right part: thrusters for a gap, treads for a heavy crate, phase for a field. The way up never does.</p>
         <div class="chart">${partsChart}</div>`,
     },
     {
@@ -351,7 +353,7 @@ function chapters(input) {
       key: 'gang', title: 'Your gang', sub: 'Turning droids', ink: Y,
       lede: 'After a won hack you can turn the droid instead of taking a part.',
       art: ART.gang(), cap: 'A turned droid goes cyan and keeps its parts.',
-      body: `<p>It follows you, fights for you and rides the lift down with you. You can have up to three at a time.</p>
+      body: `<p>It follows you, fights for you and rides the lift up with you. You can have up to three at a time.</p>
         <p class="tip"><b>Gentle or easy?</b> A recruit joins in the shape you left it, and hits about as hard as it looks. Wear a droid right down and the hack is easy but the recruit is frail. Stop at the line and the hack is harder, but you get a tougher friend.</p>`,
     },
     {

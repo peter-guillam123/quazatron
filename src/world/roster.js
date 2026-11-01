@@ -78,7 +78,7 @@ export const FAMILIES = {
   klp1: {
     name: 'KLP-1', role: 'The first of you', shape: 'player', min: 300, max: 999, rival: true,
     drive: 'thrusters', arm: 'laser', core: 'shield', temper: 'skirmish',
-    blurb: 'The KLP before you. Nan built it and sent it down the chute, and it never came back up as itself. It steals parts too.',
+    blurb: 'The KLP before you. Nan built it and sent it up the chute, and it never came back down as itself. It steals parts too.',
   },
   archon: {
     name: 'Archon', role: 'Executive', shape: 'orb', min: 800, max: 980,

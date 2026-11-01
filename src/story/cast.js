@@ -42,14 +42,14 @@ const L = [];
 const say = (who, on, text, o = {}) => L.push({ id: o.id || `${who}.${on}.${L.length}`, who, on, text, ...o });
 
 // ---------------------------------------------------------------- Nan, the first time you come up
-say('nan', 'hello', ['So you\'re the new one. I\'m Nan. I built you out of what the tower threw away.', 'When you get wrecked down there, and you will, your bits come back up the chute and I put you back together. Hack things and the data comes up too. I can do a lot with data.', 'The chute\'s at the bottom. Off you go.'],
+say('nan', 'hello', ['So you\'re the new one. I\'m Nan. I built you out of what the tower threw away.', 'When you get wrecked up there, and you will, your bits come back down the chute and I put you back together. Hack things and the data comes down too. I can do a lot with data.', 'The chute goes up into the tower. Climb it. Off you go.'],
   { id: 'nan.hello', pri: 100, when: (c) => (c.meta.runs || 0) === 0 });
 
 // ---------------------------------------------------------------- Nan, waking you up
 const last = (c) => c.meta.lastRun || {};
-say('nan', 'wake', ['There you are. Most of you, anyway.', 'I\'m Nan. I built you out of what the tower threw away, and I\'ll keep building you as long as you keep coming back up the chute.', 'Hack things down there and the data comes up to me. Bring me enough and I\'ll make you sturdier. Scrap\'s no use up here: spend that down there.'],
+say('nan', 'wake', ['There you are. Most of you, anyway.', 'I\'m Nan. I built you out of what the tower threw away, and I\'ll keep building you as long as you keep falling back down the chute.', 'Everything you carry up there, you lose when you\'re wrecked: parts, scrap, the lot. Data\'s different. Hack things and the data falls down the chute to me, whatever happens to you, and I turn it into repairs that stay.'],
   { id: 'nan.first', pri: 100, when: (c) => (c.meta.runs || 0) <= 1 && !(c.meta.heard || {})['nan.hello'] });
-say('nan', 'wake', ['There you are. Most of you, anyway.', 'Told you you\'d be back. Everyone comes back up the chute the first time. It\'s the second time that counts.'],
+say('nan', 'wake', ['There you are. Most of you, anyway.', 'Told you you\'d be back. Everyone comes back down the chute the first time. It\'s the second time that counts.'],
   { id: 'nan.firstback', pri: 100, when: (c) => (c.meta.runs || 0) <= 1 && !!(c.meta.heard || {})['nan.hello'] });
 say('nan', 'wake', ['The whole tower, cyan. I watched it from here.', 'Right. Kettle on. They\'ll have it rebuilt by morning, mind, so you\'re going again.'], { id: 'nan.won1', pri: 95, when: (c) => last(c).won && (c.meta.wins || 0) === 1 });
 say('nan', 'wake', 'Again! You\'re making the rest of us look idle.', { pri: 94, again: true, when: (c) => last(c).won });
@@ -61,23 +61,23 @@ for (const [k, text] of Object.entries(DEATH)) {
 say('nan', 'wake', 'Deck {LASTDECK}. That\'s further than I ever got. Don\'t let it go to your head. I\'ve only just put it back on.', { id: 'nan.deep', pri: 45, when: (c) => (last(c).deck || 0) >= 4 && !last(c).won });
 say('nan', 'wake', 'Deck one. I\'ve had kettles get further than that.', { id: 'nan.deck1', pri: 35, when: (c) => last(c).deck === 1 && (c.meta.runs || 0) > 2 });
 say('nan', 'wake', 'You brought down {LASTBOUNTY}? Good. Never liked them.', { id: 'nan.bounty', pri: 38, when: (c) => !!last(c).bounty });
-say('nan', 'wake', '{LASTRINGOUTS} droids off the edge. The scrap merchants downstairs must love you.', { id: 'nan.ringouts', pri: 37, when: (c) => (last(c).ringouts || 0) >= 4 });
+say('nan', 'wake', '{LASTRINGOUTS} droids off the edge. The scrap merchants upstairs must love you.', { id: 'nan.ringouts', pri: 37, when: (c) => (last(c).ringouts || 0) >= 4 });
 say('nan', 'wake', 'I hear you\'ve got a gang now. Bring them up some time. Actually, don\'t.', { id: 'nan.gang', pri: 36, when: (c) => (last(c).turned || 0) >= 2 });
 say('nan', 'wake', 'Not a single hack. I can\'t build anything out of smashed droids, love. Hack them.', { id: 'nan.nohack', pri: 39, when: (c) => last(c).hacked === 0 && (last(c).time || 0) > 60 });
 say('nan', 'wake', 'Back again. Sit still while I find the bits.', { pri: 1, again: true });
-say('nan', 'wake', 'Up the chute in a bag, as usual. Hold still.', { pri: 1, again: true });
+say('nan', 'wake', 'Down the chute in a bag, as usual. Hold still.', { pri: 1, again: true });
 say('nan', 'wake', 'There. Put you back together. Mostly the right way round.', { pri: 1, again: true });
 
 // ---------------------------------------------------------------- Nan, chatting
 say('nan', 'talk', 'The tower throws things away. We\'re the things it threw away. Nothing wrong with that. I like it up here.', { pri: 10 });
-say('nan', 'talk', 'Hack things, don\'t just smash them. Smashing\'s for scrap, and scrap doesn\'t come back up the chute. Data does.', { pri: 9 });
+say('nan', 'talk', 'Hack things, don\'t just smash them. Smashing\'s for scrap, and scrap doesn\'t come back down the chute. Data does.', { pri: 9 });
 say('nan', 'talk', 'That bumper of yours. Hold it down and lean into it. Little things can shove big things, if they mean it.', { pri: 8 });
 say('nan', 'talk', 'Static talks too much. Listen anyway. About half of it\'s true, and you won\'t know which half.', { pri: 7 });
 say('nan', 'talk', 'Ledger will sell you anything. Count your fingers afterwards. You haven\'t got fingers. Count something.', { pri: 6 });
 say('nan', 'talk', 'I was a welder on Freight. Then a newer welder came along. Then I came up here.', { pri: 5 });
 say('nan', 'talk', 'Walls are your friend. Shove a droid into one and it forgets which way is up.', { pri: 4 });
 say('nan', 'talk', 'Before you, there was KLP-1. Don\'t ask. I\'m not ready.', { pri: 3, when: (c) => (c.meta.runs || 0) >= 3 && !c.meta.klp1Met });
-say('nan', 'talk', 'You\'ve met KLP-1, then. I built it before you. It went down the chute and it didn\'t come back up. Not as itself.', { pri: 12, when: (c) => !!c.meta.klp1Met && !c.meta.klp1Turned });
+say('nan', 'talk', 'You\'ve met KLP-1, then. I built it before you. It went up the chute and it didn\'t come back down. Not as itself.', { pri: 12, when: (c) => !!c.meta.klp1Met && !c.meta.klp1Turned });
 say('nan', 'talk', 'You brought KLP-1 home. I don\'t know what to say. Get out before I start.', { pri: 13, when: (c) => !!c.meta.klp1Turned });
 say('nan', 'talk', 'You\'ve {DATA} data. That\'s enough for something on the bench.', { pri: 20, again: true, when: (c) => c.affordable });
 say('nan', 'talk', 'Off you go, then. The chute\'s not getting any shorter.', { pri: 0, again: true });
@@ -92,10 +92,10 @@ say('nan', 'broke', 'You haven\'t got the data for that. Go and hack something.'
 // ---------------------------------------------------------------- Static, on the radio between decks
 const INTRO = {
   2: ['This is Static, on a frequency they haven\'t found yet. Freight next: Couriers, crates and edges. Couriers don\'t stop for anyone, so don\'t stand in front of one.', 'Freight again. Mind the Couriers.'],
-  3: ['Reactor. The floors are live, which is more than can be said for some of the staff. Something down there floats.', 'Reactor. Hover if you\'ve got it.'],
+  3: ['Reactor. The floors are live, which is more than can be said for some of the staff. Something up there floats.', 'Reactor. Hover if you\'ve got it.'],
   4: ['Security. Turrets, Wardens and things you can\'t see. If the air shimmers, swerve.', 'Security. Shields up, or eyes open.'],
   5: ['Command deck. Officers. They hack back like they mean it, so dent them first.', 'Command. Dent first, hack second.'],
-  6: ['That\'s the Mainframe under you. Four relays hold its shield. Good luck, KLP. I mean that, which is unusual for me.', 'Mainframe. Relays, then the big one.'],
+  6: ['That\'s the Mainframe above you. Four relays hold its shield. Good luck, KLP. I mean that, which is unusual for me.', 'Mainframe. Relays, then the big one.'],
 };
 for (const [n, [first, again]] of Object.entries(INTRO)) {
   say('static', 'lift', first, { id: `static.intro${n}`, pri: 10, when: (c) => c.deck === +n });
@@ -120,7 +120,7 @@ say('static', 'bounty', ['One more thing. Every deck has a bounty: one droid wit
 say('static', 'bounty', 'Bounty news. {NAME} is on this deck: {A} {FAMILY} with {PART}. Gold ring. You can\'t miss it.', { pri: 5, again: true, when: (c) => !!c.bounty });
 say('static', 'bounty', 'Somebody\'s put a price on {NAME}. {CA} {FAMILY}, carrying {PART} two grades too good for it.', { pri: 5, again: true, when: (c) => !!c.bounty });
 say('static', 'bounty', 'This deck\'s most wanted: {NAME}, {A} {FAMILY} with {PART}. Bring it down and I\'ll say your name on air.', { pri: 5, again: true, when: (c) => !!c.bounty });
-say('static', 'bounty', 'Word on the wire: {NAME}\'s down here somewhere. {CA} {FAMILY} with {PART}, and very pleased with itself.', { pri: 5, again: true, when: (c) => !!c.bounty });
+say('static', 'bounty', 'Word on the wire: {NAME}\'s up there somewhere. {CA} {FAMILY} with {PART}, and very pleased with itself.', { pri: 5, again: true, when: (c) => !!c.bounty });
 say('static', 'bounty', '{NAME} has {PART} and thinks that makes it clever. {CA} {FAMILY}, shield up. Go round the side.', { pri: 6, again: true, when: (c) => has(c, 'warden', 'sentinel', 'lancer', 'archon') && Math.random() < 0.6 });
 say('static', 'bounty', '{NAME} is on this deck. Probably. {CA} {FAMILY} with {PART}, and a cloak. If the air shimmers, that\'s your bounty.', { pri: 6, again: true, when: (c) => has(c, 'phantom', 'reaper') && Math.random() < 0.6 });
 say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. It\'ll come to you, fast. Step aside and shove it into a wall.', { pri: 6, again: true, when: (c) => has(c, 'courier', 'wraith') && Math.random() < 0.6 });
@@ -131,7 +131,7 @@ say('static', 'talk', 'I broadcast to anything with an aerial. Mostly that\'s yo
 say('static', 'talk', 'Nan pretends she doesn\'t watch your runs. She watches every one.', { pri: 9 });
 say('static', 'talk', 'The Mainframe listens to my show, you know. It\'s never phoned in.', { pri: 8 });
 say('static', 'talk', 'I\'ll be on the radio in the lift. Between decks. Like a friend, if friends never shut up.', { pri: 11 });
-say('static', 'talk', 'There\'s a KLP-1 down there, they say. Older than you. Meaner. Says nothing on the radio, and I\'ve asked.', { pri: 7, when: (c) => (c.meta.runs || 0) >= 2 && !c.meta.klp1Turned });
+say('static', 'talk', 'There\'s a KLP-1 up there, they say. Older than you. Meaner. Says nothing on the radio, and I\'ve asked.', { pri: 7, when: (c) => (c.meta.runs || 0) >= 2 && !c.meta.klp1Turned });
 say('static', 'talk', 'Static. Still on air. Mostly.', { pri: 0, again: true });
 say('static', 'talk', 'Nothing new on the wire. Go and make some news.', { pri: 0, again: true });
 
@@ -157,7 +157,7 @@ const MF = {
   3: 'MY STAFF ARE BEING INCONVENIENCED.',
   4: 'SECURITY HAS BEEN INFORMED. SECURITY IS DELIGHTED.',
   5: 'TURN BACK. THIS IS NOT A REQUEST. IT IS A RECOMMENDATION. ALSO A REQUEST.',
-  6: 'COME DOWN, THEN.',
+  6: 'COME UP, THEN.',
 };
 export const MAINFRAME_DECK = MF;
 for (const [n, text] of Object.entries(MF)) say('mainframe', 'deck', text, { pri: 5, again: true, when: (c) => c.deck === +n });
@@ -167,7 +167,7 @@ say('mainframe', 'deck', 'WE HAVE MET. I REMEMBER IT DIFFERENTLY.', { pri: 8, ag
 
 // ---------------------------------------------------------------- KLP-1, once it's home
 say('klp1', 'talk', ['Nan says I can stay.', 'I\'m not sure I want to. I\'ll stay anyway.'], { pri: 10 });
-say('klp1', 'talk', 'I went down the chute first. Nobody rebuilt me. I rebuilt myself, out of whatever I could take. Badly.', { pri: 9 });
+say('klp1', 'talk', 'I went up the chute first. Nobody rebuilt me. I rebuilt myself, out of whatever I could take. Badly.', { pri: 9 });
 say('klp1', 'talk', 'You hack like her. Nan, I mean. She taught me too, before.', { pri: 8 });
 say('klp1', 'talk', 'Wardens. Go round, never through. I learnt that the expensive way.', { pri: 7 });
 say('klp1', 'talk', 'Static still talks too much.', { pri: 0, again: true });

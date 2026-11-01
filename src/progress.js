@@ -1,4 +1,4 @@
-// What carries over between runs. Hacking downloads data, which goes up
+// What carries over between runs. Hacking downloads data, which falls down
 // the scrap chute to the Heap whatever happens to KLP-2; Nan spends it on
 // small permanent upgrades, a notch at a time. Scrap stays in the run.
 
@@ -77,7 +77,7 @@ export function dataFor(kind, cls = 0) {
     case 'bounty': return 4;
     case 'claim': return 3;
     case 'family': return 3;     // first of a family you've ever hacked
-    case 'record': return 4;     // a new deepest deck
+    case 'record': return 4;     // a new highest deck
     case 'page': return 5;       // a page of the droid archive filled in
     default: return 0;
   }
