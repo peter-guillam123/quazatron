@@ -79,9 +79,7 @@ beats them in a circuit-board duel and steals their parts.
   canvas) and fills in by tier: seen, hacked once, complete at three hacks
   (+5 data, Nan's second note). Cast pages list story lines heard. The
   how-to is `src/manual.js`: chapters with SVG drawings.
-- Static names each deck's bounty on the radio (`static`/`bounty` lines in
-  `src/story/cast.js`); each run deals its decks different bounty names
-  (`run.bountyNames`).
+- Each run deals its decks different bounty names (`run.bountyNames`).
 - Bosses and pieces of you (`src/story/relics.js`): each generated deck's
   command droid is its boss (`Droid.boss`, tougher by deck, `bossMult`) and,
   while it still has one, wears a piece of the old KLP-2 (`Droid.relic`, a
@@ -102,6 +100,18 @@ beats them in a circuit-board duel and steals their parts.
   up to 5); the chute then offers a choice (`Game.choosePressure`,
   `run.pressure`): droids +15% integrity and +10% damage a notch, bosses +1
   pulser from 2, data +25% a notch. Not in today's tower or the induction.
+- Saying less (November 2026 audit): a deck starts with its name only
+  (`UI.deckCard`). Static says one line per deck at most (`Game.radioLift`:
+  first-visit intro, else a remark on the last deck, never the same twice
+  running) and explains bosses and bounties once, at first sight
+  (`Game.radioFirst`, `bossSpotted`, `bountySpotted`). The HUD deck panel is
+  name, claim and lift. Tips queue one at a time and wait out a deck's first
+  seconds (`UI.hint`, `holdHints`); none in the induction (`Game.quietTips`).
+  A toast only for news nothing else on screen shows; otherwise `announce`.
+  The induction's lesson rooms are gated (`gates` in `inductionPlan`,
+  `World.makeGates`, opened when `roomGuards` hits 0) and its droids leashed
+  (`Droid.leash`: bridges are walls to them, and they ignore targets outside
+  their room).
 - Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
   written from the run). KLP-1 is a rival family (`rival: true`, never
   generated): from your third run it may drop into a combat room on one deck
