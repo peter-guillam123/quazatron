@@ -2,24 +2,40 @@
 // the scrap chute to the Heap whatever happens to KLP-2; Nan spends it on
 // small permanent upgrades, a notch at a time. Scrap stays in the run.
 
-// KLP-2 leaves the Heap weaker than it used to (it was 100 and 100): six
-// notches of Plating and Cells on Nan's bench bring it back.
-export const BASE = { integrity: 70, energy: 70 };
+// KLP-2 comes out of the rubbish at its weakest: 60 and 60. Eight notches
+// each of Nan's plating and cells bring it to 100. The first notches are
+// cheap, so one decent run buys a visible repair.
+export const BASE = { integrity: 60, energy: 60 };
 
 // Today's tower is the same for everyone: no bench, no kit.
 export const DAILY = { integrity: 80, energy: 80 };
 
-const STEPS6 = [6, 9, 13, 18, 24, 30];
+const STEPS8 = [3, 5, 8, 11, 15, 20, 26, 33];
 
+// Nan's repairs, each to a part of KLP-2 you can see mended: `look` says
+// what changes on the model.
 export const BENCH = [
-  { id: 'plating', name: 'Plating', each: '+5 maximum integrity', ranks: 6, cost: STEPS6 },
-  { id: 'cells', name: 'Cells', each: '+5 maximum energy', ranks: 6, cost: STEPS6 },
-  { id: 'servos', name: 'Servos', each: 'rolls 2% faster', ranks: 5, cost: [10, 15, 20, 26, 33] },
-  { id: 'patience', name: 'Patience', each: 'half a second more on every hack', ranks: 3, cost: [14, 22, 32] },
-  { id: 'pockets', name: 'Pockets', each: 'start each run with 6 scrap', ranks: 5, cost: [8, 12, 16, 20, 25] },
-  { id: 'cradle', name: 'Lift cradle', each: 'the lift repairs 5% more', ranks: 3, cost: [12, 20, 30] },
-  { id: 'spares', name: 'Spares shelf', each: 'your starting part comes a grade higher', ranks: 2, cost: [20, 35] },
+  { id: 'plating', name: 'Hull plating', each: '+5 maximum integrity', look: 'patches the holes in KLP-2\'s shell', ranks: 8, cost: STEPS8 },
+  { id: 'cells', name: 'Power cells', each: '+5 maximum energy', look: 'steadies its flickering visor', ranks: 8, cost: STEPS8 },
+  { id: 'servos', name: 'Wheel bearings', each: 'rolls 2% faster', look: 'stops the wobble in its bad wheel', ranks: 5, cost: [6, 10, 14, 19, 25] },
+  { id: 'patience', name: 'Logic board', each: 'half a second more on every hack', look: 'gives it back its aerial', ranks: 3, cost: [8, 14, 22] },
+  { id: 'pockets', name: 'Back pocket', each: 'start each run with 6 scrap', look: 'a pocket on its back, a little bigger each time', ranks: 5, cost: [5, 8, 12, 16, 21] },
+  { id: 'cradle', name: 'Lift cradle', each: 'the lift repairs 5% more', look: '', ranks: 3, cost: [8, 14, 22] },
+  { id: 'spares', name: 'Spares shelf', each: 'your starting part comes a grade higher', look: '', ranks: 2, cost: [16, 28] },
 ];
+
+// How mended KLP-2 is, for its looks: the body repairs, and how far along
+// they are in all (0 to 1).
+export function wear(meta) {
+  const r = (id) => rank(meta, id);
+  const body = BENCH.filter((b) => b.look);
+  const done = body.reduce((n, b) => n + r(b.id), 0), all = body.reduce((n, b) => n + b.ranks, 0);
+  return { plating: r('plating'), cells: r('cells'), servos: r('servos'), patience: r('patience'), pockets: r('pockets'), condition: done / all };
+}
+
+export function conditionWord(c) {
+  return c < 0.12 ? 'scrap' : c < 0.35 ? 'battered' : c < 0.6 ? 'patched' : c < 0.88 ? 'sound' : 'gleaming';
+}
 
 export function rank(meta, id) {
   return (meta.bench && meta.bench[id]) || 0;

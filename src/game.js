@@ -25,7 +25,7 @@ import { Brain } from './world/ai.js';
 import { scrapFor } from './world/scrap.js';
 import { makeRng, randomSeed } from './rng.js';
 import { line, CHATS } from './lines.js';
-import { runStats, dataFor, BENCH, rank, nextCost, cheapest } from './progress.js';
+import { runStats, dataFor, BENCH, rank, nextCost, cheapest, wear } from './progress.js';
 import { pick, hasNew } from './story/cast.js';
 import { frontPage } from './story/gazette.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
@@ -219,6 +219,8 @@ export class Game {
     if (m.runs) rec.push(`${m.runs} run${m.runs === 1 ? '' : 's'}`);
     if (m.bestDeck) rec.push(`highest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
     if (m.data) rec.push(`${m.data} data for Nan`);
+    // the redesign started an old save again: say so, once
+    if (m.freshStart) rec.unshift('KLEPTO has changed: KLP-2 starts broken now, so your run starts again. Your archive and settings are kept.');
     document.getElementById('title-records').textContent = rec.join(' · ');
     document.getElementById('btn-induction').hidden = !m.inductionDone;
     const done = m.daily && m.daily[today()];
@@ -244,7 +246,7 @@ export class Game {
     const level = buildLevelMesh(grid, deck, makeRng(5));
     const root = new THREE.Group();
     root.add(level.group);
-    const klp = new DroidModel({ shape: 'player', scale: 1, shell: 0xe9eef5, accent: PLAYER_COLOUR, label: 'K-2', drive: 'wheels', player: true });
+    const klp = new DroidModel({ shape: 'player', scale: 1, shell: 0xe9eef5, accent: PLAYER_COLOUR, label: 'K-2', drive: 'wheels', player: true, wear: wear(this.meta) });
     klp.group.position.set(6.5, 0.5, 6.5);
     root.add(klp.group);
     const foes = [];
@@ -484,8 +486,9 @@ export class Game {
     };
   }
 
-  // Up to the Heap, between runs. After a run, Nan has something to say.
+  // Down to the Heap, between runs. After a run, Nan has something to say.
   async goHeap(opts = {}) {
+    if (this.meta.freshStart) { delete this.meta.freshStart; saveMeta(this.meta); }
     this.ui.hide();
     this.ui.clearRadio();
     this.run = this.heapRun();
@@ -529,6 +532,7 @@ export class Game {
     this.renderer.zoomTarget = 1; this.renderer.zoom = 1;
     this.renderer.follow(w.player.pos, 0, true);
     this.ui.setDeck(w.deck, n, !!this.run.daily);
+    this.ui.setCondition(this.klpWear());
     this.ui.el.hud.classList.toggle('in-heap', heap);
     this.ui.clearHint();
     this.ui.buildSockets(w.player);
@@ -598,6 +602,13 @@ export class Game {
     this.session = null;
     this.ui.setPrompt(null);
     this.ui.clearLabels();
+  }
+
+  // How mended KLP-2 looks. Today's tower lends everyone the same middling
+  // kit, so it looks the same for everyone too.
+  klpWear() {
+    if (this.run && this.run.daily) return { plating: 4, cells: 4, servos: 2, patience: 1, pockets: 0, condition: 0.45 };
+    return wear(this.meta);
   }
 
   // The KLP-2 sheet: kept for good against this run only.
@@ -1270,10 +1281,10 @@ export class Game {
     this.ui.talk({ who, pages: line.pages, options });
   }
 
-  showBench(focus, said) {
+  showBench(focus, said, mended = null) {
     const line = said || pick('nan', 'bench', this.storyContext());
     this.state = 'menu';
-    this.ui.bench(this.meta, line ? line.pages[0] : '', focus);
+    this.ui.bench(this.meta, line ? line.pages[0] : '', focus, mended);
   }
 
   buyBench(id) {
@@ -1296,9 +1307,14 @@ export class Game {
       p.maxIntegrity = st.integrity; p.integrity = st.integrity;
       p.maxEnergy = st.energy; p.energy = st.energy;
       p.speedBonus = st.speed;
+      const wr = this.klpWear();
+      p.look = { wear: wr };
+      p.wearSpark = (1 - wr.condition) * 2.4;
+      p.refresh();
     }
-    this.ui.announce(`${b.name} fitted. ${this.meta.data} data left.`);
-    this.showBench(id, pick('nan', 'bought', this.storyContext()));
+    this.ui.announce(`${b.name} fitted${b.look ? `: it ${b.look}` : ''}. ${this.meta.data} data left.`);
+    this.audio.play('unlock');
+    this.showBench(id, pick('nan', 'bought', this.storyContext()), id);
   }
 
   // Data falls down the chute to Nan whatever happens to KLP-2.

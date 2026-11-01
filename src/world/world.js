@@ -245,7 +245,10 @@ export class World {
 
   makePlayer(run) {
     const s = this.build.start;
-    const p = new Droid(this, { player: true, x: s.x, z: s.z, y: s.h * LEVEL_H, mods: run.mods, facing: Math.PI * 1.25 });
+    const wear = this.game.klpWear ? this.game.klpWear() : null;
+    const p = new Droid(this, { player: true, x: s.x, z: s.z, y: s.h * LEVEL_H, mods: run.mods, facing: Math.PI * 1.25, look: wear ? { wear } : null });
+    // the worse KLP-2's state, the more it fizzes
+    p.wearSpark = wear ? (1 - wear.condition) * 2.4 : 0;
     p.maxIntegrity = run.maxIntegrity;
     p.integrity = Math.min(run.integrity, p.maxIntegrity);
     p.maxEnergy = run.maxEnergy;
@@ -938,6 +941,12 @@ export class World {
     for (let i = this.droids.length - 1; i >= 0; i--) {
       const d = this.droids[i];
       d.update(dt);
+      // KLP-2 fizzes too, until Nan has mended it
+      if (d.isPlayer && d.wearSpark && d.alive && Math.random() < dt * d.wearSpark) {
+        const at = d.pos.clone(); at.y += d.model.height * (0.3 + Math.random() * 0.6);
+        at.x += (Math.random() - 0.5) * 0.35; at.z += (Math.random() - 0.5) * 0.35;
+        this.fx.burst(at, Math.random() < 0.6 ? 0xffb066 : 0xffffff, 4, 1.6, 0.22, 0.05, 5);
+      }
       // an open droid fizzes: its seals have gone
       if (d.team === 'h' && d.alive && d.state === 'active' && d.open && !d.cloaked && Math.random() < dt * (d.critical ? 6 : 3)) {
         const at = d.pos.clone(); at.y += d.model.height * (0.4 + Math.random() * 0.5);

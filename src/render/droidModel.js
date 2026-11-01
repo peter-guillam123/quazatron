@@ -208,6 +208,9 @@ export class DroidModel {
       }
     }
 
+    // KLP-2 as far as Nan has mended it
+    if (s.player && s.wear) this.buildWear(s.wear);
+
     if (s.command) {
       // command droids wear a crown of three lit spikes
       for (let i = 0; i < 3; i++) {
@@ -239,6 +242,77 @@ export class DroidModel {
     const sc = s.scale || 1;
     this.group.scale.setScalar(sc);
     this.height *= sc;
+  }
+
+  // KLP-2 starts out of the rubbish in a bad way: holes in a dull shell, a
+  // panel flapping at the back, a visor that sputters, a wheel that
+  // wobbles, no aerial. Each of Nan's repairs mends a piece of it.
+  buildWear(w) {
+    const m = this.mats, b = this.body, add = (parent, g, mat, pos, rot) => {
+      const mesh = new THREE.Mesh(g, mat);
+      if (pos) mesh.position.set(pos[0], pos[1], pos[2]);
+      if (rot) mesh.rotation.set(rot[0], rot[1], rot[2]);
+      parent.add(mesh);
+      return mesh;
+    };
+    const shape = SHAPES.player, y0 = 0.16;
+    const t = Math.min(1, w.plating / 8);
+    // the shell: dull and scuffed, polished as it's plated
+    m.shell.color.copy(new THREE.Color(0x60656f).lerp(new THREE.Color(0xe9eef5), t));
+    m.shell.clearcoat = 0.1 + 0.9 * t;
+    m.shell.roughness = 0.7 - 0.4 * t;
+    // holes in the shell, with a glow of loose wiring inside: one fewer for
+    // every two notches of plating
+    const holeMat = new THREE.MeshBasicMaterial({ color: 0x050608, polygonOffset: true, polygonOffsetFactor: -2 });
+    const emberMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff7a2a).multiplyScalar(1.6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+    this.mats.hole = holeMat; this.mats.ember = emberMat;
+    const spots = [[0.9, 0.35], [2.4, 0.6], [3.7, 0.3], [5.1, 0.55]];
+    const holes = Math.max(0, 4 - Math.floor(w.plating / 2));
+    for (let i = 0; i < holes; i++) {
+      const [a, hf] = spots[i], r = shape.r + 0.006;
+      const g = new THREE.Group();
+      g.position.set(Math.sin(a) * r, y0 + shape.h * hf, Math.cos(a) * r);
+      g.rotation.y = a;
+      add(g, G('hole', () => new THREE.PlaneGeometry(0.135, 0.1)), holeMat);
+      add(g, G('ember', () => new THREE.PlaneGeometry(0.05, 0.025)), emberMat, [0.015, -0.015, 0.001]);
+      b.add(g);
+    }
+    // a loose panel at the back, until the plating's begun
+    if (w.plating < 2) {
+      const hinge = new THREE.Group();
+      hinge.position.set(0, y0 + shape.h, -shape.r - 0.005);
+      add(hinge, G('flap', () => new THREE.BoxGeometry(0.16, 0.12, 0.012)), m.shell, [0, -0.06, -0.006]);
+      b.add(hinge);
+      this.flap = hinge;
+    }
+    // fully plated: a lit trim round the shell
+    if (w.plating >= 8) add(b, G('trim', () => new THREE.TorusGeometry(shape.r + 0.012, 0.01, 8, 48)), m.accent, [0, y0 + shape.h * 0.62, 0], [Math.PI / 2, 0, 0]);
+    // the aerial: a bent stub, then straight, then with a light on top
+    if (w.patience >= 1) {
+      const ag = new THREE.Group();
+      ag.position.set(-0.12, this.top - 0.04, -0.08);
+      ag.rotation.z = w.patience === 1 ? 0.7 : 0.15;
+      const len = 0.1 + 0.07 * w.patience;
+      add(ag, G(`aer${w.patience}`, () => new THREE.CylinderGeometry(0.008, 0.011, len, 6)), m.metal, [0, len / 2, 0]);
+      if (w.patience >= 3) this.aerialTip = add(ag, G('aerTip', () => new THREE.SphereGeometry(0.022, 10, 8)), m.accent, [0, len + 0.01, 0]);
+      b.add(ag);
+    }
+    // a pocket on its back
+    if (w.pockets >= 1) {
+      const k = 0.7 + w.pockets * 0.1;
+      const box = add(b, G('pocket', () => new THREE.BoxGeometry(0.16, 0.1, 0.07)), m.dark, [0, y0 + 0.08, -shape.r - 0.03]);
+      box.scale.set(k, k, 1);
+    }
+    // a second visor line once the cells are full
+    if (w.cells >= 8) {
+      const v2 = add(b, G(`visor2${this.visorR.toFixed(3)}`, () => new THREE.CylinderGeometry(this.visorR - 0.01, this.visorR - 0.01, 0.02, 32, 1, true, -0.6, 1.2)), m.accent, [0, this.visorY - 0.06, 0]);
+      v2.castShadow = false;
+    }
+    // chrome hubs once the bearings are done
+    if (w.servos >= 5) m.metal.color.set(0xdfe6f0);
+    this.flicker = Math.max(0, 1 - w.cells / 8);
+    this.wobble = Math.max(0, 1 - w.servos / 5);
+    this.flickT = 0;
   }
 
   setAccent(hex, intensity = 2.4) {
@@ -293,6 +367,20 @@ export class DroidModel {
     const base = info.dead ? 0.15 : 2.4;
     const stunFlicker = info.stunned ? (Math.sin(this.t * 40) > 0 ? 0.4 : 1.4) : 1;
     this.mats.accent.emissiveIntensity = (base + (info.charge || 0) * 4) * stunFlicker;
+
+    // a sputtering visor and a wobbly wheel, until Nan mends them
+    if (this.flicker) {
+      this.flickT = Math.max(0, this.flickT - dt);
+      if (!this.flickT && Math.random() < dt * this.flicker * 2.5) this.flickT = 0.05 + Math.random() * 0.14;
+      if (this.flickT) this.mats.accent.emissiveIntensity *= 0.12;
+    }
+    if (this.wobble) {
+      const moving = (info.speed || 0) > 0.4;
+      if (this.wheels[0]) this.wheels[0].rotation.z = Math.PI / 2 + Math.sin(this.t * 14) * 0.35 * this.wobble;
+      this.body.rotation.z = Math.sin(this.t * (moving ? 11 : 3)) * (moving ? 0.035 : 0.012) * this.wobble;
+    }
+    if (this.flap) this.flap.rotation.x = 0.35 + Math.sin(this.t * 6) * 0.25 + (info.speed || 0) * 0.06;
+    if (this.aerialTip) this.aerialTip.visible = Math.sin(this.t * 4) > -0.2;
 
     this.flash = Math.max(0, this.flash - dt * 5);
     this.mats.shell.emissiveIntensity = this.flash * 0.9;
