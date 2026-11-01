@@ -11,6 +11,8 @@ import { CAST } from './story/cast.js';
 import { drawPortrait } from './story/portrait.js';
 import { GUIDE, DROIDS, PEOPLE, BIOS, COMPLETE, tier, quotes, specs, decksFor, homeDeck, met, heardLines, sayings } from './story/fieldguide.js';
 import { dataFor } from './progress.js';
+import { MEMORIES } from './story/memories.js';
+import { DECKS } from './config.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
@@ -40,10 +42,11 @@ export class Archive {
       `${seen} of ${DROIDS.length} droids on file · ${done} page${done === 1 ? '' : 's'} complete · ${people} of ${PEOPLE.length} people met`;
     this.ui.show('archive', { push: !!this.ui.screen, focus: '[aria-selected="true"]' });
     this.pending = DROIDS.filter((k) => !thumbs.has(this.thumbKey(k)));
-    const start = [...DROIDS, ...PEOPLE].find((k) => this.isNew(k)) || this.last || DROIDS[0];
+    const start = [...DROIDS, ...PEOPLE, ...Object.keys(MEMORIES).map((n) => `mem-${n}`)].find((k) => this.isNew(k)) || this.last || DROIDS[0];
     this.book.fill([
       { title: 'Droids', items: DROIDS.map((k) => this.droidTab(k)) },
       { title: 'People', items: PEOPLE.map((k) => this.personTab(k)) },
+      { title: 'Memories', items: Object.keys(MEMORIES).map((n) => this.memoryTab(+n)) },
     ], (k) => this.page(k), start);
     this.loop();
   }
@@ -54,6 +57,7 @@ export class Archive {
   // than when you last looked, the page is marked new.
   stamp(k) {
     const m = this.meta;
+    if (k.startsWith('mem-')) return (m.memories || {})[k.slice(4)] ? 1 : 0;
     if (FAMILIES[k] && !FAMILIES[k].rival) return tier(m, k);
     if (!met(m, k)) return 0;
     return 1 + heardLines(m, k).got.length + (k === 'klp1' ? (m.klp1Wins || 0) + (m.klp1Turned ? 1 : 0) : 0);
@@ -102,9 +106,34 @@ export class Archive {
     };
   }
 
+  memoryTab(n) {
+    const mem = MEMORIES[n], ok = !!(this.meta.memories || {})[n], i = Object.keys(MEMORIES).indexOf(String(n)) + 1;
+    const key = `mem-${n}`;
+    return {
+      key, label: ok ? mem.title : '???', sub: ok ? `Memory ${i}` : `Reach deck ${n}`,
+      thumb: `<span class="ch-no">${i}</span>`, dim: !ok, style: `--ink:${hex(DECKS[mem.deck - 1].ink)}`, flag: this.flag(key, null),
+      aria: `${ok ? `Memory ${i}: ${mem.title}` : `Memory ${i}, not recovered: reach deck ${n}`}.${this.isNew(key) ? ' New.' : ''}`,
+    };
+  }
+
+  // A memory you've got back, written out as it played.
+  memoryPage(n) {
+    const mem = MEMORIES[n], ok = !!(this.meta.memories || {})[n], i = Object.keys(MEMORIES).indexOf(String(n)) + 1;
+    const deck = DECKS[mem.deck - 1];
+    if (!ok) {
+      return `<div class="chapter" style="--ink:${hex(deck.ink)}"><header><p class="kicker">Memory ${i}</p><h3 class="entry-name">???</h3>
+        <p class="entry-lede">Not remembered yet. It comes back the first time KLP-2 reaches deck ${n}, ${esc(deck.name)}.</p></header></div>`;
+    }
+    return `<div class="chapter" style="--ink:${hex(deck.ink)}">
+      <header><p class="kicker">Memory ${i} · ${esc(deck.name)}</p><h3 class="entry-name">${esc(mem.title)}</h3></header>
+      <ul class="said told">${mem.lines.map((l) => `<li>${l.who ? `<b>${esc(l.who)}:</b> ` : ''}${esc(l.text)}</li>`).join('')}</ul>
+    </div>`;
+  }
+
   // ---------------------------------------------------------------- pages
 
   page(k) {
+    if (k.startsWith('mem-')) return this.memoryPage(+k.slice(4));
     return FAMILIES[k] && !FAMILIES[k].rival ? this.droidPage(k) : this.personPage(k);
   }
 

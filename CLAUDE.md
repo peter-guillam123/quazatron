@@ -90,6 +90,12 @@ beats them in a circuit-board duel and steals their parts.
   `meta.relics` and shows on KLP-2 (`buildWear`). Effects go through
   `Game.hasRelic` (off in today's tower), `Game.applyRelics` and
   `World.refreshRelics`.
+- The story (the Merge): a new player's New run boots KLP-2 (`Game.wakeUp`,
+  the boot screen), then Nan's `woke` lines in the Heap (`meta.woke`); the
+  first climb is the induction. The first time a deck from 2 to 6 is
+  reached, a memory plays first (`src/story/memories.js` for the scenes,
+  `src/memory.js` stages and plays them through the Spectrum pass, state
+  `memory`, `meta.memories`). The archive has a Memories group.
 - Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
   written from the run). KLP-1 is a rival family (`rival: true`, never
   generated): from your third run it may drop into a combat room on one deck

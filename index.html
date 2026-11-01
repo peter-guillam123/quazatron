@@ -87,6 +87,23 @@
   <p class="title-foot">Keyboard or gamepad. <span id="title-keys">Arrow keys and Enter to choose.</span></p>
 </section>
 
+<section class="screen boot" id="screen-boot" hidden aria-labelledby="boot-h">
+  <div class="boot-box">
+    <h2 class="sr-only" id="boot-h">KLP-2 is booting up</h2>
+    <pre class="boot-text" id="boot-text"></pre>
+    <button data-act="go" id="boot-go">Wake up</button>
+  </div>
+</section>
+
+<section class="memory" id="memory" hidden aria-live="polite">
+  <div class="mem-box">
+    <p class="mem-head" id="mem-head"></p>
+    <p class="mem-who" id="mem-who" hidden></p>
+    <p class="mem-text" id="mem-text"></p>
+    <p class="mem-keys">Space: next · Esc: skip</p>
+  </div>
+</section>
+
 <section class="screen panel-screen" id="screen-first" hidden aria-labelledby="first-h">
   <div class="panel">
     <h2 id="first-h">First time in the tower?</h2>

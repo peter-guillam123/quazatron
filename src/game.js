@@ -27,6 +27,8 @@ import { makeRng, randomSeed } from './rng.js';
 import { line, CHATS } from './lines.js';
 import { runStats, dataFor, BENCH, rank, nextCost, cheapest, wear } from './progress.js';
 import { pick, hasNew } from './story/cast.js';
+import { MEMORIES } from './story/memories.js';
+import { MemoryPlayer } from './memory.js';
 import { BOSSES, RELICS, RELIC_ORDER, relicsLeft } from './story/relics.js';
 import { frontPage } from './story/gazette.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
@@ -45,6 +47,7 @@ export class Game {
     this.input = new Input();
     this.audio = new Audio();
     this.ui = new UI(this);
+    this.memories = new MemoryPlayer(this);
     this.input.blocked = () => !!this.ui.screen;
     this.hackView = new HackView(document.getElementById('hack'));
     this.hackView.resize();
@@ -159,8 +162,10 @@ export class Game {
         w.update(dt * 0.3);
       } else if (this.state === 'ascending') {
         this.updateAscend(dt);
+      } else if (this.state === 'memory') {
+        this.memories.update(dt);
       }
-      if (p) {
+      if (p && this.state !== 'memory') {
         const focus = p.pos.clone();
         if (this.state === 'hack' && this.session) focus.lerp(this.session.target.pos, 0.5);
         r.follow(focus, dt);
@@ -301,12 +306,15 @@ export class Game {
   onAction(screen, act, el) {
     switch (screen) {
       case 'title':
-        if (act === 'new') { if (this.meta.inductionDone) this.goHeap(); else this.ui.show('first'); }
+        if (act === 'new') { if (!this.meta.woke) this.wakeUp(); else if (this.meta.inductionDone) this.goHeap(); else this.ui.show('first'); }
         else if (act === 'induction') this.startRun(null, { induction: true });
         else if (act === 'daily') this.startRun(null, { daily: today() });
         else if (act === 'archive') this.ui.archive(this.meta);
         else if (act === 'howto') this.showHowto();
         else if (act === 'settings') this.showSettings();
+        break;
+      case 'boot':
+        if (act === 'go') this.goHeap({ woke: true });
         break;
       case 'first':
         if (act === 'induction') this.startRun(null, { induction: true });
@@ -417,6 +425,8 @@ export class Game {
   // ------------------------------------------------------------------ runs
   // Up the chute: pick a part to take, if you've ever stolen one.
   newRun() {
+    // the first climb is the hand-built one, with signs on the floor
+    if (!this.meta.inductionDone) { this.startRun(null, { induction: true }); return; }
     const stolen = STEALABLE.filter((id) => this.meta.stolen[id]);
     if (!stolen.length) { this.startRun(null); return; }
     const g = runStats(this.meta).kitGrade;
@@ -487,6 +497,19 @@ export class Game {
     };
   }
 
+  // A new player's first moments: KLP-2 boots up in the rubbish with no
+  // idea who it is, and Nan finds it.
+  wakeUp() {
+    this.ui.boot([
+      'KLP-2 · MAINTENANCE UNIT 0002',
+      'POWER ........... 11%',
+      'CHASSIS ......... DAMAGED',
+      'MEMORY .......... WIPED',
+      'LOCATION ........ UNKNOWN',
+      'REBOOTING ...',
+    ]);
+  }
+
   // Down to the Heap, between runs. After a run, Nan has something to say.
   async goHeap(opts = {}) {
     if (this.meta.freshStart) { delete this.meta.freshStart; saveMeta(this.meta); }
@@ -496,7 +519,13 @@ export class Game {
     this.disposeTitleScene();
     await this.loadDeck(0);
     const ctx = this.storyContext();
-    const said = opts.wake ? pick('nan', 'wake', ctx) : hasNew('nan', 'hello', ctx) ? pick('nan', 'hello', ctx) : null;
+    let said = opts.wake ? pick('nan', 'wake', ctx) : hasNew('nan', 'hello', ctx) ? pick('nan', 'hello', ctx) : null;
+    if (opts.woke) {
+      // she found you in the rubbish: this is who you are, and where it happened
+      said = pick('nan', 'woke', ctx);
+      this.meta.woke = true;
+      this.meta.heard['nan.hello'] = true;
+    }
     if (said) {
       saveMeta(this.meta);
       setTimeout(() => { if (this.state === 'play' && this.run && this.run.heap) this.talkTo(this.world.npcs.find((d) => d.npc.id === 'nan'), null, said); }, 700);
@@ -534,6 +563,7 @@ export class Game {
     this.renderer.follow(w.player.pos, 0, true);
     this.ui.setDeck(w.deck, n, !!this.run.daily);
     this.ui.setCondition(this.klpWear());
+    this.ui.updateHud(w, 0);
     document.getElementById('labels').style.setProperty('--open-at', `${Math.round(w.openAt * 100)}%`);
     this.ui.el.hud.classList.toggle('in-heap', heap);
     this.ui.clearHint();
@@ -551,13 +581,33 @@ export class Game {
     }
     saveMeta(this.meta);
     fade.classList.remove('on');
+    // the first time up to this deck, a memory comes back first
+    const due = !heap && !induction && !this.run.daily && MEMORIES[n] && !(this.meta.memories || {})[n];
+    if (due) {
+      this.state = 'memory';
+      this.ui.showHud(false);
+      this.memories.play(n, () => {
+        this.meta.memories = this.meta.memories || {};
+        this.meta.memories[n] = true;
+        saveMeta(this.meta);
+        if (this.world !== w) return;
+        this.ui.showHud(true);
+        this.beginDeck(n, w, heap, induction, record);
+      });
+      return;
+    }
+    this.beginDeck(n, w, heap, induction, record);
+  }
+
+  // The deck card, Static and the rest, once the deck is ready.
+  beginDeck(n, w, heap, induction, record) {
     if (heap) this.ui.announce('The Heap. Nan, Static, the archive and the chute up into the tower.');
     else if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
     else {
       const mf = pick('mainframe', 'deck', this.storyContext({ deck: n }));
       const bd = w.bossDroid;
       const lines = [bd ? `Boss: ◆ ${bd.boss.name}, a ${FAMILIES[bd.family].name} ${bd.cls}${bd.relic ? ' · it has a piece of you' : ''}` : '', w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : ''].filter(Boolean).join('\n');
-      this.ui.deckCard(w.deck, n, lines, this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE BOTTOM' : `DECK ${n} OF 5`}` : '', mf ? mf.pages[0] : '');
+      this.ui.deckCard(w.deck, n, lines, this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE TOP' : `DECK ${n} OF 5`}` : '', mf ? mf.pages[0] : '');
     }
     this.state = 'play';
     this.input.clear();

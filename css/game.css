@@ -311,6 +311,19 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .card .strength.frail i { background: #ffc067; }
 .card:focus-visible .card-head, .card.focus .card-head { color: var(--you); }
 
+/* the boot screen and the memories */
+.screen.boot { background: #020304; }
+.boot-box { width: min(560px, 100%); }
+.boot-text { margin: 0 0 24px; min-height: 9em; font-family: var(--mono); font-size: 15px; line-height: 1.6; color: var(--you); text-shadow: 0 0 8px rgba(46, 242, 255, 0.6); white-space: pre-wrap; }
+.memory { position: fixed; inset: 0; z-index: 9; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px 34px; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.7)); }
+.mem-box { width: min(760px, 100%); padding: 14px 20px 12px; background: rgba(0, 0, 0, 0.82); border: 2px solid var(--ink, #fff); }
+.mem-head { margin: 0 0 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink, #fff); }
+.mem-who { margin: 0 0 2px; font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #fff; }
+.mem-text { margin: 0; min-height: 3em; font-family: var(--mono); font-size: 17px; line-height: 1.5; color: #fff; }
+.mem-text.loud { color: var(--ink, #fff); letter-spacing: 0.06em; }
+.mem-keys { margin: 8px 0 0; font-family: var(--mono); font-size: 11px; color: #8a90a0; text-align: right; }
+
 /* loadout */
 .loadout { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .loadout .box { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
