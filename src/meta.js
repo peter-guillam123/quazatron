@@ -1,7 +1,12 @@
 // What survives between runs, kept in this browser: settings, the droid
 // archive, the parts you've ever stolen, and a few records.
 
-const KEY = 'klepto.v1';
+const KEY = 'klepto.v2';
+// The November 2026 redesign starts everyone again from a broken KLP-2.
+// From an older save it keeps your settings, the archive, the hack lessons
+// you've done and your days in today's tower.
+const OLD = 'klepto.v1';
+const CARRY = ['settings', 'archive', 'read', 'lesson', 'lessonSeen', 'seenHidden', 'daily', 'hints', 'inductionDone'];
 
 const DEFAULTS = {
   settings: {
@@ -21,6 +26,14 @@ const DEFAULTS = {
 export function loadMeta() {
   let data = null;
   try { data = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { data = null; }
+  if (!data) {
+    let old = null;
+    try { old = JSON.parse(localStorage.getItem(OLD) || 'null'); } catch { old = null; }
+    if (old && typeof old === 'object') {
+      data = { freshStart: true };
+      for (const k of CARRY) if (k in old) data[k] = old[k];
+    }
+  }
   const m = structuredClone(DEFAULTS);
   if (data && typeof data === 'object') {
     Object.assign(m, data);

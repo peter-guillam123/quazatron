@@ -50,7 +50,13 @@ beats them in a circuit-board duel and steals their parts.
   Runs climb: up the chute into Intake, lifts up to the Mainframe at the top
   (`Game.ascend`); wrecked, KLP-2 falls back down the chute. Data from hacks persists
   (`meta.data`); Nan's bench sells permanent notches (`src/progress.js`).
-  Fresh start is 70/70 (was 100/100); today's tower uses a fixed 80/80 kit.
+  Fresh start is 60/60; eight notches each of plating and cells reach 100.
+  Today's tower uses a fixed 80/80 kit. Repairs show on KLP-2
+  (`wear(meta)`, `DroidModel.buildWear`): holes and a flapping panel
+  (plating), a sputtering visor (cells), a wobbly wheel (servos), the aerial
+  (patience), a back pocket (pockets); the bench shows KLP-2 turning
+  (`UI.benchKlp`). Saves moved to `klepto.v2` in November 2026; an older
+  save starts again, keeping settings, archive and lessons (`src/meta.js`).
   The cast and every story line live in `src/story/cast.js` (`pick` chooses
   by priority and marks once-only lines heard in `meta.heard`); portraits are
   drawn in `src/story/portrait.js`. `START=70 node tests/sim.mjs` runs the

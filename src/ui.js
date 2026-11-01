@@ -4,7 +4,8 @@
 import { MODULES, SLOTS, SLOT_NAMES, iconSvg, moduleLabel, moduleStats, roman, statLine } from './world/modules.js';
 import { CAST } from './story/cast.js';
 import { drawPortrait } from './story/portrait.js';
-import { BENCH, rank, nextCost, benchNow } from './progress.js';
+import { BENCH, rank, nextCost, benchNow, wear, conditionWord } from './progress.js';
+import { Studio } from './render/studio.js';
 import { FAMILIES, FAMILY_ORDER } from './world/roster.js';
 import { PERKS } from './perks.js';
 import { PLAYER_HEX } from './config.js';
@@ -318,12 +319,16 @@ export class UI {
   }
 
   // Nan's bench: permanent upgrades, a notch at a time.
-  bench(meta, line, focus) {
+  bench(meta, line, focus, mended = null) {
     const data = meta.data || 0;
     const wallet = $('#bench-wallet');
     wallet.querySelector('b').textContent = String(data);
     wallet.setAttribute('aria-label', `You have ${data} data`);
     $('#bench-line').textContent = line || '';
+    // KLP-2 itself, turning, as mended as it is
+    const wr = wear(meta);
+    $('#bench-cond').innerHTML = `KLP-2 · <b>${conditionWord(wr.condition)}</b> · ${Math.round(wr.condition * 100)}% mended${mended ? `<br><span class="just">${esc(BENCH.find((b) => b.id === mended).name)}: ${esc(BENCH.find((b) => b.id === mended).look || 'fitted')}.</span>` : ''}`;
+    this.benchKlp(wr, !!mended);
     $('#bench-list').innerHTML = BENCH.map((b) => {
       const r = rank(meta, b.id);
       const cost = nextCost(meta, b);
@@ -334,11 +339,41 @@ export class UI {
       const line = full ? `Full: ${what} ${now}.` : `Each notch: ${b.each}. ${what[0].toUpperCase()}${what.slice(1)} ${now} → ${next}.`;
       return `<button class="fab-item" data-act="buy" data-id="${b.id}"${full || short ? ' disabled' : ''}>
         <span class="fab-name">${esc(b.name)}${notches}</span>
-        <span class="fab-line">${esc(line)}</span>
+        <span class="fab-line">${esc(line)}${b.look && !full ? ` <i>Each one ${esc(b.look)}.</i>` : ''}</span>
         <span class="fab-cost">${full ? '' : short ? `${cost} data · need ${cost - data} more` : `${cost} data`}</span>
       </button>`;
     }).join('');
     this.show('bench', focus ? { focus: `[data-id="${focus}"]` } : {});
+  }
+
+  // The turning KLP-2 on Nan's bench screen. After a repair it flashes, so
+  // you see what changed.
+  benchKlp(wr, mended) {
+    const stage = $('#bench-stage');
+    try { this.benchStudio = this.benchStudio || new Studio(); } catch { stage.classList.add('no-gl'); return; }
+    const st = this.benchStudio;
+    if (st.canvas.parentNode !== stage) stage.appendChild(st.canvas);
+    st.pose({ shape: 'player', scale: 1, shell: 0xb4bcc8, label: 'K-2', drive: 'wheels', player: true, wear: wr }, 0x2ef2ff, false, 0x3a5a7a);
+    st.still = document.body.classList.contains('reduced');
+    if (mended) { stage.classList.remove('mended'); void stage.offsetWidth; stage.classList.add('mended'); }
+    let dirty = true, last = null;
+    if (this.benchRaf) return;
+    const screen = $('#screen-bench');
+    const tick = (now) => {
+      if (screen.hidden) { this.benchRaf = 0; return; }
+      const dt = last == null ? 0 : Math.max(0, Math.min(0.05, (now - last) / 1000));
+      last = now;
+      if (st.setSize(stage.clientWidth, stage.clientHeight)) dirty = true;
+      if (!st.still || st.held || dirty) { st.frame(st.still ? 0 : dt); dirty = false; }
+      this.benchRaf = requestAnimationFrame(tick);
+    };
+    this.benchRaf = requestAnimationFrame(tick);
+  }
+
+  // How mended KLP-2 is, under its name in the HUD (kept for good).
+  setCondition(wr) {
+    const el = $('#hud-cond');
+    if (el) el.textContent = wr ? conditionWord(wr.condition) : '';
   }
 
   setDeck(deck, n, daily = false) {

@@ -100,6 +100,17 @@ button, .button { font: inherit; }
 .notches { display: inline-flex; gap: 3px; margin-left: 8px; vertical-align: middle; }
 .notches i { width: 9px; height: 9px; border-radius: 2px; border: 1px solid rgba(46, 242, 255, 0.6); }
 .notches i.on { background: var(--you); }
+.panel.bench-panel { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 24px; align-items: start; width: min(900px, 100%); overflow-y: auto; }
+.bench-klp { margin: 0; position: sticky; top: 0; }
+.bench-klp .plate-stage { --ink: var(--you); aspect-ratio: 1 / 1.1; }
+.bench-klp figcaption { margin-top: 8px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.bench-klp figcaption b { color: var(--you); font-family: var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+.bench-klp figcaption .just { color: var(--text); }
+.bench-klp .plate-stage.mended { animation: mended 1.1s ease-out; }
+@keyframes mended { 0% { box-shadow: 0 0 0 0 rgba(46, 242, 255, 0.9), 0 0 60px rgba(46, 242, 255, 0.8); } 100% { box-shadow: 0 0 0 14px rgba(46, 242, 255, 0), 0 0 46px rgba(46, 242, 255, 0.16); } }
+.fab-line i { color: var(--muted); font-style: normal; }
+.hud-cond { margin-left: 4px; font-family: var(--mono); font-weight: 400; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--you); }
+@media (max-width: 720px) { .panel.bench-panel { grid-template-columns: 1fr; } .bench-klp { position: static; max-width: 260px; } }
 .radio { position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: min(620px, calc(100vw - 32px)); padding: 10px 16px 10px 10px; background: rgba(8, 10, 16, 0.92); border: 1px solid var(--who, var(--line)); border-radius: 14px; transition: opacity 0.4s; }
 .radio .portrait { width: 56px; height: 56px; border-radius: 10px; }
 .radio-name { display: block; color: var(--who, #fff); font-family: var(--display); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }

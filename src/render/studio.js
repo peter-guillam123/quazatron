@@ -115,7 +115,7 @@ export class Studio {
 
   // Put a droid on the plinth. spec is a DroidModel spec; ink is the deck
   // colour it's lit with; dark draws it as a silhouette.
-  pose(spec, ink, dark = false) {
+  pose(spec, ink, dark = false, back = ink) {
     if (this.model) { this.scene.remove(this.model.group); this.model.dispose(); }
     const m = this.model = new DroidModel({ ...spec, accent: dark ? 0x30343f : ink });
     this.dark = dark;
@@ -128,11 +128,12 @@ export class Studio {
       });
     }
     this.scene.add(m.group);
-    const key = `${ink}${dark ? 'd' : ''}`;
-    if (!this.backdrops.has(key)) this.backdrops.set(key, backdrop(ink, dark));
+    // the backdrop and rim light can be a quieter colour than the droid's lights
+    const key = `${back}${dark ? 'd' : ''}`;
+    if (!this.backdrops.has(key)) this.backdrops.set(key, backdrop(back, dark));
     this.scene.background = this.backdrops.get(key);
-    this.ringMat.emissive.set(dark ? 0x3a3f4c : ink);
-    this.rim.color.set(dark ? 0x8890a8 : ink);
+    this.ringMat.emissive.set(dark ? 0x3a3f4c : back);
+    this.rim.color.set(dark ? 0x8890a8 : back);
     this.rim.intensity = dark ? 4.5 : 2.6;
     // frame it: the whole droid and the top of the plinth
     const H = Math.max(0.55, m.height);
