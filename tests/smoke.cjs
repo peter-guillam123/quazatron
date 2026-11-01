@@ -22,10 +22,16 @@ const { chromium } = require('playwright');
   await page.goto('http://localhost:8080/index.html');
   await page.waitForTimeout(1500);
   await step('title', async () => {
-    await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.lesson = 99; window.klepto.meta.inductionDone = true; });
+    // memories are checked on their own; here they'd only slow the ride up
+    await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.lesson = 99; window.klepto.meta.inductionDone = true; window.klepto.meta.memories = { 2: true, 3: true, 4: true, 5: true, 6: true }; });
   });
-  // New run goes up to the Heap first, where Nan says hello
-  await step('heap', () => page.keyboard.press('Enter'), 3000);
+  // A new player's New run boots KLP-2 up in the rubbish, then the Heap,
+  // where Nan finds it
+  await step('boot', () => page.keyboard.press('Enter'), 500);
+  await step('heap', async () => {
+    await page.waitForFunction(() => !document.getElementById('boot-go').hidden, null, { timeout: 30000 });
+    await page.click('#boot-go');
+  }, 3000);
   await step('hello', async () => {
     const heap = await page.evaluate(() => !!(window.klepto.run && window.klepto.run.heap));
     if (!heap) errors.push('expected the Heap after New run');
@@ -45,7 +51,7 @@ const { chromium } = require('playwright');
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const x = d.pos.x + dx * (d.radius + p.radius + 0.1), z = d.pos.z + dz * (d.radius + p.radius + 0.1);
           const g = w.grid.groundAt(x, z);
-          if (g !== null && Math.abs(g - d.pos.y) < 0.1) { p.pos.set(x, g, z); p.vel.x = p.vel.z = 0; return true; }
+          if (g !== null && Math.abs(g - d.pos.y) < 0.1) { p.pos.set(x, g, z); p.vel.x = p.vel.z = 0; window.__smoke = { d, x, g, z }; return true; }
         }
         return false;
       }, i);
@@ -59,22 +65,26 @@ const { chromium } = require('playwright');
         await page.waitForTimeout(600);
         if (await page.evaluate(() => window.klepto.state === 'hack')) { errors.push('grappled a sealed droid'); break; }
       }
-      // worn down past the line, it opens
-      await page.evaluate((i) => {
-        const w = window.klepto.world, p = w.player;
-        const d = w.droids.filter((x) => !x.isPlayer && x.alive).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos))[0];
-        d.integrity = d.maxIntegrity * 0.5;
-      }, i);
+      // worn down past the line, it opens; the bounce knocked KLP-2 back,
+      // so put it beside the same droid again
+      await page.evaluate(() => {
+        const p = window.klepto.world.player, s = window.__smoke;
+        s.d.integrity = s.d.maxIntegrity * 0.5;
+        p.pos.set(s.x, s.g, s.z); p.vel.x = p.vel.z = 0;
+      });
+      await page.waitForTimeout(300);
       await page.keyboard.press('Space');
       // the grapple takes a few frames, and software rendering is slow: wait
       // for it to finish before trying another droid
-      for (let t = 0; t < 30; t++) {
+      for (let t = 0; t < 50; t++) {
         await page.waitForTimeout(400);
         if (await page.evaluate(() => window.klepto.state !== 'grapple')) break;
       }
       if (await page.evaluate(() => window.klepto.state === 'hack')) break;
     }
   }, 300);
+  // a grapple still finishing counts: wait it out
+  await page.waitForFunction(() => window.klepto.state !== 'grapple', null, { timeout: 30000 }).catch(() => {});
   const state = await page.evaluate(() => window.klepto.state);
   if (state !== 'hack') { errors.push(`expected a hack, got ${state}`); await browser.close(); console.log('FAILED\n' + errors.join('\n')); process.exit(1); }
   await step('salvage', () => page.evaluate(() => { const g = window.klepto; g.endHack(g.session, true); }), 1200);
