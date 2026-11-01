@@ -165,6 +165,13 @@ export const ICONS = {
   phase: '<path d="M12 3l3 9-3 9-3-9z"/><path d="M5 12h3M16 12h3" stroke-dasharray="1.5 1.5"/>',
   empty: '<circle cx="12" cy="12" r="7" stroke-dasharray="2 3"/>',
   gang: '<circle cx="8" cy="9" r="3.2"/><circle cx="16.5" cy="9" r="3.2"/><path d="M2.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M12.6 15.2c1-.8 2.4-1.2 3.9-1.2 2.7 0 4.9 1.8 5.5 5"/>',
+  // for the pieces of the old KLP-2
+  grab: '<path d="M6 4v6a6 6 0 0 0 12 0V4"/><path d="M6 8h3M15 8h3"/><path d="M12 16v4"/>',
+  scrap: '<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><circle cx="12" cy="12" r="3"/>',
+  energy: '<path d="M13 2L5 13h6l-2 9 9-12h-6z"/>',
+  hack: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h3l2 6h3"/><circle cx="8" cy="9" r="1"/><circle cx="16" cy="15" r="1"/>',
+  eye: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  core: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
 };
 
 export function iconSvg(id, size = 24) {

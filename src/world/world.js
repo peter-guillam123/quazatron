@@ -2,7 +2,7 @@
 // them together (rams, falls, grapples, switches and claiming the deck).
 import * as THREE from 'three';
 import { buildLevelMesh } from '../render/levelMesh.js';
-import { LEVEL_H, PLAYER_COLOUR, TUNING, VOID_Y } from '../config.js';
+import { LEVEL_H, PLAYER_COLOUR, TUNING, VOID_Y, OPEN_AT } from '../config.js';
 import { T } from './grid.js';
 import { Droid } from './droid.js';
 import { Brain } from './ai.js';
@@ -13,6 +13,7 @@ import {
 import { HEAP_NPCS } from './heap.js';
 import { ScrapField, scrapFor } from './scrap.js';
 import { FAMILIES, modulesOf, rowsFor, pulsersFor, timerFor, rareMods } from './roster.js';
+import { BOSSES, relicsLeft } from '../story/relics.js';
 import { makeRng } from '../rng.js';
 import { MODULES } from './modules.js';
 import { Mainframe } from './mainframe.js';
@@ -34,6 +35,8 @@ function boltMat(color) {
 export class World {
   constructor(game, build, run) {
     this.game = game;
+    // pieces of the old KLP-2 change the world around it
+    this.refreshRelics();
     this.build = build;
     this.deck = build.deck;
     this.grid = build.grid;
@@ -130,13 +133,19 @@ export class World {
   }
 
   makeDroids(list) {
+    const run = this.game.run || {};
     for (const s of list) {
       const mods = modulesOf(s.family, s.cls);
+      // each deck's command droid is its boss, wearing a piece of the old KLP-2
+      const boss = s.command && !this.build.heap ? BOSSES[this.deck.n] || null : null;
+      const relic = !!boss && !run.daily && !!this.game.meta && relicsLeft(this.game.meta, this.deck.n).length > 0;
       const d = new Droid(this, {
         family: s.family, cls: s.cls, command: s.command, x: s.x, z: s.z, y: s.h * LEVEL_H,
         mods: s.bounty ? rareMods(mods) : mods, accent: this.deck.ink, room: s.room, bounty: s.bounty,
-        facing: Math.random() * Math.PI * 2,
+        // the first bosses are gentler, so the first piece of you comes early
+        facing: Math.random() * Math.PI * 2, boss, relic, bossMult: [1, 1, 1.15, 1.25, 1.3, 1.3][this.deck.n] || 1.3,
       });
+      if (boss) this.bossDroid = d;
       if (s.bounty) this.bounty = d;
       d.dozy = !!s.dozy;
       d.brain = new Brain(d, this);
@@ -577,6 +586,7 @@ export class World {
     if (atk.dash) mult = knockMult = atk.stats.drive.ramMult || 2;
     else if (atk.lunge) { mult = atk.lunge.mult ?? (atk.stats.arm.ramMult || 1.5); knockMult = atk.lunge.knock ?? mult; }
     if (atk.isPlayer && this.game.hasPerk('ramplate')) { mult *= 1.6; knockMult *= 1.3; }
+    if (atk.isPlayer && this.game.hasRelic?.('plate') && atk.lunge) mult *= 1.4;
     // a raised shield takes a jab head-on; a full shove or a dash breaks it
     if (vic.shielding && vic.inFront({ x: dirx, z: dirz }, vic.stats.core.arc)) {
       const heavy = atk.dash || (atk.lunge && (atk.lunge.charge || 0) >= 0.9);
@@ -640,6 +650,7 @@ export class World {
       if (src.kind === 'bolt' && src.by && !src.by.isPlayer) k *= 0.75;
       if (this.game.settings.assist) k *= 0.55;
       if (this.game.hasPerk('plating')) k *= 0.8;
+      if ((src.kind === 'hazard' || src.kind === 'arc') && this.game.hasRelic?.('insulation')) k *= 0.5;
     } else if (d.team === 'k') {
       k *= 0.7;   // the gang is a little tougher than it looks
     } else if (src.by && src.by.team === 'k') {
@@ -653,7 +664,8 @@ export class World {
   }
 
   energyRegenScale(d) {
-    return d.isPlayer && this.game.hasPerk('capacitor') ? 1.5 : 1;
+    if (!d.isPlayer) return 1;
+    return (this.game.hasPerk('capacitor') ? 1.5 : 1) * (this.game.hasRelic?.('capacitor') ? 1.4 : 1);
   }
 
   onDamaged(d, amount, src) {
@@ -813,6 +825,18 @@ export class World {
     this.clearance = true;
     if (this.lift) this.lift.unlock();
     this.game.onClearance(how);
+    // only a boss actually beaten gives up its piece of you
+    const b = this.bossDroid;
+    if (b && this.game.bossBeaten && (!b.alive || b.state === 'hacked')) this.game.bossBeaten(b, how);
+  }
+
+  // A piece of the old KLP-2 has come back: the world changes with it.
+  refreshRelics() {
+    const has = (id) => !!(this.game.hasRelic && this.game.hasRelic(id));
+    this.openAt = has('claw') ? OPEN_AT + 0.1 : OPEN_AT;
+    this.seeCloaked = has('optic');
+    this.relicReach = has('claw') ? 0.3 : 0;
+    this.lockScale = has('optic') ? 1.3 : 1;
   }
 
   // ------------------------------------------------------------------ hacking
@@ -826,14 +850,14 @@ export class World {
     const pulsers = Math.max(1, full - dent);
     return {
       fullPulsers: full, dent,
-      title: t.family === 'klp1' ? 'KLP-1' : t.bounty ? `${t.bounty}, ${F.name} ${t.cls}` : `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
+      title: t.family === 'klp1' ? 'KLP-1' : t.boss ? `${t.boss.name}, ${F.name} ${t.cls}` : t.bounty ? `${t.bounty}, ${F.name} ${t.cls}` : `${F.name} ${t.cls}`, cls: t.cls, rows: rowsFor(t.cls), pulsers, timer: timerFor(t.cls),
       stunned: t.stunned, hurt, command: t.command, family: t.family,
     };
   }
 
   // Best thing in grappling reach.
   grappleTarget(p) {
-    const reach = 0.55 + (this.game.hasPerk('longreach') ? 0.6 : 0);
+    const reach = 0.55 + (this.game.hasPerk('longreach') ? 0.6 : 0) + this.relicReach;
     let best = null, bd = Infinity;
     for (const d of this.droids) {
       if (d === p || !d.alive || d.state !== 'active' || d.team === p.team || d.team === 'n') continue;

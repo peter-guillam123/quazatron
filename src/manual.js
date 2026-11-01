@@ -340,11 +340,12 @@ function chapters(input) {
         <div class="chart">${partsChart}</div>`,
     },
     {
-      key: 'rooms', title: 'Prizes and bounties', sub: 'Worth the trouble', ink: G,
-      lede: 'Every room with droids in it holds a prize, and every deck has a droid with a price on its head.',
+      key: 'rooms', title: 'Bosses and prizes', sub: 'Worth the trouble', ink: G,
+      lede: 'Every deck has a boss wearing a piece of you, a droid with a price on its head, and a prize in every fighting room.',
       art: ART.rooms(), cap: 'The map shows each room\'s prize as a dot, hollow until it\'s open.',
       body: `<ul class="points">
         <li>A room's prize sits in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens.</li>
+        <li>Each deck's <b>◆ command droid</b> is its boss: bigger, tougher, with a name. When KLP-2 was wiped, its best parts were handed round the bosses. Beat a boss, by hack or by force, and choose one of the two pieces of you it's wearing. You keep it for good, and it shows on KLP-2. The other stays with the boss until you beat it again, on another run.</li>
         <li>One droid on each deck has a name, a brass shell and parts two grades better than its class. Static names it on the radio as the deck starts. Take it down, by hack or by force, for scrap and a firmware chip.</li>
         <li>Once you've been at it a while, KLP-1, the KLP before you, starts turning up. Beat it in a hack three times, across as many runs as it takes, and you can bring it home.</li>
       </ul>`,
@@ -372,6 +373,7 @@ function chapters(input) {
       body: `<div class="two-kinds">
         <section class="kept"><h4>Kept for good</h4><ul class="points">
           <li><b>Data</b>, from hacking and from filling in archive pages. Nan turns it into repairs that stay: more integrity, more energy, a little speed, more time on every hack.</li>
+          <li>Pieces of the old KLP-2, taken back from the bosses.</li>
           <li>Every part you've ever stolen. Nan keeps a spare, and you can take one up the chute with you.</li>
           <li>The droid archive, and everyone you've met.</li>
         </ul></section>
