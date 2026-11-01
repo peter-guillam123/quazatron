@@ -41,7 +41,7 @@ export const INDUCTION_ROOMS = {
       '   .......   ',
     ],
     droids: [{ family: 'mite', cls: 112, dozy: true }],
-    signs: [{ x: 7, z: 8, text: 'Bump it with {arm} till it opens', sub: 'then {grapple} to grapple it', wide: 4.4 }],
+    signs: [{ x: 7, z: 8, text: 'Bump it with {arm} till it opens', sub: 'then {grapple} to grapple it' }],
   },
   spark: {
     id: 'ind-spark', exits: [0, 1, 3], map: [
@@ -59,9 +59,9 @@ export const INDUCTION_ROOMS = {
     ],
     droids: [{ family: 'spark', cls: 126, dozy: true }],
     signs: [
-      { x: 9, z: 6, text: 'Wear it down, then hack it', sub: 'Past the white line on its bar, it opens', wide: 4.4 },
-      { x: 4, z: 9, text: '{drive} to swerve', sub: 'Its shots pass through you', wide: 4.2 },
-      { x: 6, z: 1, text: 'Take its laser', sub: 'for the target to the north', wide: 3.8 },
+      { x: 9, z: 6, text: 'Wear it down, then hack it', sub: 'Below the white line on its bar, it opens' },
+      { x: 4, z: 9, text: '{drive} to swerve', sub: 'Its shots pass through you' },
+      { x: 6, z: 1, text: 'Take its laser', sub: 'for the target to the north' },
     ],
   },
   target: {
@@ -93,7 +93,7 @@ export const INDUCTION_ROOMS = {
       '             ',
     ],
     droids: [{ family: 'mite', cls: 104, dozy: true }, { family: 'mite', cls: 118, dozy: true }, { family: 'mite', cls: 109, dozy: true }],
-    signs: [{ x: 9, z: 5, text: 'Hold {arm}, then let go', sub: 'An open droid goes off the edge: double scrap', wide: 4.4 }],
+    signs: [{ x: 9, z: 5, text: 'Hold {arm}, then let go', sub: 'Open droids go over the edge: double scrap' }],
   },
   terminal: {
     id: 'ind-terminal', exits: [0, 2], map: [
@@ -128,7 +128,7 @@ export const INDUCTION_ROOMS = {
     droids: [{ family: 'spark', cls: 148 }, { family: 'mite', cls: 121, dozy: true }],
     signs: [
       { x: 5, z: 8, text: 'Beat the ◆ boss', sub: 'by hack or by force, to open the lift' },
-      { x: 11, z: 5, text: 'Fabricator', sub: 'Spend scrap here', wide: 3.4 },
+      { x: 11, z: 5, text: 'Fabricator', sub: 'Spend scrap here' },
     ],
   },
 };

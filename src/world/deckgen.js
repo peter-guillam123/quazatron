@@ -72,7 +72,7 @@ export function generateDeck(n, rng, opts = {}) {
     };
     rooms.push(info);
     for (const sg of r.signs || []) {
-      signs.push({ x: ox + sg.x, z: oz + sg.z, h: heights[sg.z * w + sg.x], text: sg.text, sub: sg.sub || '', wide: sg.wide, room: index });
+      signs.push({ x: ox + sg.x, z: oz + sg.z, h: heights[sg.z * w + sg.x], text: sg.text, sub: sg.sub || '', room: index });
     }
     if (r.signs) info.signs = r.signs;
     for (let j = 0; j < d; j++) {
