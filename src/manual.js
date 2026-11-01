@@ -366,15 +366,23 @@ function chapters(input) {
       </ul>`,
     },
     {
-      key: 'heap', title: 'The Heap, and data', sub: 'Getting stronger', ink: '#ffa64a',
-      lede: 'When KLP-2 is destroyed, its bits go up the scrap chute to the Heap, where Nan rebuilds it.',
-      art: ART.heap(), cap: 'Data reaches Nan whatever happens to you. Scrap doesn\'t.',
-      body: `<ul class="points">
-        <li>Hacking downloads data. Spend it on Nan's bench for small, permanent upgrades.</li>
-        <li>Nan keeps every part you've ever stolen: take one down the chute with you.</li>
-        <li>Fill in a page of the droid archive, by hacking three of a family, and it sends data up too.</li>
-        <li>Static talks to you on the radio as each deck starts.</li>
-      </ul>`,
+      key: 'heap', title: 'What you keep', sub: 'The Heap and data', ink: '#ffa64a',
+      lede: 'Everything KLP-2 carries is lost when it\'s wrecked. Data isn\'t.',
+      art: ART.heap(), cap: 'When KLP-2 is wrecked, its bits fall down the chute to the Heap, where Nan rebuilds it. The data comes down with them.',
+      body: `<div class="two-kinds">
+        <section class="kept"><h4>Kept for good</h4><ul class="points">
+          <li><b>Data</b>, from hacking and from filling in archive pages. Nan turns it into repairs that stay: more integrity, more energy, a little speed, more time on every hack.</li>
+          <li>Every part you've ever stolen. Nan keeps a spare, and you can take one up the chute with you.</li>
+          <li>The droid archive, and everyone you've met.</li>
+        </ul></section>
+        <section class="run"><h4>This run only</h4><ul class="points">
+          <li>The parts you're wearing.</li>
+          <li><b>Scrap</b>, and whatever Ledger sold you for it.</li>
+          <li>Firmware chips.</li>
+          <li>Your gang.</li>
+        </ul></section>
+      </div>
+      <p>On screen, scrap is gold and data is cyan. Static talks to you on the radio as each deck starts.</p>`,
     },
     {
       key: 'daily', title: 'Today\'s tower', sub: 'One go a day', ink: Y,

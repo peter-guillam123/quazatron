@@ -24,8 +24,8 @@
   <section class="hud-status hud-panel" aria-label="KLP-2">
     <div class="hud-top">
       <span class="hud-name">KLP-2</span>
-      <span class="hud-scrap" id="hud-scrap" title="Scrap: spend it at a fabricator"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2l8.7 5v10L12 22l-8.7-5V7z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><b>0</b> scrap</span>
-      <span class="hud-data" id="hud-data" title="Data: kept between runs. Nan spends it in the Heap"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><b>0</b> data</span>
+      <span class="hud-scrap" id="hud-scrap" data-tag="this run" title="Scrap: spend it at a fabricator. Lost when KLP-2 is wrecked."><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2l8.7 5v10L12 22l-8.7-5V7z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><b>0</b> scrap</span>
+      <span class="hud-data" id="hud-data" data-tag="kept" title="Data: kept for good. Nan turns it into repairs in the Heap."><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><b>0</b> data</span>
     </div>
     <div class="stat" id="stat-integrity">
       <div class="stat-head">
@@ -148,9 +148,10 @@
 </section>
 
 <section class="screen panel-screen" id="screen-loadout" hidden aria-labelledby="loadout-h">
-  <div class="panel wide">
-    <h2 id="loadout-h">Parts and firmware</h2>
-    <div class="loadout" id="loadout-body"></div>
+  <div class="panel wide scroll">
+    <h2 id="loadout-h">KLP-2</h2>
+    <p class="lede">Gold is this run only: lost when KLP-2 is wrecked. Cyan is kept for good.</p>
+    <div class="klp-sheet" id="loadout-body"></div>
     <div class="row"><button data-act="back">Back</button></div>
   </div>
 </section>
@@ -228,7 +229,7 @@
       </aside>
     </div>
     <p class="gz-classified"><b>Classified</b> <span id="gz-classified"></span></p>
-    <p class="unlocks" id="end-unlocks"></p>
+    <div class="ledger" id="end-ledger"></div>
     <div class="share" id="end-share" hidden>
       <pre id="share-text" aria-hidden="true"></pre>
       <p class="sr-only" id="share-summary"></p>
