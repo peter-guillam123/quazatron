@@ -146,6 +146,8 @@ export class World {
         facing: Math.random() * Math.PI * 2, boss, relic, bossMult: [1, 1, 1.15, 1.25, 1.3, 1.3][this.deck.n] || 1.3,
       });
       if (boss) this.bossDroid = d;
+      // under pressure, every droid is tougher
+      if (run.pressure) { d.maxIntegrity *= 1 + 0.15 * run.pressure; d.integrity = d.maxIntegrity; }
       if (s.bounty) this.bounty = d;
       d.dozy = !!s.dozy;
       d.brain = new Brain(d, this);
@@ -648,6 +650,7 @@ export class World {
     if (d.isPlayer) {
       if (src.kind === 'ram' || src.kind === 'stomp' || src.kind === 'slam') k *= 0.45;
       if (src.kind === 'bolt' && src.by && !src.by.isPlayer) k *= 0.75;
+      if (src.by && src.by.team === 'h' && this.game.run && this.game.run.pressure) k *= 1 + 0.1 * this.game.run.pressure;
       if (this.game.settings.assist) k *= 0.55;
       if (this.game.hasPerk('plating')) k *= 0.8;
       if ((src.kind === 'hazard' || src.kind === 'arc') && this.game.hasRelic?.('insulation')) k *= 0.5;
@@ -845,7 +848,7 @@ export class World {
     const F = FAMILIES[t.family];
     const hurt = 1 - t.integrity / t.maxIntegrity;
     // an open droid hacks back with a pulser fewer; a critical one, two
-    const full = pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0) + (t.family === 'klp1' ? 1 : 0);
+    const full = pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0) + (t.family === 'klp1' ? 1 : 0) + (t.boss && (this.game.run || {}).pressure >= 2 ? 1 : 0);
     const dent = t.critical ? 2 : t.open ? 1 : 0;
     const pulsers = Math.max(1, full - dent);
     return {

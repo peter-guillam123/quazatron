@@ -29,8 +29,14 @@ export class MemoryPlayer {
   play(n, done) {
     const mem = MEMORIES[n];
     if (!mem) { done(); return; }
+    const i = Object.keys(MEMORIES).indexOf(String(n)) + 1;
+    this.stage(mem, `Memory recovered · ${i} of ${MEMORY_COUNT} · ${mem.title}`, done, n);
+  }
+
+  // Any scene: a memory, or the ending.
+  stage(mem, head, done, n = 0) {
     const g = this.game, r = g.renderer;
-    const deck = DECKS[mem.deck - 1];
+    const deck = mem.deckSpec || DECKS[mem.deck - 1];
     // the floor
     const rows = mem.map, D = rows.length, W = rows[0].length;
     const grid = new Grid(W, D);
@@ -65,7 +71,8 @@ export class MemoryPlayer {
         act.mesh = grp; act.pulseMat = mat;
       } else if (a.kind === 'uplink') {
         const grp = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0x050505, emissive: new THREE.Color(deck.ink), emissiveIntensity: 2.2 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0x050505, emissive: new THREE.Color(a.dark ? 0x2a2438 : deck.ink), emissiveIntensity: a.dark ? 0.6 : 2.2 });
+        act.dark = !!a.dark;
         const eye = new THREE.Mesh(new THREE.SphereGeometry(0.85, 32, 20), new THREE.MeshStandardMaterial({ color: 0x14121e, roughness: 0.3, metalness: 0.6 }));
         eye.position.y = 1.6;
         grp.add(eye);
@@ -83,10 +90,12 @@ export class MemoryPlayer {
       } else {
         let spec;
         if (a.kind === 'klp2') spec = { shape: 'player', shell: 0xe9eef5, accent: PLAYER_COLOUR, label: 'K-2', drive: 'wheels', player: true, wear: OLD_KLP2 };
+        else if (a.kind === 'klp2now') spec = { shape: 'player', shell: 0xe9eef5, accent: PLAYER_COLOUR, label: 'K-2', drive: 'wheels', player: true, wear: g.klpWear() };
         else if (a.kind === 'klp1') spec = { shape: 'player', shell: 0x9aa2b0, accent: PLAYER_COLOUR, label: 'K-1', drive: 'wheels', player: true };
         else {
           const F = FAMILIES[a.kind];
-          spec = { shape: F.shape, shell: 0x555b6b, accent: deck.ink, label: String(a.cls || F.min), drive: F.drive || 'wheels', arm: F.arm, core: F.core, family: a.kind, command: !!a.boss };
+          // a freed droid wears KLP-2's cyan
+          spec = { shape: F.shape, shell: 0x555b6b, accent: a.free ? PLAYER_COLOUR : deck.ink, label: String(a.cls || F.min), drive: F.drive || 'wheels', arm: F.arm, core: F.core, family: a.kind, command: !!a.boss };
         }
         act.model = new DroidModel({ scale: a.scale || 1, ...spec });
         act.model.group.position.set(a.x, ground(a.x, a.z), a.z);
@@ -98,7 +107,7 @@ export class MemoryPlayer {
     const w = g.world;
     if (w) w.root.visible = false;
     this.prevRetro = r.retro;
-    r.retro = true;
+    r.retro = mem.retro !== false;
     const centre = new THREE.Vector3(mem.focus[0], 0.4, mem.focus[1]);
     g.env.setDeck(deck, centre);
     g.audio.play('unlock');
@@ -106,8 +115,10 @@ export class MemoryPlayer {
     // the caption
     const el = $('#memory');
     el.hidden = false;
+    // the ending is happening now: no old-footage lines over it
+    el.classList.toggle('now', mem.retro === false);
     el.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
-    $('#mem-head').textContent = `Memory recovered · ${Object.keys(MEMORIES).indexOf(String(n)) + 1} of ${MEMORY_COUNT} · ${mem.title}`;
+    $('#mem-head').textContent = head;
     this.next();
   }
 
@@ -172,7 +183,7 @@ export class MemoryPlayer {
         });
       } else if (act.mesh) {
         if (a.kind === 'crate') act.mesh.position.set(act.x, y + 0.375, act.z);
-        if (act.pulseMat) act.pulseMat.emissiveIntensity = 2 + Math.sin(s.t * 3) * 0.8;
+        if (act.pulseMat && !act.dark) act.pulseMat.emissiveIntensity = 2 + Math.sin(s.t * 3) * 0.8;
         if (act.ring0) { act.ring0.rotation.z += dt * 0.6; act.ring1.rotation.z -= dt * 0.9; }
       }
     }
@@ -183,7 +194,7 @@ export class MemoryPlayer {
     // aim a little short of the middle, so the scene sits above the caption
     r.camera.lookAt(s.centre.x + Math.sin(a) * 3, 0, s.centre.z + Math.cos(a) * 3);
     g.env.update(dt, s.centre);
-    const klp = s.actors.find((x) => x.a.kind === 'klp2');
+    const klp = s.actors.find((x) => x.a.kind === 'klp2' || x.a.kind === 'klp2now');
     if (klp) { g.env.playerLight.position.set(klp.x, 2.6, klp.z); g.env.playerLight.intensity = 3; }
   }
 

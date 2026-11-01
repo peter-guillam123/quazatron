@@ -96,6 +96,12 @@ beats them in a circuit-board duel and steals their parts.
   reached, a memory plays first (`src/story/memories.js` for the scenes,
   `src/memory.js` stages and plays them through the Spectrum pass, state
   `memory`, `meta.memories`). The archive has a Memories group.
+- The ending and pressure: beating the Mainframe plays `ENDING` (in
+  `memories.js`, full colour, `retro: false`) before the special-edition
+  Gazette. Reaching the roof at pressure p unlocks p + 1 (`meta.pressureMax`,
+  up to 5); the chute then offers a choice (`Game.choosePressure`,
+  `run.pressure`): droids +15% integrity and +10% damage a notch, bosses +1
+  pulser from 2, data +25% a notch. Not in today's tower or the induction.
 - Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
   written from the run). KLP-1 is a rival family (`rival: true`, never
   generated): from your third run it may drop into a combat room on one deck

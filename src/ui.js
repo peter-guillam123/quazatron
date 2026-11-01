@@ -397,7 +397,8 @@ export class UI {
   }
 
   setDeck(deck, n, daily = false) {
-    this.el.deck.textContent = n === 0 ? deck.name : `${daily ? 'Today’s tower · ' : ''}Deck ${n} · ${deck.name}`;
+    const pr = this.game.run && this.game.run.pressure;
+    this.el.deck.textContent = n === 0 ? deck.name : `${daily ? 'Today’s tower · ' : ''}Deck ${n} · ${deck.name}${pr ? ` · pressure ${pr}` : ''}`;
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 

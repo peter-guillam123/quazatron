@@ -154,3 +154,39 @@ export const MEMORIES = {
 };
 
 export const MEMORY_COUNT = Object.keys(MEMORIES).length;
+
+// Not a memory: what happens now, at the top, once the Mainframe is down.
+// Drawn in full colour rather than the 1986 style, because it's happening.
+export const ENDING = {
+  title: 'The roof', head: 'The top of the tower',
+  deckSpec: { n: 7, name: 'The roof', ink: 0x2ef2ff, paper: 0x2a1f3c, fog: 0x34264a },
+  retro: false,
+  map: [
+    '   .......   ',
+    '  .........  ',
+    ' ........... ',
+    '.............',
+    '.............',
+    '.............',
+    '.............',
+    '.............',
+    ' ........... ',
+    '  .........  ',
+    '   .......   ',
+  ],
+  actors: [
+    { kind: 'uplink', x: 6.5, z: 2.6, dark: true },
+    { kind: 'klp2now', x: 6.5, z: 6.0, face: 135, path: [[6.5, 6.0], [8.6, 8.2], [10.2, 9.0]], at: [9, 17] },
+    { kind: 'mite', x: 3.0, z: 5.0, face: 90, free: true, path: [[3.0, 5.0], [4.2, 7.5], [2.6, 8.8]], at: [2, 14] },
+    { kind: 'hauler', x: 2.8, z: 8.2, face: 45, free: true },
+    { kind: 'spark', x: 10.0, z: 5.0, face: 270, free: true },
+    { kind: 'courier', x: 9.6, z: 3.0, face: 220, free: true, path: [[9.6, 3.0], [11.0, 6.0], [8.0, 4.4]], at: [3, 13] },
+  ],
+  focus: [6.5, 4.8],
+  lines: [
+    { text: 'The uplink comes down. All through the tower, every droid stops, blinks, and is itself again.' },
+    { who: 'Static', text: 'They\'re all talking at once. Every frequency. Listen to that.' },
+    { text: 'You ride the last lift up, out onto the roof. There\'s a city out there, and it\'s still its own.' },
+    { who: 'Nan', text: 'Come home when you\'re ready, love. I\'ll put the kettle on.' },
+  ],
+};
