@@ -160,7 +160,7 @@ export class Archive {
         <section><h4>Specifications</h4>${t >= 2 ? `<dl class="sheet">${sheet}</dl>` : '<p class="locked">Hack one to read them.</p>'}</section>
         <section class="record"><h4>Your record</h4>
           <p class="ticks big" aria-label="Hacked ${h} of ${COMPLETE}">${pips}</p>
-          <p>${t >= 3 ? 'Page complete. Nan has added a note.' : `Hack ${left} more to complete this page. A complete page sends ${dataFor('page')} data up the chute.`}</p>
+          <p>${t >= 3 ? 'Page complete. Nan has added a note.' : `Hack ${left} more to complete this page. A complete page sends ${dataFor('page')} data down the chute to Nan.`}</p>
           <p class="tally">Hacked ${a.hacked || 0} · destroyed ${a.destroyed || 0}${a.best ? ` · best class ${a.best}` : ''}</p>
         </section>
       </div>

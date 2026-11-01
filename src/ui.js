@@ -1,7 +1,7 @@
 // The DOM side: HUD, menus, cards, minimap, labels over droids, toasts and
 // hints. Menus are real buttons, so they work with a keyboard, a screen
 // reader or a gamepad (which moves the focus for you).
-import { MODULES, SLOTS, SLOT_NAMES, iconSvg, moduleLabel, roman, statLine } from './world/modules.js';
+import { MODULES, SLOTS, SLOT_NAMES, iconSvg, moduleLabel, moduleStats, roman, statLine } from './world/modules.js';
 import { CAST } from './story/cast.js';
 import { drawPortrait } from './story/portrait.js';
 import { BENCH, rank, nextCost, benchNow } from './progress.js';
@@ -348,7 +348,7 @@ export class UI {
 
   deckCard(deck, n, bounty = '', label = '', quote = '') {
     const c = this.el.deckCard;
-    $('#deck-num').textContent = label || (n === 6 ? 'THE BOTTOM OF THE TOWER' : `DECK ${n} OF 5`);
+    $('#deck-num').textContent = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
     $('#deck-title').textContent = deck.name;
     $('#deck-blurb').textContent = deck.blurb;
     $('#deck-bounty').textContent = bounty;
@@ -415,7 +415,7 @@ export class UI {
       cl.textContent = boss.beaten ? 'The tower is yours' : boss.relaysUp > 0 ? `Relays holding the shield: ${boss.relaysUp}` : 'Shield down: grapple the Mainframe';
       cl.classList.toggle('ok', !boss.relaysUp);
     } else if (world.build.heap) {
-      cl.textContent = 'The chute at the bottom leads down into the tower';
+      cl.textContent = 'The chute leads up into the tower';
       cl.classList.add('ok');
     } else {
       cl.textContent = world.clearance ? 'Clearance granted: find the lift' : 'Lift locked: take the ◆ command droid';
@@ -688,7 +688,7 @@ export class UI {
     return `<button class="card turn" data-act="turn">
       <span class="slot-tag">Your gang</span>
       <span class="card-head">${iconSvg('gang', 26)}Turn it</span>
-      <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift down with you.</span>
+      <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift up with you.</span>
       <span class="use">${parts.length ? `It keeps its ${esc(parts.join(' and '))}.` : 'It has only its bumper, but it will use it.'}</span>
       <span class="strength${d.critical ? ' frail' : ''}"><i style="width:${Math.round(100 * d.integrity / d.maxIntegrity)}%"></i></span>
       <span class="use">${d.critical ? 'Joins badly damaged: frail, and it hits softly.' : d.open ? 'Joins damaged: it hits a little softer.' : 'Joins in full working order.'} ${Math.round(100 * d.integrity / d.maxIntegrity)}% integrity.</span>
@@ -702,7 +702,7 @@ export class UI {
     return `<button class="card turn${ready ? '' : ' dim'}" data-act="${ready ? 'home' : 'notyet'}"${ready ? '' : ' aria-disabled="true"'}>
       <span class="slot-tag">KLP-1</span>
       <span class="card-head">${iconSvg('gang', 26)}${ready ? 'Bring it home' : 'Not yet'}</span>
-      <span class="line">${ready ? 'KLP-1 goes up the chute to the Heap, to Nan. It won\'t come for you again.' : 'It won\'t follow you, and it won\'t go home. Not yet.'}</span>
+      <span class="line">${ready ? 'KLP-1 goes down the chute to the Heap, to Nan. It won\'t come for you again.' : 'It won\'t follow you, and it won\'t go home. Not yet.'}</span>
       <span class="swap">Beaten in a hack ${Math.min(wins, need)} of ${need} times</span>
     </button>`;
   }
@@ -746,21 +746,59 @@ export class UI {
     this.show('offer');
   }
 
-  loadout(player, perks, pulsers) {
+  // KLP-2 as it stands, split into what's kept for good (Nan's repairs, in
+  // cyan) and what's only for this run (parts, firmware, scrap, the gang,
+  // in gold).
+  loadout(o) {
+    const { player, run, kept, pulsers } = o;
+    const keptHead = o.daily ? 'Today\'s kit' : 'Kept for good';
+    const plus = (n) => (n > 0 ? `+${n}` : n < 0 ? `${n}` : '—');
+    const drive = player.mods.drive ? moduleLabel(player.mods.drive) : 'Wheels';
+    const fromParts = pulsers - 4;
+    // what the arm does to a droid, roughly
+    const arm = player.mods.arm || { id: 'ram', grade: 1 };
+    const as = moduleStats(arm);
+    const hit = arm.id === 'ram' ? 'about 14 a jab' : arm.id === 'tractor' ? 'pulls' : `${Math.round(as.damage)} a hit`;
+    const rows = [
+      ['Integrity', `${Math.round(player.maxIntegrity)}`, `${kept.integrity}`, plus(Math.round(player.maxIntegrity) - kept.integrity), 'maximum'],
+      ['Energy', `${Math.round(player.maxEnergy)}`, `${kept.energy}`, plus(Math.round(player.maxEnergy) - kept.energy), 'maximum'],
+      ['Arm', hit, '—', moduleLabel(arm), ''],
+      ['Speed', kept.speed > 1 ? `+${Math.round((kept.speed - 1) * 100)}%` : 'normal', kept.speed > 1 ? `+${Math.round((kept.speed - 1) * 100)}%` : '—', drive, ''],
+      ['Hack', `${pulsers} pulsers`, kept.hackTime ? `+${kept.hackTime} s a hack` : '—', fromParts > 0 ? `+${fromParts} pulser${fromParts > 1 ? 's' : ''} from parts` : '—', ''],
+      ['Lift repair', `${Math.round(kept.cradle * 100)}%`, `${Math.round(kept.cradle * 100)}%`, '—', 'each ride up'],
+    ];
+    const table = `<table class="sheet-table">
+      <thead><tr><th scope="col"></th><th scope="col">Now</th><th scope="col" class="k">${keptHead}</th><th scope="col" class="r">This run</th></tr></thead>
+      <tbody>${rows.map(([name, now, k, r, note]) => `<tr><th scope="row">${name}${note ? ` <small>${note}</small>` : ''}</th><td class="now">${esc(now)}</td><td class="k">${esc(k)}</td><td class="r">${esc(r)}</td></tr>`).join('')}</tbody>
+    </table>`;
     const parts = SLOTS.map((slot) => {
       const mod = player.mods[slot];
       const id = mod ? mod.id : slot === 'arm' ? 'ram' : null;
       const def = id ? MODULES[id] : null;
-      return `<div class="box"><h3>${SLOT_NAMES[slot]} · <kbd>${this.game.input.label(slot)}</kbd></h3>
+      return `<div class="box run"><h3>${SLOT_NAMES[slot]} · <kbd>${this.game.input.label(slot)}</kbd></h3>
         <div class="name">${iconSvg(id || 'empty', 22)}${esc(id ? moduleLabel(mod || { id }) : 'Empty')}</div>
         <p>${esc(def ? def.use : 'Nothing fitted. Steal a part from a droid to fill this socket.')}</p>
         ${id ? `<p class="stats">${esc(statLine(mod || { id, grade: 1 }))}</p>` : ''}</div>`;
     }).join('');
-    const fw = perks.length
-      ? `<ul>${perks.map((id) => `<li><b>${esc(PERKS[id].name)}</b>: ${esc(PERKS[id].line)}</li>`).join('')}</ul>`
+    const fw = run.perks.length
+      ? `<ul>${run.perks.map((id) => `<li><b>${esc(PERKS[id].name)}</b>: ${esc(PERKS[id].line)}</li>`).join('')}</ul>`
       : '<p>None yet. Hack an archive terminal or pick up a chip.</p>';
-    $('#loadout-body').innerHTML = `${parts}<div class="box"><h3>Firmware</h3>${fw}</div>
-      <div class="box"><h3>Hacking</h3><p>You start each hack with <b>${pulsers}</b> pulsers. Higher-grade parts add more.</p></div>`;
+    const gang = o.gang.length
+      ? o.gang.map((d) => `${esc(FAMILIES[d.family].name)} ${d.cls} (${Math.round(100 * d.integrity / d.maxIntegrity)}%)`).join(', ')
+      : 'nobody yet';
+    const spares = o.spares.length ? o.spares.map((id) => esc(MODULES[id].name)).join(', ') : 'none yet';
+    $('#loadout-body').innerHTML = `${table}
+      <h3 class="sheet-h r">This run only <small>lost when KLP-2 is wrecked</small></h3>
+      <div class="loadout">${parts}
+        <div class="box run"><h3>Firmware</h3>${fw}</div>
+        <div class="box run"><h3>Scrap and gang</h3><p><b>${run.scrap || 0}</b> scrap to spend at a fabricator.</p><p>Gang: ${gang}.</p></div>
+      </div>
+      <h3 class="sheet-h k">Kept for good <small>whatever happens</small></h3>
+      <div class="loadout">
+        <div class="box kept"><h3>Data</h3><p><b>${o.data}</b> data for Nan's bench in the Heap. Hacking brings more.</p></div>
+        <div class="box kept"><h3>Nan's spares</h3><p>Parts you've ever stolen, one to take up the chute each run: ${spares}.</p></div>
+        <div class="box kept"><h3>Archive</h3><p>${o.archived} droid${o.archived === 1 ? '' : 's'} on file.</p></div>
+      </div>`;
     this.show('loadout', { push: true });
   }
 

@@ -1,5 +1,5 @@
 // Browser smoke test: loads the game, starts a run, grapples a droid, wins
-// the hack by decree, takes a part, descends a deck, and fails on any page
+// the hack by decree, takes a part, rides the lift up a deck, and fails on any page
 // error. Needs a static server on :8080 and Playwright.
 //   python3 -m http.server 8080 &
 //   node tests/smoke.cjs [screenshot-dir]
@@ -52,9 +52,13 @@ const { chromium } = require('playwright');
       if (!placed) continue;
       await page.waitForTimeout(200);
       // a droid in full working order is sealed: the grapple bounces off
-      await page.keyboard.press('Space');
-      await page.waitForTimeout(600);
-      if (await page.evaluate(() => window.klepto.state === 'hack')) { errors.push('grappled a sealed droid'); break; }
+      // (unless what's in reach is a terminal, which has no seal)
+      const sealedInReach = await page.evaluate(() => { const it = window.klepto.world.interaction(); return !!(it && it.kind === 'grapple' && it.target.kind === 'droid' && it.target.sealed); });
+      if (sealedInReach) {
+        await page.keyboard.press('Space');
+        await page.waitForTimeout(600);
+        if (await page.evaluate(() => window.klepto.state === 'hack')) { errors.push('grappled a sealed droid'); break; }
+      }
       // worn down past the line, it opens
       await page.evaluate((i) => {
         const w = window.klepto.world, p = w.player;
@@ -62,7 +66,12 @@ const { chromium } = require('playwright');
         d.integrity = d.maxIntegrity * 0.5;
       }, i);
       await page.keyboard.press('Space');
-      await page.waitForTimeout(1200);
+      // the grapple takes a few frames, and software rendering is slow: wait
+      // for it to finish before trying another droid
+      for (let t = 0; t < 30; t++) {
+        await page.waitForTimeout(400);
+        if (await page.evaluate(() => window.klepto.state !== 'grapple')) break;
+      }
       if (await page.evaluate(() => window.klepto.state === 'hack')) break;
     }
   }, 300);
@@ -73,7 +82,7 @@ const { chromium } = require('playwright');
     const b = document.querySelector('#screen-offer button');
     if (b) b.click();
   }));
-  await step('descend', async () => {
+  await step('ascend', async () => {
     await page.evaluate(() => {
       const w = window.klepto.world;
       w.grantClearance('hacked');
@@ -81,7 +90,7 @@ const { chromium } = require('playwright');
     });
     await page.waitForTimeout(300);
     await page.keyboard.press('Space');
-    // software rendering is slow; give the ride down up to 30 seconds
+    // software rendering is slow; give the ride up 30 seconds
     for (let i = 0; i < 60; i++) {
       if (await page.evaluate(() => window.klepto.state === 'play' && window.klepto.run.deck === 2)) break;
       await page.waitForTimeout(500);

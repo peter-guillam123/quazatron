@@ -46,13 +46,20 @@ beats them in a circuit-board duel and steals their parts.
   history), ! and ? emotes, family body language in `DroidModel.manner`, and
   patrol habits by temper in `src/world/ai.js` (PATROL).
 - The Heap and progression: between runs KLP-2 is rebuilt in the Heap
-  (`src/world/heap.js`, deck 0, built by hand). Data from hacks persists
+  (`src/world/heap.js`, deck 0, built by hand), at the bottom of the tower.
+  Runs climb: up the chute into Intake, lifts up to the Mainframe at the top
+  (`Game.ascend`); wrecked, KLP-2 falls back down the chute. Data from hacks persists
   (`meta.data`); Nan's bench sells permanent notches (`src/progress.js`).
   Fresh start is 70/70 (was 100/100); today's tower uses a fixed 80/80 kit.
   The cast and every story line live in `src/story/cast.js` (`pick` chooses
   by priority and marks once-only lines heard in `meta.heard`); portraits are
   drawn in `src/story/portrait.js`. `START=70 node tests/sim.mjs` runs the
   bot at a given starting strength.
+- Kept and this run are kept apart everywhere: gold for this run (scrap,
+  parts, firmware, gang), cyan for kept (data, Nan's repairs, spares, the
+  archive). HUD counters carry captions; Tab opens the KLP-2 sheet
+  (`UI.loadout`, every stat split into kept and run); the end screen closes
+  with a Kept / Lost tally (`Game.ledger`), explained the first time.
 - Hack presentation (`src/hack/view.js`): a cached circuit-board substrate,
   copper traces that glow and flow when lit, comet pulses, glass capsule
   cells (a fresh board's cells start settled, `flipT: 9`), a tug-of-war tally,

@@ -59,7 +59,7 @@ export function frontPage(r, meta, how) {
   if (turned) did.push(`turned ${n2w(turned)} to its side`);
   const list = did.length > 1 ? `${did.slice(0, -1).join(', ')} and ${did.slice(-1)}` : did[0] || 'achieved very little';
   const stand = won
-    ? `The unit, rebuilt in the Heap ${runs === 1 ? 'only once' : `${n2w(runs)} times`}, ${list} on its way to the bottom of the tower, where it took the Mainframe.`
+    ? `The unit, rebuilt in the Heap ${runs === 1 ? 'only once' : `${n2w(runs)} times`}, ${list} on its way to the top of the tower, where it took the Mainframe.`
     : `The unit ${list} before it was ${how === 'abandoned' ? 'last seen' : killerWords(killer)} on ${r.deck === 6 ? 'the Mainframe\'s own floor' : `deck ${r.deck}, ${where}`}.`;
 
   // ---- the copy
@@ -69,7 +69,7 @@ export function frontPage(r, meta, how) {
   const fam = killer && FAMILIES[killer] ? killer : 'spark';
   body.push(`"${quote(fam)}" a ${FAMILIES[fam].name.toLowerCase()} on duty told the Gazette. Asked to elaborate, it said nothing further.`);
   if (bounty) body.push(`Among the losses was ${bounty}, who had a price on their head. Colleagues described ${bounty} as "a character".`);
-  if (st.data) body.push(`Engineers believe ${n2w(Math.min(12, st.data))}${st.data > 12 ? ' or more' : ''} pieces of data went up the scrap chute during the incident. Where it goes is not known.`);
+  if (st.data) body.push(`Engineers believe ${n2w(Math.min(12, st.data))}${st.data > 12 ? ' or more' : ''} pieces of data fell down the scrap chute during the incident. Where it lands is not known.`);
   if (!won && runs >= 3) body.push(`It is understood the unit has been rebuilt before. A spokesdroid for the Mainframe said: "${pickOf(['YOU AGAIN.', 'IT KEEPS COMING BACK.', 'WE ARE LOOKING INTO THE CHUTE.'])}"`);
 
   const weather = pickOf(['Void, with scattered bolts.', 'Live floors, clearing later.', 'Overcast, with a chance of KLP.', 'Static on all frequencies.']);

@@ -156,8 +156,8 @@ export class Game {
         for (const d of w.droids) d.syncModel(dt * 0.15);
       } else if (this.state === 'dying' || this.state === 'won') {
         w.update(dt * 0.3);
-      } else if (this.state === 'descending') {
-        this.updateDescend(dt);
+      } else if (this.state === 'ascending') {
+        this.updateAscend(dt);
       }
       if (p) {
         const focus = p.pos.clone();
@@ -217,7 +217,7 @@ export class Game {
     const m = this.meta;
     const rec = [];
     if (m.runs) rec.push(`${m.runs} run${m.runs === 1 ? '' : 's'}`);
-    if (m.bestDeck) rec.push(`deepest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
+    if (m.bestDeck) rec.push(`highest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
     if (m.data) rec.push(`${m.data} data for Nan`);
     document.getElementById('title-records').textContent = rec.join(' · ');
     document.getElementById('btn-induction').hidden = !m.inductionDone;
@@ -331,7 +331,7 @@ export class Game {
         break;
       case 'pause':
         if (act === 'resume' || act === 'back') this.resume();
-        else if (act === 'loadout') this.ui.loadout(this.world.player, this.run.perks, this.playerPulsers());
+        else if (act === 'loadout') this.showLoadout();
         else if (act === 'howto') this.showHowto();
         else if (act === 'settings') this.showSettings();
         else if (act === 'abandon') { if (this.run.heap) this.toTitle(); else this.endRun(false, 'abandoned'); }
@@ -412,7 +412,7 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ runs
-  // Down the chute: pick a part to take, if you've ever stolen one.
+  // Up the chute: pick a part to take, if you've ever stolen one.
   newRun() {
     const stolen = STEALABLE.filter((id) => this.meta.stolen[id]);
     if (!stolen.length) { this.startRun(null); return; }
@@ -511,7 +511,7 @@ export class Game {
     const fade = document.getElementById('fade');
     fade.classList.add('on');
     await sleep(this.world ? 650 : 350);
-    // the run was saved on the way down; a fresh run must not inherit the last KLP-2
+    // the run was saved on the way up; a fresh run must not inherit the last KLP-2
     this.disposeWorld();
     this.disposeTitleScene();
     this.fx.clear();
@@ -545,7 +545,7 @@ export class Game {
     }
     saveMeta(this.meta);
     fade.classList.remove('on');
-    if (heap) this.ui.announce('The Heap. Nan, Static, the archive and the chute down into the tower.');
+    if (heap) this.ui.announce('The Heap. Nan, Static, the archive and the chute up into the tower.');
     else if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
     else {
       const mf = pick('mainframe', 'deck', this.storyContext({ deck: n }));
@@ -553,7 +553,7 @@ export class Game {
     }
     this.state = 'play';
     this.input.clear();
-    if (record) setTimeout(() => this.addData(dataFor('record'), `New deepest deck: ${n}`), 1200);
+    if (record) setTimeout(() => this.addData(dataFor('record'), `New highest deck: ${n}`), 1200);
     // Static, on the radio, once the deck card has gone
     if (!heap && !induction) setTimeout(() => this.radioLift(n, w), 3600);
     if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 9000);
@@ -600,6 +600,16 @@ export class Game {
     this.ui.clearLabels();
   }
 
+  // The KLP-2 sheet: kept for good against this run only.
+  showLoadout() {
+    const r = this.run, w = this.world;
+    this.ui.loadout({
+      player: w.player, run: r, kept: runStats(this.meta, !!r.daily), daily: !!r.daily, pulsers: this.playerPulsers(),
+      data: this.meta.data || 0, gang: w.allies(), spares: STEALABLE.filter((id) => this.meta.stolen[id]),
+      archived: Object.keys(this.meta.archive || {}).length,
+    });
+  }
+
   playerPulsers() {
     const mods = this.world && this.world.player ? this.world.player.mods : this.run ? this.run.mods : {};
     let g = 0;
@@ -639,7 +649,7 @@ export class Game {
       this.settings.zoom = Math.round(z * 100) / 100;
       this.saveSettings();
     }
-    if (inp.hit('loadout')) { this.state = 'menu'; this.ui.loadout(p, this.run.perks, this.playerPulsers()); this.ui.stack = []; }
+    if (inp.hit('loadout')) { this.state = 'menu'; this.showLoadout(); this.ui.stack = []; }
     else if (inp.hit('pause')) this.pause();
   }
 
@@ -648,7 +658,7 @@ export class Game {
     const key = `<kbd>${this.input.label('grapple')}</kbd>`;
     if (!it) { this.ui.setPrompt(null); return; }
     if (it.kind === 'lift') {
-      if (it.ready) this.ui.setPrompt(`${key}Take the lift down`);
+      if (it.ready) this.ui.setPrompt(`${key}Take the lift up`);
       else this.ui.setPrompt(`${key}Lift locked<span class="sub">needs the ◆ command droid's clearance</span>`, true);
       return;
     }
@@ -662,7 +672,7 @@ export class Game {
       this.ui.setPrompt(`${key}Talk to ${who.name}${sub ? `<span class="sub">${sub}</span>` : ''}`);
       return;
     }
-    if (it.kind === 'chute') { this.ui.setPrompt(`${key}Take the chute<span class="sub">down into the tower</span>`); return; }
+    if (it.kind === 'chute') { this.ui.setPrompt(`${key}Climb the chute<span class="sub">up into the tower</span>`); return; }
     if (it.kind === 'reader') { this.ui.setPrompt(`${key}Read the droid archive`); return; }
     if (it.kind === 'pickup') {
       const k = it.target;
@@ -699,14 +709,14 @@ export class Game {
     const it = w.interaction();
     if (!it) return;
     if (it.kind === 'lift') {
-      if (it.ready) this.descend();
+      if (it.ready) this.ascend();
       else { this.toast('The lift needs clearance. Hack or destroy the ◆ command droid.'); this.audio.play('empty'); }
       return;
     }
     if (it.kind === 'pickup') { this.usePickup(it.target); return; }
     if (it.kind === 'fabricator') { this.openFab(it.target); return; }
     if (it.kind === 'talk') { this.talkTo(it.target, 'talk'); return; }
-    if (it.kind === 'chute') { this.audio.play('descend'); this.newRun(); return; }
+    if (it.kind === 'chute') { this.audio.play('ascend'); this.newRun(); return; }
     if (it.kind === 'reader') { this.state = 'menu'; this.ui.setPrompt(null); this.ui.archive(this.meta); return; }
     this.tryGrapple(it.target);
   }
@@ -1044,15 +1054,15 @@ export class Game {
     } else if (act === 'notyet') {
       return;
     } else if (act === 'home') {
-      // up the chute it goes, to Nan
+      // down the chute it goes, to Nan
       const t = o.target;
       this.meta.klp1Turned = true;
       saveMeta(this.meta);
       this.world.fx.burst(t.pos.clone().setY(t.pos.y + 0.5), 0xff6a5a, 30, 3, 1, 0.12, -2);
       t.downT = Math.max(t.downT || 0, 3.2);
-      this.ui.banner('KLP-1 goes home', 'Up the chute, to the Heap', 'rival');
+      this.ui.banner('KLP-1 goes home', 'Down the chute, to the Heap', 'rival');
       this.audio.play('turn', { at: t.pos });
-      this.ui.announce('KLP-1 has gone up the chute to the Heap. It won\'t come for you again.');
+      this.ui.announce('KLP-1 has gone down the chute to the Heap. It won\'t come for you again.');
     } else if (act === 'turn') {
       this.turnDroid(o.target);
     } else if (act === 'strip') {
@@ -1291,7 +1301,7 @@ export class Game {
     this.showBench(id, pick('nan', 'bought', this.storyContext()));
   }
 
-  // Data comes up the chute to Nan whatever happens to KLP-2.
+  // Data falls down the chute to Nan whatever happens to KLP-2.
   addData(n, why = '') {
     if (!n || !this.run) return;
     this.meta.data = (this.meta.data || 0) + n;
@@ -1518,6 +1528,7 @@ export class Game {
 
   archiveSee(d, how) {
     if (!d.family) return;
+    if (!this.meta.archive[d.family] && this.run) this.run.stats.archived = (this.run.stats.archived || 0) + 1;
     const a = this.meta.archive[d.family] || (this.meta.archive[d.family] = { hacked: 0, destroyed: 0, best: 0 });
     if (how === 'hacked') {
       a.hacked++;
@@ -1551,25 +1562,26 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ lift, death, victory
-  descend() {
+  ascend() {
     const w = this.world, p = w.player;
-    this.state = 'descending';
-    this.descendT = 0;
+    this.state = 'ascending';
+    this.ascendT = 0;
     this.ui.setPrompt(null);
     this.ui.clearLabels();
     p.pos.x = w.lift.pos.x; p.pos.z = w.lift.pos.z;
-    this.audio.play('descend');
+    this.audio.play('ascend');
     if (this.run.deck === 1 && this.run.induction) { this.meta.inductionDone = true; saveMeta(this.meta); }
   }
 
-  updateDescend(dt) {
+  // Up the shaft to the next deck: slow off the mark, then fast.
+  updateAscend(dt) {
     const w = this.world, p = w.player;
-    if (this.descendT === 0) this.descendY = p.pos.y;
-    this.descendT += dt;
-    p.pos.y = this.descendY - 6 * this.descendT * this.descendT;
+    if (this.ascendT === 0) this.ascendY = p.pos.y;
+    this.ascendT += dt;
+    p.pos.y = this.ascendY + 6 * this.ascendT * this.ascendT;
     p.syncModel(dt);
     w.lift.group.position.y = p.pos.y;
-    if (this.descendT > 1.1 && this.state === 'descending') {
+    if (this.ascendT > 1.1 && this.state === 'ascending') {
       this.state = 'transition';
       // how the deck went, for Static
       const ds = this.run.deckStats || {};
@@ -1579,7 +1591,7 @@ export class Game {
       };
       this.run.deck += 1;
       this.saveRunFromPlayer();
-      // the lift's cradle patches KLP-2 up on the way down
+      // the lift's cradle patches KLP-2 up on the way up
       this.run.integrity = Math.min(this.run.maxIntegrity, this.run.integrity + this.run.maxIntegrity * (this.run.cradle ?? 0.25));
       this.loadDeck(this.run.deck);
     }
@@ -1640,6 +1652,34 @@ export class Game {
     }
   }
 
+  // What the run leaves behind: what's kept for good, and what went with
+  // KLP-2. The first time, it says why.
+  ledger(r, won) {
+    const e = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const p = this.world && this.world.player;
+    const mods = p ? p.mods : r.mods;
+    const data = r.stats.data || 0;
+    const kept = [
+      data ? `<b>${data} data</b> fell down the chute to Nan. You have ${this.meta.data || 0} to spend on repairs.` : 'No data this time. Hack things, and it falls down the chute to Nan.',
+      r.newStolen.length ? `New in Nan's spares: ${e(r.newStolen.map((id) => MODULES[id].name).join(', '))}.` : '',
+      r.stats.archived ? `${r.stats.archived} new droid${r.stats.archived > 1 ? 's' : ''} in the archive.` : '',
+    ].filter(Boolean);
+    const parts = SLOTS.map((s) => mods[s]).filter((m) => m && !MODULES[m.id].starter).map((m) => moduleLabel(m));
+    const gang = this.world ? this.world.allies().map((d) => `${FAMILIES[d.family].name} ${d.cls}`) : [];
+    const lost = [
+      parts.length ? `Parts: ${e(parts.join(', '))}` : '',
+      r.scrap ? `${r.scrap} scrap` : '',
+      r.perks.length ? `${r.perks.length} firmware chip${r.perks.length > 1 ? 's' : ''}` : '',
+      gang.length ? `Your gang: ${e(gang.join(', '))}` : '',
+    ].filter(Boolean);
+    const first = (this.meta.runs || 0) === 1 && !won;
+    return `${first ? '<p class="ledger-why">Everything KLP-2 carried is gone. Data isn\'t: it falls down the chute to Nan whatever happens, and she turns it into repairs that stay.</p>' : ''}
+      <div class="ledger-cols">
+        <section class="kept"><h3>Kept</h3><ul>${kept.map((t) => `<li>${t}</li>`).join('')}</ul></section>
+        <section class="lost"><h3>${won ? 'Left in the tower' : 'Lost with KLP-2'}</h3><ul>${lost.length ? lost.map((t) => `<li>${t}</li>`).join('') : '<li>Nothing much. You travelled light.</li>'}</ul></section>
+      </div>`;
+  }
+
   endRun(won, how) {
     const r = this.run;
     if (this.state === 'end') return;    // a second call (death timer after a win) changes nothing
@@ -1670,14 +1710,10 @@ export class Game {
     document.getElementById('gz-classified').textContent = page.classified;
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
-      ['Deepest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
+      ['Highest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],
       ['Ring-outs', st.ringouts], ['Turned', st.turned || 0], ['Bounties', st.bounties || 0], ['Parts fitted', st.parts], ['Firmware', r.perks.length], ['Scrap', st.scrap], ['Data', st.data || 0], ['Time', `${mins}:${String(secs).padStart(2, '0')}`],
     ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
-    const data = r.stats.data || 0;
-    document.getElementById('end-unlocks').textContent = [
-      data ? `${data} data went up the chute to Nan. You have ${this.meta.data || 0} to spend.` : 'No data this time: hack things, and it goes up the chute to Nan.',
-      r.newStolen.length ? `New parts in Nan's spares: ${r.newStolen.map((id) => MODULES[id].name).join(', ')}.` : '',
-    ].filter(Boolean).join(' ');
+    document.getElementById('end-ledger').innerHTML = this.ledger(r, won);
     // today's tower: the first go counts, and you get a line to share
     const share = document.getElementById('end-share');
     share.hidden = !r.daily;
