@@ -268,7 +268,7 @@ function chapters(input) {
       body: `<p>A droid in full working order is sealed: it won't let you in. Wear it down past the white line on its health bar and it sparks open. Then get close and grapple it to start a hack. Win, and you can take one of its parts.</p>
         <p>The first time you reach each deck, a memory comes back. Piece by piece, they tell you what you found out before they wiped you. At the top is the Mainframe, and the uplink, and the roof.</p>
         <p>Once you've been to the roof, you can climb again under pressure: tougher droids, more data. Reach the roof under one notch to unlock the next.</p>
-        <p>You climb the tower deck by deck. Each deck has a lift up, locked until you take the deck's <b>◆ command droid</b>, by hack or by force.</p>
+        <p>You climb the tower deck by deck. Each deck has a lift up, locked until you beat the deck's <b>◆ boss</b>, by hack or by force.</p>
         <p class="tip"><b>Start here.</b> Your first hacks are small boards that bring in one new idea at a time. Mites don't fight back, so practise on them.</p>`,
     },
     {
@@ -347,8 +347,8 @@ function chapters(input) {
       art: ART.rooms(), cap: 'The map shows each room\'s prize as a dot, hollow until it\'s open.',
       body: `<ul class="points">
         <li>A room's prize sits in a cage: scrap, a repair kit, a parts cache or firmware. Deal with every droid from that room, by hack, wreck or turning, and the cage opens.</li>
-        <li>Each deck's <b>◆ command droid</b> is its boss: bigger, tougher, with a name. When KLP-2 was wiped, its best parts were handed round the bosses. Beat a boss, by hack or by force, and choose one of the two pieces of you it's wearing. You keep it for good, and it shows on KLP-2. The other stays with the boss until you beat it again, on another run.</li>
-        <li>One droid on each deck has a name, a brass shell and parts two grades better than its class. Static names it on the radio as the deck starts. Take it down, by hack or by force, for scrap and a firmware chip.</li>
+        <li>Each deck's <b>◆ boss</b> is bigger and tougher than the rest, with its name over it. When KLP-2 was wiped, its best parts were handed round the bosses. Beat a boss, by hack or by force, and choose one of the two pieces of you it's wearing. You keep it for good, and it shows on KLP-2. The other stays with the boss until you beat it again, on another run.</li>
+        <li>One droid on each deck has a name, a brass shell and parts two grades better than its class. You'll know it when you see it: a gold ring under it and its name in lights. Take it down, by hack or by force, for scrap and a firmware chip.</li>
         <li>Once you've been at it a while, KLP-1, the KLP before you, starts turning up. Beat it in a hack three times, across as many runs as it takes, and you can bring it home.</li>
       </ul>`,
     },

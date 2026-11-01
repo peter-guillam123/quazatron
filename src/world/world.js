@@ -596,7 +596,7 @@ export class World {
         atk.knock(-dirx * 6, -dirz * 6, 0.5);
         this.audio.play('reflect', { at: vic.pos });
         this.fx.burst(vic.pos.clone().setY(vic.pos.y + 0.4), vic.accent, 12, 2.5, 0.35, 0.1, 2);
-        if (atk.isPlayer) this.game.hintOnce?.('guard', 'Its shield takes a jab. Hold the bumper for a full shove, or dash into it, to break its guard. The arc coil shorts shields out.', 8);
+        if (atk.isPlayer) this.game.hintOnce?.('guard', `Its shield stops jabs. Hold <b>${this.game.input.label('arm')}</b> for a full shove to break its guard.`, 6);
         if (atk.lunge) { atk.lunge = null; atk.vel.x *= 0.15; atk.vel.z *= 0.15; }
         return;
       }
@@ -642,7 +642,7 @@ export class World {
     if (this.time - (d.bracedAt || -9) < 2) return;
     d.bracedAt = this.time;
     this.game.word?.(d.pos.clone().setY(d.pos.y + d.model.height + 0.2), 'BRACED', 'dent');
-    if (h.by.isPlayer) this.game.hintOnce?.('braced', 'Too strong to push off the edge yet. Wear it down past the line on its health bar and it\'ll go.', 7);
+    if (h.by.isPlayer) this.game.hintOnce?.('braced', 'It braced. Wear it down past the white line and it\'ll go over.', 6);
   }
 
   damageScale(d, src) {

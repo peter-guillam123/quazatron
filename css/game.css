@@ -149,9 +149,6 @@ button, .button { font: inherit; }
 .gazette button, .gazette .button { background: #1c1a16; color: #f1ece0; border-color: #1c1a16; }
 .gazette button:focus-visible { outline: 3px solid #0b8f99; outline-offset: 2px; }
 @media (max-width: 720px) { .gazette .gz-cols { grid-template-columns: 1fr; } .gazette .gz-side { border-left: 0; padding-left: 0; border-top: 1px solid #1c1a16; padding-top: 10px; } }
-.deck-quote { margin-top: 14px; font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: #cfc4ff; text-shadow: 0 0 12px rgba(207, 196, 255, 0.6); }
-.deck-quote:empty { display: none; }
-.deck-quote::before { content: 'THE MAINFRAME: '; opacity: 0.6; }
 @keyframes bump { 40% { color: #ffe2a8; transform: scale(1.25); } }
 .hud-gang { display: flex; gap: 6px; flex-wrap: wrap; }
 .hud-gang .ally { position: relative; font-family: var(--display); font-weight: 700; font-size: 11px; color: var(--you); padding: 1px 7px 3px; border: 1px solid rgba(46, 242, 255, 0.4); border-radius: 4px; background: rgba(46, 242, 255, 0.06); overflow: hidden; }
@@ -165,14 +162,6 @@ button, .button { font: inherit; }
 .claim-pc { font-size: 11px; color: #8f98ab; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hud-clearance { font-size: 12px; color: #b8c0cf; margin-top: 5px; }
 .hud-clearance.ok { color: var(--you); }
-.hud-room { font-size: 12px; color: #dfe4ee; margin-top: 3px; }
-.hud-room:empty { display: none; }
-.hud-room.open { color: var(--you); }
-.hud-bounty { font-size: 12px; color: #ffcf6e; margin-top: 3px; }
-.hud-bounty:empty { display: none; }
-.hud-bounty.done { color: var(--muted); }
-.hud-bounty.spotted { animation: spotted 1.6s ease-out; }
-@keyframes spotted { 0%, 30%, 60% { color: #fff4dc; text-shadow: 0 0 12px #ffcf6e; } 15%, 45%, 100% { color: #ffcf6e; text-shadow: none; } }
 
 .hud-map { position: absolute; right: 16px; top: 14px; padding: 6px; line-height: 0; }
 #minimap { width: 168px; height: 168px; }
@@ -536,11 +525,9 @@ body.reduced .art *, body.reduced .thumb-wait, body.reduced .entry, body.reduced
 .menu button.daily small { font-family: var(--mono); font-weight: 400; font-size: 12px; color: var(--muted); letter-spacing: 0; }
 
 /* deck intro card */
-.deck-card { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); text-align: center; z-index: 6; pointer-events: none; animation: deck-in 3.4s ease-out forwards; width: min(560px, calc(100vw - 32px)); }
+.deck-card { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); text-align: center; z-index: 6; pointer-events: none; animation: deck-in 2.6s ease-out forwards; width: min(560px, calc(100vw - 32px)); }
 .deck-num { font-size: 13px; letter-spacing: 0.4em; color: var(--muted); }
 .deck-title { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 8vw, 72px); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; text-shadow: 0 0 30px var(--ink), 0 0 2px #fff; line-height: 1.1; }
-.deck-blurb { color: #c4cad6; font-size: 14px; margin-top: 8px; }
-.deck-bounty { color: #ffcf6e; font-size: 13px; margin-top: 6px; white-space: pre-line; }
 @keyframes deck-in { 0% { opacity: 0; letter-spacing: 0.3em; } 12% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
 .fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 20; transition: opacity 0.6s; }

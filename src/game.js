@@ -193,6 +193,9 @@ export class Game {
             // the first sight of this deck's bounty
             const b = w.bounty;
             if (b && !b.spotted && b.alive && b.team === 'h' && !b.cloaked && b.pos.distanceTo(p.pos) < 10 && w.canSee(p.pos, b.pos)) this.bountySpotted(b);
+            // and of its boss
+            const bd = w.bossDroid;
+            if (bd && !bd.seen && bd.alive && bd.team === 'h' && !bd.cloaked && bd.pos.distanceTo(p.pos) < 11 && w.canSee(p.pos, bd.pos)) this.bossSpotted(bd);
           }
         }
       }
@@ -504,7 +507,7 @@ export class Game {
     w.fx.ring(d.pos, 0xff6a5a, 2.2, 0.7);
     setTimeout(() => { if (d.alive) this.speak(d, first ? 'SO NAN BUILT ANOTHER ONE.' : line('spot', 'klp1'), true); }, 900);
     this.ui.announce(first ? 'KLP-1 is here: the KLP before you.' : 'KLP-1 is back.');
-    setTimeout(() => this.hintOnce('klp1', 'KLP-1: the KLP before you, with thrusters, a laser and a shield. Beat it in a hack and it might listen.', 8), 3400);
+    setTimeout(() => this.hintOnce('klp1', 'KLP-1, the KLP before you. Beat it in a hack and it might listen.', 6), 3400);
   }
 
   // A run-shaped stand-in for the time spent in the Heap.
@@ -620,40 +623,46 @@ export class Game {
     this.beginDeck(n, w, heap, induction, record);
   }
 
-  // The deck card, Static and the rest, once the deck is ready.
+  // The deck card, Static and the rest, once the deck is ready. The card is
+  // the deck's name and nothing else: what's on the deck, you find on it.
   beginDeck(n, w, heap, induction, record) {
     if (heap) this.ui.announce('The Heap. Nan, Static, the archive and the chute up into the tower.');
-    else if (induction) this.ui.deckCard(w.deck, n, 'One thing at a time. Follow the signs on the floor.', 'THE INDUCTION');
-    else {
-      const mf = pick('mainframe', 'deck', this.storyContext({ deck: n }));
-      const bd = w.bossDroid;
-      const lines = [bd ? `Boss: ◆ ${bd.boss.name}, a ${FAMILIES[bd.family].name} ${bd.cls}${bd.relic ? ' · it has a piece of you' : ''}` : '', w.bounty ? `Bounty: ${w.bounty.bounty}, a ${FAMILIES[w.bounty.family].name} ${w.bounty.cls}` : ''].filter(Boolean).join('\n');
-      this.ui.deckCard(w.deck, n, lines, this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE TOP' : `DECK ${n} OF 5`}` : '', mf ? mf.pages[0] : '');
-    }
+    else if (induction) this.ui.deckCard(w.deck, n, 'THE INDUCTION');
+    else this.ui.deckCard(w.deck, n, this.run.daily ? `TODAY’S TOWER · ${n === 6 ? 'THE TOP' : `DECK ${n} OF 5`}` : '');
     this.state = 'play';
     this.input.clear();
-    if (record) setTimeout(() => this.addData(dataFor('record'), `New highest deck: ${n}`), 1200);
+    // the deck's name, then Static: no tips for the first few seconds
+    this.ui.holdHints(7);
+    if (record) setTimeout(() => this.addData(dataFor('record')), 1200);
     // Static, on the radio, once the deck card has gone
-    if (!heap && !induction) setTimeout(() => this.radioLift(n, w), 3600);
-    if (n === 6) setTimeout(() => this.hint('The Mainframe hides behind four relays. Hack each one to bring its shield down.', 8), 9000);
+    if (!heap && !induction) setTimeout(() => this.radioLift(n, w), 2800);
   }
 
-  // Static's bit as a deck starts: a remark on the last one, what's on this
-  // one, and who has a price on their head.
+  // Static, as a deck starts: one line at most. The first time up to a
+  // deck, what's on it; after that, a word on the deck you've just left, if
+  // it's not the same word as last time; otherwise nothing.
   radioLift(n, w) {
-    if (this.world !== w || !this.run) return;
-    const b = w.bounty;
-    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {}, bounty: b && b.alive && !b.bountyDone && b.team === 'h' ? this.bountyFacts(b) : null });
-    const remark = n >= 2 && this.run.prev ? pick('static', 'remark', ctx) : null;
-    const intro = n >= 2 ? pick('static', 'lift', ctx) : null;
-    const wanted = ctx.bounty ? pick('static', 'bounty', ctx) : null;
-    const bd = w.bossDroid;
-    const boss = bd && bd.relic ? pick('static', 'boss', { ...ctx, boss: bd.boss.name }) : null;
-    if (remark) this.ui.radio('static', remark.pages[0], 5);
-    if (intro) this.ui.radio('static', intro.pages[0], 6);
-    if (boss) for (const page of boss.pages) this.ui.radio('static', page, 6);
-    if (wanted) for (const page of wanted.pages) this.ui.radio('static', page, 6);
+    if (this.world !== w || !this.run || n < 2) return;
+    const ctx = this.storyContext({ deck: n, prev: this.run.prev || {} });
+    let l = pick('static', 'lift', ctx);
+    if (!l && this.run.prev) {
+      l = pick('static', 'remark', ctx);
+      if (l && l.pages[0] === this.run.lastRemark) l = null;
+      if (l) this.run.lastRemark = l.pages[0];
+    }
+    if (l) this.ui.radio('static', l.pages[0], 6);
     saveMeta(this.meta);
+  }
+
+  // Static explains a boss or a bounty once, ever: the first time you see one.
+  radioFirst(on, ctx) {
+    const l = pick('static', on, this.storyContext(ctx));
+    if (!l) return;
+    saveMeta(this.meta);
+    const w = this.world;
+    // in the induction a floor sign has already said what to do
+    const pages = this.run && this.run.induction && this.run.deck === 1 ? l.pages.slice(-1) : l.pages;
+    setTimeout(() => { if (this.world === w) for (const page of pages) this.ui.radio('static', page, 6); }, 1200);
   }
 
   // What Static can tell you about a bounty: its name, its family and the
@@ -760,7 +769,7 @@ export class Game {
     if (!it) { this.ui.setPrompt(null); return; }
     if (it.kind === 'lift') {
       if (it.ready) this.ui.setPrompt(`${key}Take the lift up`);
-      else this.ui.setPrompt(`${key}Lift locked<span class="sub">needs the ◆ command droid's clearance</span>`, true);
+      else this.ui.setPrompt(`${key}Lift locked<span class="sub">beat ◆ ${this.world.bossDroid ? this.world.bossDroid.boss.name : 'the boss'} first</span>`, true);
       return;
     }
     if (it.kind === 'fabricator') {
@@ -811,7 +820,7 @@ export class Game {
     if (!it) return;
     if (it.kind === 'lift') {
       if (it.ready) this.ascend();
-      else { this.toast('The lift needs clearance. Hack or destroy the ◆ command droid.'); this.audio.play('empty'); }
+      else { this.announce('The lift is locked.'); this.audio.play('empty'); }
       return;
     }
     if (it.kind === 'pickup') { this.usePickup(it.target); return; }
@@ -837,8 +846,8 @@ export class Game {
       w.fx.burst(t.pos.clone().setY(t.pos.y + t.model.height * 0.6), t.accent, 10, 2.2, 0.3, 0.08, 2);
       this.word(t.pos.clone().setY(t.pos.y + t.model.height + 0.2), 'SEALED', 'dent');
       if (Math.random() < 0.6) this.say(t, 'rejected', true);
-      if (!this.hintOnce('sealed', 'Sealed. A droid in full working order won\'t let you in. Wear it down past the line on its health bar: it sparks open, and then you can hack it or shove it out.', 9)) {
-        this.toast('Sealed. Wear it down past the line first.');
+      if (!this.hintOnce('sealed', 'Sealed: too healthy to hack. Hit it till its bar drops past the white line.', 7)) {
+        this.announce('Sealed. Wear it down past the line first.');
       }
       return;
     }
@@ -942,8 +951,8 @@ export class Game {
       } else {
         t.onHackWin();
         this.addData(dataFor(t.kind === 'archive' ? 'archive' : 'device'));
-        if (t.kind === 'terminal') this.toast('Terminal hacked.');
-        if (t.kind === 'turret') this.toast('Turret hacked. It works for you now.');
+        if (t.kind === 'terminal') this.announce('Terminal hacked.');
+        if (t.kind === 'turret') this.toast('The turret works for you now.');
       }
     } else {
       // your old firewall takes the burn
@@ -1027,7 +1036,7 @@ export class Game {
     this.run.stats.turned = (this.run.stats.turned || 0) + 1;
     this.toast(`${FAMILIES[d.family].name} ${d.cls} joins your gang.`);
     setTimeout(() => this.say(d, 'turned', true), 600);
-    this.hintOnce('gang', 'Your gang follows you, fights for you and rides the lift with you. Up to three at a time.', 7);
+    this.hintOnce('gang', 'Your gang follows you and rides the lift with you. Three at most.', 6);
   }
 
   allyLost(d, how) {
@@ -1064,14 +1073,14 @@ export class Game {
           break;
         }
       }
-      this.hintOnce('dropped', 'Your old part dropped. Stand by it and press <b>Space</b> to swap back.');
+      this.hintOnce('dropped', `Your old part dropped. <b>${this.input.label('grapple')}</b> by it to swap back.`, 5);
     }
     p.mods[slot] = { id: mod.id, grade: mod.grade };
     p.refresh();
     if (!this.meta.stolen[mod.id]) { this.meta.stolen[mod.id] = true; this.run.newStolen.push(mod.id); saveMeta(this.meta); }
     this.run.stats.parts++;
     this.audio.play('pickup', { at: p.pos });
-    this.toast(`Fitted ${moduleLabel(mod)}`);
+    this.announce(`Fitted ${moduleLabel(mod)}`);
     this.hintOnce(`use-${slot}`, `${MODULES[mod.id].name}: press <b>${this.input.label(slot)}</b>. ${MODULES[mod.id].use}`, 8);
     this.ui.refreshSockets(p);
   }
@@ -1098,14 +1107,14 @@ export class Game {
       w.removePickup(k);
       w.scrap.burst(k.pos, n, { pull: 3, speed: 1.6 });
       this.audio.play('crate', { at: k.pos });
-      this.toast(`Scrap bale: ${n} scrap`);
+      this.announce(`Scrap bale: ${n} scrap`);
     } else if (what.type === 'kit') {
       const p = w.player;
       w.removePickup(k);
       p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.3);
       w.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
       this.audio.play('repair', { at: p.pos });
-      this.toast('Repair kit: patched up');
+      this.announce('Repair kit: patched up');
     }
   }
 
@@ -1118,7 +1127,7 @@ export class Game {
     this.word(at, 'ROOM CLEAR', 'clear');
     this.audio.play('prize', { at: k.pos });
     this.ui.announce(`Room clear. ${k.label()} unlocked.`);
-    this.hintOnce('prize', `Room clear. Its prize is out of the cage: roll over to the ${k.label().toLowerCase()} and press <b>${this.input.label('grapple')}</b>.`, 7);
+    this.hintOnce('prize', `The cage is open. Take the ${k.label().toLowerCase()} with <b>${this.input.label('grapple')}</b>.`, 6);
   }
 
   offerFirmware(source, pickup) {
@@ -1197,7 +1206,7 @@ export class Game {
     if (id === 'reinforced') { p.maxIntegrity += 30; this.run.maxIntegrity += 30; p.integrity = p.maxIntegrity; }
     if (id === 'battery') { p.maxEnergy += 40; this.run.maxEnergy += 40; p.energy = p.maxEnergy; }
     this.audio.play('unlock');
-    this.toast(`Firmware: ${PERKS[id].name}`);
+    this.announce(`Firmware: ${PERKS[id].name}`);
     this.ui.refreshSockets(p);
   }
 
@@ -1242,13 +1251,15 @@ export class Game {
     w.fx.ring(b.pos, 0xffc24a, 2.6, 0.9);
     w.fx.burst(b.pos.clone().setY(b.pos.y + 0.6), 0xffc24a, 24, 2.5, 0.8, 0.12, -1);
     this.input.rumble(0.3, 120);
-    const el = this.ui.el.bounty;
-    el.classList.remove('spotted'); void el.offsetWidth; el.classList.add('spotted');
     this.ui.announce(`Bounty spotted: ${b.bounty}, a ${name}. It carries better parts. Hack it or wreck it for scrap and a firmware chip.`);
-    // the tip waits for the banner to clear
-    setTimeout(() => {
-      if (this.state === 'play' && this.world === w) this.hintOnce('bounty', 'A bounty: the droid in the gold ring. Its parts are two grades better than its class. Hack it to take one, or wreck it.', 7);
-    }, 3200);
+    this.radioFirst('bounty', { bounty: this.bountyFacts(b) });
+  }
+
+  // The first sight of a deck's boss. Its name hangs over it; the first
+  // time ever, Static says what a boss is.
+  bossSpotted(d) {
+    d.seen = true;
+    if (d.relic) this.radioFirst('boss', { boss: d.boss.name });
   }
 
   // A bounty is down: scrap, a firmware chip, and a cheer.
@@ -1463,7 +1474,7 @@ export class Game {
     if (src.crit) {
       this.audio.play('crit', { at: d.pos });
       this.world.fx.burst(at, 0xffd25a, 12, 2.6, 0.35, 0.1, 3);
-      this.hintOnce('crit', 'A stunned droid takes double damage. Stun it, slam it into a wall, then hit it.', 7);
+      this.hintOnce('crit', 'Stunned droids take double damage.', 5);
     }
     if (mine) {
       const stop = src.kind === 'arc' ? 0.035 : src.kind === 'bolt' ? 0.02 : 0;
@@ -1481,8 +1492,8 @@ export class Game {
         this.audio.play(level === 2 ? 'dent' : 'unlock', { at: d.pos });
         this.world.fx.burst(up, PLAYER_COLOUR, 20, 2.6, 0.45, 0.1, 2);
         this.world.fx.ring(d.pos, PLAYER_COLOUR, 1.1, 0.35);
-        if (level === 1) this.hintOnce('open', 'Open! Its seals have gone. Grapple it to hack it, or shove it out: off an edge, or into a wall.', 8);
-        else this.hintOnce('critical', 'Critical: an easy hack now, but if you turn it, it joins in the state you left it.', 7);
+        if (level === 1) this.hintOnce('open', `Open. <b>${this.input.label('grapple')}</b> to hack it, or shove it off an edge.`, 6);
+        else this.hintOnce('critical', 'Critical: an easy hack, but if you turn it, it joins this battered.', 6);
       }
     }
   }
@@ -1666,22 +1677,23 @@ export class Game {
     this.ui.announce(`${r.name}, kept for good. ${r.line}`);
   }
 
-  onClearance(how) {
-    this.toast(how === 'hacked' ? 'Clearance taken. The lift is open.' : 'Clearance code recovered. The lift is open.');
+  // The lift opens. A boss's own banner says so; otherwise a toast does.
+  onClearance() {
+    if (!this.world.bossDroid) this.toast('The lift is open.');
     this.audio.play('unlock');
-    this.ui.announce('Clearance granted. The lift is open.');
+    this.ui.announce('The lift is open.');
   }
 
   deckClaimed() {
     const w = this.world, p = w.player;
     this.addData(dataFor('claim'));
     p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.3);
-    this.toast('Deck claimed. Every machine here is yours.');
+    this.ui.banner('Deck claimed', 'Every machine here is yours · a firmware chip at your feet', 'gold');
+    this.ui.announce('Deck claimed. Every machine here is yours, and a firmware chip dropped at your feet.');
     const x = Math.floor(p.pos.x), z = Math.floor(p.pos.z);
     const chip = new Pickup(w, { t: '$', x, z, h: w.grid.hAt(x, z), room: -1, ch: '' }, { type: 'chip' });
     chip.pos.set(p.pos.x, p.pos.y + 0.45, p.pos.z);
     w.pickups.push(chip);
-    this.hint('A firmware chip dropped at your feet.', 4);
   }
 
   onEnterRoom(room, first) {
@@ -1698,7 +1710,6 @@ export class Game {
       return;
     }
     if (room.role === 'vault' && room.hint) this.hint(`A sealed vault. ${room.hint}`, 6);
-    if (room.role === 'lift' && !this.world.clearance) this.hintOnce('lift', `The lift is here, locked. <b>◆ ${this.world.bossDroid ? this.world.bossDroid.boss.name : 'The command droid'}</b>, the deck's boss, holds the clearance: beat it, by hack or by force.`, 8);
     if (room.role === 'archive') this.hintOnce('archive', 'An archive terminal. Hack it to pick a firmware upgrade.', 6);
   }
 
@@ -1719,9 +1730,12 @@ export class Game {
     saveMeta(this.meta);
   }
 
-  hint(html, secs = 6) { if (this.settings.hints) this.ui.hint(html, secs); }
+  // Tips. None in the induction, where the floor signs do the teaching: a
+  // tip held back there can still come up later in the tower.
+  get quietTips() { return !this.settings.hints || !!(this.run && this.run.induction && this.run.deck === 1); }
+  hint(html, secs = 6) { if (!this.quietTips) this.ui.hint(html, secs); }
   hintOnce(key, html, secs = 6) {
-    if (!this.settings.hints || this.meta.hints[key]) return false;
+    if (this.quietTips || this.meta.hints[key]) return false;
     this.meta.hints[key] = true;
     saveMeta(this.meta);
     this.ui.hint(html, secs);

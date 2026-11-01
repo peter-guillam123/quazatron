@@ -24,11 +24,13 @@ export class UI {
     this.bubbles = [];
     this.toastEls = [];
     this.hintT = 0;
+    this.hintQ = [];
+    this.hintHold = 0;
     this.el = {
       hud: $('#hud'), integrity: $('#bar-integrity'), energy: $('#bar-energy'), rating: $('#hud-rating'), pips: $('#hud-pips'),
       valIntegrity: $('#val-integrity'), valEnergy: $('#val-energy'), statIntegrity: $('#stat-integrity'),
       claimPc: $('#hud-claim-pc'), gangRow: $('#hud-gang-row'),
-      deck: $('#hud-deck'), gang: $('#hud-gang'), bounty: $('#hud-bounty'), room: $('#hud-room'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
+      deck: $('#hud-deck'), gang: $('#hud-gang'), claim: $('#hud-claim span'), clearance: $('#hud-clearance'),
       sockets: $('#hud-sockets'), prompt: $('#hud-prompt'), hint: $('#hud-hint'), toasts: $('#toasts'),
       minimap: $('#minimap'), labels: $('#labels'), announce: $('#announce'), alert: $('#alert'),
       fade: $('#fade'), deckCard: $('#deck-card'), scrap: $('#hud-scrap'), banner: $('#banner'),
@@ -173,14 +175,26 @@ export class UI {
     this.announce(text);
   }
 
+  // Tips come one at a time: a new one waits for the one showing to go, and
+  // for any quiet spell (the first seconds of a deck) to pass.
   hint(html, secs = 6) {
+    const q = this.hintQ;
+    if (q.some((h) => h.html === html) || (this.hintT > 0 && this.hintNow === html)) return;
+    q.push({ html, secs });
+    if (q.length > 3) q.shift();
+  }
+
+  showHint({ html, secs }) {
+    this.hintNow = html;
     this.el.hint.innerHTML = html;
     this.el.hint.classList.add('on');
     this.hintT = secs;
     this.announce(this.el.hint.textContent);
   }
 
-  clearHint() { this.el.hint.classList.remove('on'); this.hintT = 0; }
+  holdHints(secs) { this.hintHold = Math.max(this.hintHold, secs); }
+
+  clearHint() { this.el.hint.classList.remove('on'); this.hintT = 0; this.hintQ.length = 0; this.hintHold = 0; }
 
   // A big word across the screen, for ring-outs and the like.
   banner(title, sub = '', tone = '') {
@@ -402,19 +416,19 @@ export class UI {
     document.documentElement.style.setProperty('--ink', `#${deck.ink.toString(16).padStart(6, '0')}`);
   }
 
-  deckCard(deck, n, bounty = '', label = '', quote = '') {
+  // The deck's name, big, for a moment.
+  deckCard(deck, n, label = '') {
     const c = this.el.deckCard;
-    $('#deck-num').textContent = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
+    const num = label || (n === 6 ? 'THE TOP OF THE TOWER' : `DECK ${n} OF 5`);
+    $('#deck-num').textContent = num;
     $('#deck-title').textContent = deck.name;
-    $('#deck-blurb').textContent = deck.blurb;
-    $('#deck-bounty').textContent = bounty;
-    $('#deck-quote').textContent = quote;
     c.hidden = true;
     void c.offsetWidth;
     c.hidden = false;
     clearTimeout(this.deckCardT);
-    this.deckCardT = setTimeout(() => { c.hidden = true; }, 3400);
-    this.announce(`Deck ${n}, ${deck.name}. ${deck.blurb} ${bounty ? `${bounty}.` : ''}${quote ? ` The Mainframe says: ${quote}` : ''}`);
+    this.deckCardT = setTimeout(() => { c.hidden = true; }, 2600);
+    // a screen reader can't look round the deck, so it hears what it's like
+    this.announce(`${num.toLowerCase()}: ${deck.name}. ${deck.blurb}`);
   }
 
   buildSockets(player) {
@@ -468,28 +482,16 @@ export class UI {
     const cl = this.el.clearance;
     const boss = world.mainframe;
     if (boss) {
-      cl.textContent = boss.beaten ? 'The tower is yours' : boss.relaysUp > 0 ? `Relays holding the shield: ${boss.relaysUp}` : 'Shield down: grapple the Mainframe';
+      cl.textContent = boss.beaten ? 'The tower is yours' : boss.relaysUp > 0 ? `Shield: ${boss.relaysUp} relay${boss.relaysUp === 1 ? '' : 's'} up` : 'Shield down';
       cl.classList.toggle('ok', !boss.relaysUp);
     } else if (world.build.heap) {
-      cl.textContent = 'The chute leads up into the tower';
+      cl.textContent = 'Chute: up into the tower';
       cl.classList.add('ok');
     } else {
-      const bn = world.bossDroid ? world.bossDroid.boss.name : 'the ◆ command droid';
-      cl.textContent = world.clearance ? 'Clearance granted: find the lift' : `Lift locked: beat ◆ ${bn}`;
+      const bn = world.bossDroid ? world.bossDroid.boss.name : 'the boss';
+      cl.textContent = world.clearance ? 'Lift open' : `Lift: beat ◆ ${bn}`;
       cl.classList.toggle('ok', world.clearance);
     }
-    // this room's prize, and what stands between you and it
-    const room = world.roomNow >= 0 ? world.build.rooms[world.roomNow] : null;
-    const k = room && room.prizePickup && !room.prizePickup.removed ? room.prizePickup : null;
-    let rt = '';
-    if (k && k.locked) { const n = world.roomGuards(room.index); rt = `Room prize: ${k.label().toLowerCase()} · ${n} droid${n === 1 ? '' : 's'} to deal with`; }
-    else if (k) rt = `Room clear: ${k.label().toLowerCase()} is yours`;
-    if (this.el.room.textContent !== rt) this.el.room.textContent = rt;
-    this.el.room.classList.toggle('open', !!k && !k.locked);
-    const b = world.bounty;
-    const bt = !b ? '' : b.bountyDone || b.team === 'k' ? `★ Bounty claimed: ${b.bounty}` : `★ Bounty: ${b.bounty}, ${FAMILIES[b.family].name} ${b.cls}${b.spotted ? '' : ', not yet found'}`;
-    if (this.el.bounty.textContent !== bt) this.el.bounty.textContent = bt;
-    this.el.bounty.classList.toggle('done', !!b && (b.bountyDone || b.team === 'k'));
     // sockets: cooldowns and active states
     for (const slot of SLOTS) {
       const d = this.socketEls[slot];
@@ -511,7 +513,9 @@ export class UI {
       this.el.gang.setAttribute('aria-label', gang.length ? `Gang: ${gang.map((d) => `${FAMILIES[d.family].name} ${d.cls}`).join(', ')}` : '');
     }
     // hint timer
-    if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) this.el.hint.classList.remove('on'); }
+    this.hintHold = Math.max(0, this.hintHold - dt);
+    if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) { this.el.hint.classList.remove('on'); this.hintHold = Math.max(this.hintHold, 0.8); } }
+    else if (this.hintQ.length && this.hintHold <= 0) this.showHint(this.hintQ.shift());
   }
 
   setPrompt(html, warn = false) {

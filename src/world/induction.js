@@ -125,7 +125,7 @@ export const INDUCTION_ROOMS = {
     ],
     droids: [{ family: 'spark', cls: 148 }, { family: 'mite', cls: 121, dozy: true }],
     signs: [
-      { x: 5, z: 8, text: 'Take the ◆ command droid', sub: 'by hack or by force, to unlock the lift' },
+      { x: 5, z: 8, text: 'Beat the ◆ boss', sub: 'by hack or by force, to open the lift' },
       { x: 11, z: 5, text: 'Fabricator', sub: 'Spend scrap here', wide: 3.4 },
     ],
   },
