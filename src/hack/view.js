@@ -97,7 +97,7 @@ export class HackView {
     ctx.fillText(sub, L.x + L.W - 22, L.y + 24);
     // what you did to it before the hack, in the header where it's read
     const notes = [];
-    if (s.dented) notes.push(`DENTED: ${s.dented} PULSER${s.dented > 1 ? 'S' : ''} DOWN`);
+    if (s.dented) notes.push(`${s.dented > 1 ? 'CRITICAL' : 'OPEN'}: ${s.dented} PULSER${s.dented > 1 ? 'S' : ''} DOWN`);
     if (s.late) notes.push(`${s.late.toUpperCase()}: STARTS LATE`);
     if (notes.length) {
       ctx.fillStyle = '#ff8a7a';

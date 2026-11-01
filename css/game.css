@@ -193,10 +193,12 @@ body.reduced .banner { animation: none; }
 .label .hp i { display: block; height: 100%; background: currentColor; }
 /* the two dent points: below each, it hacks back with a pulser fewer */
 .label .hp::before, .label .hp::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 1.5px; background: rgba(255, 255, 255, 0.75); }
-.label .hp::before { left: 34%; }
-.label .hp::after { left: 67%; }
+.label .hp::before { left: 30%; opacity: 0.5; }
+.label .hp::after { left: 60%; top: -3px; bottom: -3px; width: 2px; background: #fff; box-shadow: 0 0 4px rgba(255, 255, 255, 0.8); }
+.label.open .hp i, .label.crit .hp i { background: var(--you); box-shadow: 0 0 6px var(--you); }
+.label.open span::after, .label.crit span::after { content: ' OPEN'; color: var(--you); font-size: 10px; letter-spacing: 0.12em; }
+.label.crit span::after { content: ' CRITICAL'; }
 .label.locked { filter: drop-shadow(0 0 4px rgba(46, 242, 255, 0.8)); }
-.label.dented span { color: #ffc067; }
 .pop { position: absolute; left: 0; top: 0; pointer-events: none; font-family: var(--display); font-weight: 700; font-size: 15px; color: #fff; white-space: nowrap; text-shadow: 0 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.9); will-change: transform, opacity; }
 .pop.ally { color: var(--you); font-size: 13px; }
 .pop.hurt { color: #ff5a5a; }
@@ -204,6 +206,7 @@ body.reduced .banner { animation: none; }
 .pop.word { font-size: 14px; letter-spacing: 0.14em; }
 .pop.word.slam { color: #fff; font-size: 17px; text-shadow: 0 1px 0 #000, 0 0 12px rgba(255, 140, 60, 0.9); }
 .pop.word.dent { color: #ffc067; font-size: 12px; }
+.pop.word.open { color: var(--you); font-size: 18px; text-shadow: 0 1px 0 #000, 0 0 14px rgba(46, 242, 255, 0.95); }
 .pop.emote { font-size: 22px; font-weight: 700; }
 .pop.emote.alert { color: #ffd25a; text-shadow: 0 1px 0 #000, 0 0 10px rgba(255, 190, 60, 0.8); }
 .pop.emote.puzzled { color: #e6ebf3; }
@@ -273,6 +276,9 @@ button:focus-visible, .button:focus-visible, button.focus { outline: none; borde
 .card .swap b { color: var(--ink); font-weight: 600; }
 .card.better .swap b { color: var(--you); }
 .card.turn { border-style: dashed; border-color: rgba(46, 242, 255, 0.35); }
+.card .strength { display: block; height: 6px; margin: 2px 0; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
+.card .strength i { display: block; height: 100%; background: var(--you); }
+.card .strength.frail i { background: #ffc067; }
 .card:focus-visible .card-head, .card.focus .card-head { color: var(--you); }
 
 /* loadout */

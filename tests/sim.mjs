@@ -155,13 +155,14 @@ function playDeck(n, run, seed) {
     p.intent.mx = mx; p.intent.mz = mz;
     p.intent.arm = false; p.intent.drive = false; p.intent.core = false;
     const dist = target.pos.distanceTo(p.pos);
-    if (target.kind === 'droid' && dist < 2.4 && p.cd.arm <= 0 && Math.random() < 0.2) p.intent.arm = true;
+    // a sealed droid has to be worn down before it can be hacked
+    if (target.kind === 'droid' && dist < 2.4 && p.cd.arm <= 0 && Math.random() < (target.sealed ? 0.5 : 0.2)) p.intent.arm = true;
     if (p.modId('arm') === 'laser' && target.kind === 'droid' && dist < 8 && target.integrity > target.maxIntegrity * 0.5) p.intent.arm = true;
 
     // ---- interact
     const it = w.interaction();
     if (it && it.kind === 'lift' && it.ready) { log.time = t; break; }
-    if (it && it.kind === 'grapple') {
+    if (it && it.kind === 'grapple' && !(it.target.kind === 'droid' && it.target.sealed)) {
       const tg = it.target;
       const spec = w.hackSpecFor(tg);
       const won = hackOutcome(spec, playerPulsers(p, run), rng);

@@ -51,6 +51,16 @@ const { chromium } = require('playwright');
       }, i);
       if (!placed) continue;
       await page.waitForTimeout(200);
+      // a droid in full working order is sealed: the grapple bounces off
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(600);
+      if (await page.evaluate(() => window.klepto.state === 'hack')) { errors.push('grappled a sealed droid'); break; }
+      // worn down past the line, it opens
+      await page.evaluate((i) => {
+        const w = window.klepto.world, p = w.player;
+        const d = w.droids.filter((x) => !x.isPlayer && x.alive).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos))[0];
+        d.integrity = d.maxIntegrity * 0.5;
+      }, i);
       await page.keyboard.press('Space');
       await page.waitForTimeout(1200);
       if (await page.evaluate(() => window.klepto.state === 'hack')) break;

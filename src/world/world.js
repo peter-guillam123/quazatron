@@ -267,6 +267,7 @@ export class World {
       mods: g.bounty ? rareMods(modulesOf(g.family, g.cls)) : modulesOf(g.family, g.cls), accent: PLAYER_COLOUR, team: 'k', facing: p.facing,
     });
     d.integrity = Math.max(1, d.maxIntegrity * (g.hp ?? 1));
+    d.condition = g.condition ?? 1;
     d.brain = new Brain(d, this);
     d.brain.state = 'follow';
     this.root.add(d.model.group);
@@ -573,12 +574,18 @@ export class World {
     if (atk.dash) mult = knockMult = atk.stats.drive.ramMult || 2;
     else if (atk.lunge) { mult = atk.lunge.mult ?? (atk.stats.arm.ramMult || 1.5); knockMult = atk.lunge.knock ?? mult; }
     if (atk.isPlayer && this.game.hasPerk('ramplate')) { mult *= 1.6; knockMult *= 1.3; }
-    // a raised shield takes a ram head-on
+    // a raised shield takes a jab head-on; a full shove or a dash breaks it
     if (vic.shielding && vic.inFront({ x: dirx, z: dirz }, vic.stats.core.arc)) {
-      atk.knock(-dirx * 6, -dirz * 6, 0.5);
-      this.audio.play('reflect', { at: vic.pos });
-      this.fx.burst(vic.pos.clone().setY(vic.pos.y + 0.4), vic.accent, 12, 2.5, 0.35, 0.1, 2);
-      return;
+      const heavy = atk.dash || (atk.lunge && (atk.lunge.charge || 0) >= 0.9);
+      if (!heavy) {
+        atk.knock(-dirx * 6, -dirz * 6, 0.5);
+        this.audio.play('reflect', { at: vic.pos });
+        this.fx.burst(vic.pos.clone().setY(vic.pos.y + 0.4), vic.accent, 12, 2.5, 0.35, 0.1, 2);
+        if (atk.isPlayer) this.game.hintOnce?.('guard', 'Its shield takes a jab. Hold the bumper for a full shove, or dash into it, to break its guard. The arc coil shorts shields out.', 8);
+        if (atk.lunge) { atk.lunge = null; atk.vel.x *= 0.15; atk.vel.z *= 0.15; }
+        return;
+      }
+      this.breakGuard(vic, atk, 'GUARD BROKEN');
     }
     const dmg = (speed - 1.6) * 2.0 * Math.sqrt(atk.mass) * mult;
     vic.damage(dmg, { by: atk, kind: 'ram', dir: { x: dirx, z: dirz } });
@@ -599,6 +606,30 @@ export class World {
     if (atk.lunge) { atk.lunge = null; atk.vel.x *= 0.15; atk.vel.z *= 0.15; }
   }
 
+  // A shield knocked down: it can't go back up for a moment.
+  breakGuard(d, by, word) {
+    d.shielding = false;
+    d.guardT = 1.8;
+    d.stun = Math.max(d.stun, 0.5);
+    if (d.brain) d.brain.provoke();
+    const at = d.pos.clone(); at.y += d.model.height + 0.1;
+    this.fx.burst(at, d.accent, 22, 3, 0.45, 0.1, 3);
+    this.audio.play('slam', { at });
+    this.game.word?.(at, word, 'slam');
+    if (by && by.isPlayer) this.game.hitStop = Math.max(this.game.hitStop || 0, 0.06);
+  }
+
+  // A sealed droid stopped itself going over the edge. Say so, now and
+  // then, when it was us pushing.
+  onBraced(d) {
+    const h = d.lastHit;
+    if (!h || !h.by || h.by.team !== 'k' || this.time - h.t > 1) return;
+    if (this.time - (d.bracedAt || -9) < 2) return;
+    d.bracedAt = this.time;
+    this.game.word?.(d.pos.clone().setY(d.pos.y + d.model.height + 0.2), 'BRACED', 'dent');
+    if (h.by.isPlayer) this.game.hintOnce?.('braced', 'Too strong to push off the edge yet. Wear it down past the line on its health bar and it\'ll go.', 7);
+  }
+
   damageScale(d, src) {
     let k = 1;
     if (d.isPlayer) {
@@ -610,6 +641,8 @@ export class World {
       k *= 0.7;   // the gang is a little tougher than it looks
     } else if (src.by && src.by.team === 'k') {
       if (src.by.isPlayer && this.game.hasPerk('overcharge')) k *= 1.25;
+      // a recruit hits as hard as the shape you left it in
+      if (!src.by.isPlayer) k *= src.by.condition ?? 1;
       // a stunned droid can't brace: double damage
       if (d.stunned && src.kind !== 'slam' && src.kind !== 'hazard') { k *= 2; src.crit = true; }
     }
@@ -784,9 +817,9 @@ export class World {
     if (t.kind !== 'droid') return t.hackSpec();
     const F = FAMILIES[t.family];
     const hurt = 1 - t.integrity / t.maxIntegrity;
-    // a dented droid hacks back with fewer pulsers
+    // an open droid hacks back with a pulser fewer; a critical one, two
     const full = pulsersFor(t.cls) + (t.command ? 1 : 0) + (t.bounty ? 1 : 0) + (t.family === 'klp1' ? 1 : 0);
-    const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
+    const dent = t.critical ? 2 : t.open ? 1 : 0;
     const pulsers = Math.max(1, full - dent);
     return {
       fullPulsers: full, dent,
@@ -905,6 +938,12 @@ export class World {
     for (let i = this.droids.length - 1; i >= 0; i--) {
       const d = this.droids[i];
       d.update(dt);
+      // an open droid fizzes: its seals have gone
+      if (d.team === 'h' && d.alive && d.state === 'active' && d.open && !d.cloaked && Math.random() < dt * (d.critical ? 6 : 3)) {
+        const at = d.pos.clone(); at.y += d.model.height * (0.4 + Math.random() * 0.5);
+        at.x += (Math.random() - 0.5) * 0.4; at.z += (Math.random() - 0.5) * 0.4;
+        this.fx.burst(at, Math.random() < 0.5 ? PLAYER_COLOUR : 0xffffff, 5, 1.8, 0.25, 0.06, 4);
+      }
       if (d.state === 'hacked' && d.downT > 3.5) {
         this.fx.burst(d.pos.clone().setY(d.pos.y + 0.3), PLAYER_COLOUR, 16, 1.5, 0.6, 0.1, -1);
         this.removeDroid(d);

@@ -16,7 +16,7 @@ export const GUIDE = {
   mite: {
     temper: 'A cleaner, and frightened of everything.',
     habits: 'Scurries about its patch of floor and bolts the moment it sees you. Corner it against a wall and it has nowhere left to go.',
-    tip: 'It won\'t fight back, so this is the place to practise hacking: the board is small and slow. Wrecking one is a waste. It carries nothing.',
+    tip: 'It won\'t fight back, so this is the place to practise: bump it till it opens, then hack it. The board is small and slow. Wrecking one is a waste. It carries nothing.',
     nan: 'Harmless. I had one up here for a while. Swept the same bit of floor till it wore through.',
     nan2: 'Be nice to the Mites. They see everything, and nobody ever asks them.',
   },
@@ -65,7 +65,7 @@ export const GUIDE = {
   warden: {
     temper: 'Takes its job very seriously. Its job is standing still.',
     habits: 'Stands its ground with its shield up, turning to face you. Bolts that hit the shield come straight back.',
-    tip: 'Go round it. The shield covers the front, so come at it from the side or behind, or shove it while it turns. Steal the shield and bolts bounce off you instead.',
+    tip: 'Go round it: the shield covers the front. Or break its guard with a full shove or a dash, or short it out with an arc. Steal the shield and bolts bounce off you instead.',
     nan: 'Wardens only look one way. That\'s their whole problem.',
     nan2: 'Get the shield, stand behind it, and let them shoot themselves.',
   },
@@ -107,14 +107,14 @@ export const GUIDE = {
   overseer: {
     temper: 'Middle management.',
     habits: 'Runs a deck. Walks through its own force fields, dashes into reach and discharges.',
-    tip: 'Dent it before you grapple: every dent costs it a pulser in the hack. Its phase core takes you through force fields too.',
+    tip: 'Wear it well past the line before you grapple: critical, it hacks back with two pulsers fewer. Its phase core takes you through force fields too.',
     nan: 'Never met one I liked. Never met one who liked me. That\'s management.',
     nan2: 'Hack one and read its diary. It\'s all meetings.',
   },
   archon: {
     temper: 'Senior staff. Has never lost a hack.',
     habits: 'Floats at a distance behind its shield and fires. Nothing in the tower hacks back harder.',
-    tip: 'Dent it as far as you dare before you grapple, make it turn its shield the wrong way, and take your time on the board.',
+    tip: 'Wear it as far down as you dare before you grapple, break its guard with a full shove, and take your time on the board.',
     nan: 'I saw one once, being carried up to a meeting. It didn\'t look at me. Good.',
     nan2: 'It had never lost a hack. Then you came along. Three times.',
   },

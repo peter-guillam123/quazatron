@@ -44,6 +44,12 @@ export const DECKS = [
   },
 ];
 
+// A droid is sealed until it's worn down past this share of its integrity:
+// then it sparks open, and can be hacked or shoved out. Past the second
+// line it's critical: an easy hack, a frail recruit.
+export const OPEN_AT = 0.6;
+export const CRIT_AT = 0.3;
+
 export const TUNING = {
   playerIntegrity: 100,
   playerEnergy: 100,

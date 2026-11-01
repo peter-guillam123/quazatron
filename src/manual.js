@@ -62,7 +62,7 @@ const ART = {
     <path d="M314 96Q220 6 126 112" fill="none" stroke="${Y}" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ah-y)" class="flow"/>
     <rect x="198" y="34" width="36" height="36" rx="9" fill="${BODY}" stroke="${Y}" stroke-width="1.6"/>${icon('laser', 216, 52, 1.05)}
     ${txt(110, 176, 'KLP-2', { c: Y })}${txt(318, 184, 'A Spark, class 240', { c: F })}
-    ${[['1  Grapple', 92], ['2  Win the hack', 240], ['3  Take a part', 388]].map(([s, x]) => `<rect x="${x - 66}" y="206" width="132" height="26" rx="13" fill="#141824" stroke="${LINE}"/>${txt(x, 223, s, { c: T, size: 11 })}`).join('')}
+    ${[['1  Wear it down', 92], ['2  Win the hack', 240], ['3  Take a part', 388]].map(([s, x]) => `<rect x="${x - 66}" y="206" width="132" height="26" rx="13" fill="#141824" stroke="${LINE}"/>${txt(x, 223, s, { c: T, size: 11 })}`).join('')}
     <path d="M160 219H170" stroke="${M}" stroke-width="2" marker-end="url(#ah-m)"/><path d="M308 219H318" stroke="${M}" stroke-width="2" marker-end="url(#ah-m)"/>`,
   'KLP-2 grapples a bigger droid, wins the hack and takes its laser.'),
 
@@ -263,7 +263,7 @@ function chapters(input) {
       key: 'idea', title: 'The idea', sub: 'Grapple, hack, steal', ink: Y,
       lede: 'You are KLP-2, a small droid in a tower full of bigger ones. You can\'t win a straight fight, so you steal.',
       art: ART.idea(), cap: 'Every droid is built from the parts it carries: what you see on it is what you get.',
-      body: `<p>Get close and grapple a droid to start a hack. Win, and you can take one of its parts.</p>
+      body: `<p>A droid in full working order is sealed: it won't let you in. Wear it down past the white line on its health bar and it sparks open. Then get close and grapple it to start a hack. Win, and you can take one of its parts.</p>
         <p>Each deck has a lift down. It stays locked until you take the deck's <b>◆ command droid</b>, by hack or by force.</p>
         <p class="tip"><b>Start here.</b> Your first hacks are small boards that bring in one new idea at a time. Mites don't fight back, so practise on them.</p>`,
     },
@@ -286,9 +286,10 @@ function chapters(input) {
       body: `<ul class="points">
         <li>A cyan bracket marks the droid your arm will hit. Standing still, it picks the nearest; moving, it picks what's ahead. The right stick picks on a gamepad.</li>
         <li>Hold the arm button with the Bumper to wind up a shove; an arrow on the floor shows where it will go. Let go to launch.</li>
-        <li>Shove a droid off an edge for a ring-out, worth double scrap. Into a wall, it's slammed: hurt and stunned. Into another droid, both get it.</li>
+        <li>Every droid's health bar has a white line. Above it, the droid is <b>sealed</b>: a grapple bounces off, a shove only half moves it and it braces at edges. Wear it below the line and it sparks <b>open</b>: hack it, or shove it out.</li>
+        <li>Shove an open droid off an edge for a ring-out, worth double scrap. Into a wall, any droid is slammed: hurt and stunned. Into another droid, both get it.</li>
         <li>A stunned droid takes double damage.</li>
-        <li>The two marks on a droid's health bar are its dent points. Below each one it hacks back with a pulser fewer.</li>
+        <li>A raised shield stops bolts and jabs. Break its guard with a full shove or a dash, or short it out with the arc coil.</li>
       </ul>
       <p class="tip"><b>Wreck or hack?</b> Destroy a droid and its parts are lost. Hack it and they're yours.</p>`,
     },
@@ -313,6 +314,7 @@ function chapters(input) {
         <li>The dots by your name are your pulses, one a shot. Theirs are on the other side. The fuse and the clock are the time left.</li>
         <li>The wire you've picked shows a faint trail in the colour it would paint.</li>
         <li>Win by four cells or more and it's a clean hack: take two parts.</li>
+        <li>The further down you've worn it, the weaker it hacks back: an open droid has a pulser fewer, a critical one (past the faint second line) two fewer. A stunned one starts late.</li>
       </ul>
       <p class="tip"><b>While you're learning</b>, each wire's arrow is coloured by where it lands: your colour, theirs, or grey for nowhere. Turn on Wire hints in the settings to keep them.</p>`,
     },
@@ -349,7 +351,8 @@ function chapters(input) {
       key: 'gang', title: 'Your gang', sub: 'Turning droids', ink: Y,
       lede: 'After a won hack you can turn the droid instead of taking a part.',
       art: ART.gang(), cap: 'A turned droid goes cyan and keeps its parts.',
-      body: `<p>It follows you, fights for you and rides the lift down with you. You can have up to three at a time.</p>`,
+      body: `<p>It follows you, fights for you and rides the lift down with you. You can have up to three at a time.</p>
+        <p class="tip"><b>Gentle or easy?</b> A recruit joins in the shape you left it, and hits about as hard as it looks. Wear a droid right down and the hack is easy but the recruit is frail. Stop at the line and the hack is harder, but you get a tougher friend.</p>`,
     },
     {
       key: 'scrap', title: 'Scrap and Ledger', sub: 'Spending it', ink: '#ffd25a',

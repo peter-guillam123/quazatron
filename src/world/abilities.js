@@ -213,6 +213,8 @@ export const ABILITIES = {
         w.fx.lightning(prev, to, d.accent, 0.2, 0.08);
         w.fx.burst(to, d.accent, 10, 2.5, 0.4, 0.1, 5);
         if (t.kind === 'droid' || t.kind === 'turret') {
+          // lightning goes round a shield: it shorts it out
+          if (t.shielding) w.breakGuard(t, d, 'SHORTED');
           t.damage(s.damage, { by: d, kind: 'arc', dir: { x: t.pos.x - d.pos.x, z: t.pos.z - d.pos.z } });
           if (t.kind === 'droid') t.stun = Math.max(t.stun, s.stun);
           else t.stun = Math.max(t.stun || 0, s.stun * 1.5);
@@ -292,7 +294,7 @@ export const ABILITIES = {
   // ------------------------------------------------------------ cores
   shield: {
     hold(d, w, s, dt) {
-      if (d.stunned) { d.shielding = false; return; }
+      if (d.stunned || d.guardT > 0) { d.shielding = false; return; }
       if (!d.shielding) { if (d.energy < 5) return; d.shielding = true; w.audio.play('shield', { at: d.pos }); }
       if (!d.drain(s.drain * dt)) { d.shielding = false; w.noEnergy(d); }
     },
