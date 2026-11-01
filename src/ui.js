@@ -273,9 +273,11 @@ export class UI {
     const el = $('#radio');
     const r = this.radioQ.shift();
     clearTimeout(this.radioT);
-    if (!r) { el.classList.add('out'); this.radioT = setTimeout(() => { el.hidden = true; this.radioOn = null; }, 400); return; }
+    if (!r) { el.classList.add('out'); this.radioT = setTimeout(() => { el.hidden = true; this.radioOn = null; document.body.classList.remove('radio-on'); }, 400); return; }
     const c = CAST[r.who];
     this.radioOn = r;
+    // the prompt line moves up out of the radio's way
+    document.body.classList.add('radio-on');
     el.style.setProperty('--who', c.colour);
     $('#radio-name').textContent = c.name;
     el.hidden = false;
@@ -303,6 +305,7 @@ export class UI {
     clearTimeout(this.radioT);
     clearInterval(this.radioTypeT);
     $('#radio').hidden = true;
+    document.body.classList.remove('radio-on');
     this.radioOn = null;
   }
 

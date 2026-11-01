@@ -165,6 +165,7 @@ button, .button { font: inherit; }
 
 .prompt { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); padding: 8px 14px; background: rgba(8, 10, 16, 0.85); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; white-space: nowrap; opacity: 0; transition: opacity 0.15s; }
 .prompt.on { opacity: 1; }
+body.radio-on .prompt { bottom: 184px; }
 .prompt kbd { font-family: var(--mono); background: var(--you); color: #001014; padding: 1px 7px; border-radius: 4px; font-weight: 600; margin-right: 6px; }
 .prompt .sub { color: var(--muted); margin-left: 8px; font-size: 12px; }
 .prompt.warn kbd { background: var(--muted); }
@@ -480,6 +481,7 @@ body.reduced .art *, body.reduced .thumb-wait, body.reduced .entry, body.reduced
   .claim-row { justify-content: flex-end; }
   .hint { top: auto; bottom: 96px; }
   .radio { bottom: 168px; }
+  body.radio-on .prompt { bottom: 262px; }
 }
 @media (max-width: 720px) {
   .stat-label small { display: none; }
