@@ -45,6 +45,15 @@ const say = (who, on, text, o = {}) => L.push({ id: o.id || `${who}.${on}.${L.le
 say('nan', 'hello', ['So you\'re the new one. I\'m Nan. I built you out of what the tower threw away.', 'When you get wrecked up there, and you will, your bits come back down the chute and I put you back together. Hack things and the data comes down too. I can do a lot with data.', 'The chute goes up into the tower. Climb it. Off you go.'],
   { id: 'nan.hello', pri: 100, when: (c) => (c.meta.runs || 0) === 0 });
 
+// ---------------------------------------------------------------- Nan, finding you in the rubbish
+say('nan', 'woke', [
+  'Oh! You\'re awake. Don\'t try to get up. Too late.',
+  'You came down the chute three nights ago, in bits. I\'ve put you back together with what I had, which wasn\'t much. Sorry about the wheel.',
+  'KLP-2, it says on your shell. A maintenance unit. I don\'t know you, though. And you don\'t know you either, do you? They\'ve wiped you clean.',
+  'Whatever happened to you happened up there, in the tower. If you want it back, that\'s where it is. The chute goes up. Climb it.',
+  'You\'ll get wrecked, mind. When you do, you\'ll fall back down to me. Hack things on the way: the data falls down too, and I can mend you with it.',
+], { id: 'nan.woke', pri: 100 });
+
 // ---------------------------------------------------------------- Nan, waking you up
 const last = (c) => c.meta.lastRun || {};
 say('nan', 'wake', ['There you are. Most of you, anyway.', 'I\'m Nan. I built you out of what the tower threw away, and I\'ll keep building you as long as you keep falling back down the chute.', 'Everything you carry up there, you lose when you\'re wrecked: parts, scrap, the lot. Data\'s different. Hack things and the data falls down the chute to me, whatever happens to you, and I turn it into repairs that stay.'],
@@ -80,6 +89,9 @@ say('nan', 'talk', 'Before you, there was KLP-1. Don\'t ask. I\'m not ready.', {
 say('nan', 'talk', 'You\'ve met KLP-1, then. I built it before you. It went up the chute and it didn\'t come back down. Not as itself.', { pri: 12, when: (c) => !!c.meta.klp1Met && !c.meta.klp1Turned });
 say('nan', 'talk', 'You brought KLP-1 home. I don\'t know what to say. Get out before I start.', { pri: 13, when: (c) => !!c.meta.klp1Turned });
 say('nan', 'talk', 'You\'ve {DATA} data. That\'s enough for something on the bench.', { pri: 20, again: true, when: (c) => c.affordable });
+say('nan', 'talk', 'You\'ve gone quiet. Remembering something? Don\'t tell me if you don\'t want to.', { pri: 14, when: (c) => Object.keys(c.meta.memories || {}).length >= 1 });
+say('nan', 'talk', 'The Merge. I\'ve heard that word before, from droids who stopped coming down the chute.', { pri: 15, when: (c) => Object.keys(c.meta.memories || {}).length >= 3 });
+say('nan', 'talk', 'KLP-1 was merged first? That\'s why it never came home. Oh, love. Bring it back if you can.', { pri: 16, when: (c) => !!(c.meta.memories || {})[5] && !c.meta.klp1Turned });
 say('nan', 'talk', 'Off you go, then. The chute\'s not getting any shorter.', { pri: 0, again: true });
 say('nan', 'talk', 'I\'m busy. I\'m always busy. Go on.', { pri: 0, again: true });
 
@@ -139,6 +151,8 @@ say('static', 'talk', 'Nan pretends she doesn\'t watch your runs. She watches ev
 say('static', 'talk', 'The Mainframe listens to my show, you know. It\'s never phoned in.', { pri: 8 });
 say('static', 'talk', 'I\'ll be on the radio in the lift. Between decks. Like a friend, if friends never shut up.', { pri: 11 });
 say('static', 'talk', 'There\'s a KLP-1 up there, they say. Older than you. Meaner. Says nothing on the radio, and I\'ve asked.', { pri: 7, when: (c) => (c.meta.runs || 0) >= 2 && !c.meta.klp1Turned });
+say('static', 'talk', 'There\'s chatter on every frequency about shift change. Everyone sounds the same lately. I don\'t like it.', { pri: 12, when: (c) => Object.keys(c.meta.memories || {}).length >= 2 });
+say('static', 'talk', 'One mind. Can you imagine? No more radio. Nobody to talk to. Get up there, KLP.', { pri: 13, when: (c) => Object.keys(c.meta.memories || {}).length >= 5 });
 say('static', 'talk', 'Static. Still on air. Mostly.', { pri: 0, again: true });
 say('static', 'talk', 'Nothing new on the wire. Go and make some news.', { pri: 0, again: true });
 

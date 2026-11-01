@@ -370,6 +370,26 @@ export class UI {
     this.benchRaf = requestAnimationFrame(tick);
   }
 
+  // The boot screen: KLP-2's first moments, typed out a line at a time.
+  boot(lines) {
+    const pre = $('#boot-text'), go = $('#boot-go');
+    go.hidden = true;
+    pre.textContent = '';
+    this.show('boot');
+    this.announce(lines.join('. '));
+    clearInterval(this.bootT);
+    const reduced = document.body.classList.contains('reduced');
+    if (reduced) { pre.textContent = lines.join('\n'); go.hidden = false; go.focus(); return; }
+    let i = 0, c = 0;
+    this.bootT = setInterval(() => {
+      if (i >= lines.length) { clearInterval(this.bootT); go.hidden = false; go.focus(); return; }
+      c += 1;
+      pre.textContent = lines.slice(0, i).join('\n') + (i ? '\n' : '') + lines[i].slice(0, c);
+      if (c % 3 === 0) this.game.audio.play('blip', { pitch: 0.7, soft: true });
+      if (c >= lines[i].length) { i++; c = 0; }
+    }, 28);
+  }
+
   // How mended KLP-2 is, under its name in the HUD (kept for good).
   setCondition(wr) {
     const el = $('#hud-cond');

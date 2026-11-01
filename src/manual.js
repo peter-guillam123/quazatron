@@ -263,9 +263,10 @@ function chapters(input) {
   return [
     {
       key: 'idea', title: 'The idea', sub: 'Grapple, hack, steal', ink: Y,
-      lede: 'You are KLP-2, a small droid in a tower full of bigger ones. You can\'t win a straight fight, so you steal.',
+      lede: 'You are KLP-2, a maintenance droid, wiped and thrown down the chute. Whatever happened to you happened up in the tower. Climb it. You can\'t win a straight fight, so you steal.',
       art: ART.idea(), cap: 'Every droid is built from the parts it carries: what you see on it is what you get.',
       body: `<p>A droid in full working order is sealed: it won't let you in. Wear it down past the white line on its health bar and it sparks open. Then get close and grapple it to start a hack. Win, and you can take one of its parts.</p>
+        <p>The first time you reach each deck, a memory comes back. Piece by piece, they tell you what you found out before they wiped you.</p>
         <p>You climb the tower deck by deck. Each deck has a lift up, locked until you take the deck's <b>◆ command droid</b>, by hack or by force.</p>
         <p class="tip"><b>Start here.</b> Your first hacks are small boards that bring in one new idea at a time. Mites don't fight back, so practise on them.</p>`,
     },
