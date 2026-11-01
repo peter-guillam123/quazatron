@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { DroidModel } from '../render/droidModel.js';
 import { MODULES, moduleStats, SLOTS } from './modules.js';
 import { moveBody, updateVertical } from './physics.js';
-import { TUNING, VOID_Y, PLAYER_COLOUR } from '../config.js';
+import { TUNING, VOID_Y, PLAYER_COLOUR, OPEN_AT, CRIT_AT } from '../config.js';
 import { T } from './grid.js';
 import { ABILITIES } from './abilities.js';
 import { FAMILIES, integrityFor } from './roster.js';
@@ -43,6 +43,7 @@ export class Droid {
     this.swerve = null;
     this.dodgeT = 0;
     this.slamT = 0;
+    this.guardT = 0;     // a broken guard: no shield until it runs out
     this.stun = 0;
     this.invuln = 0;
     this.charge = 0;
@@ -155,6 +156,13 @@ export class Droid {
 
   forward() { return { x: Math.sin(this.facing), z: Math.cos(this.facing) }; }
 
+  // The tower's droids start sealed: a grapple bounces off, a shove barely
+  // moves them and they won't go over an edge. Worn down past the line
+  // on their health bar, they're open.
+  get sealed() { return !this.isPlayer && this.team === 'h' && !this.open; }
+  get open() { return !this.isPlayer && this.integrity <= this.maxIntegrity * OPEN_AT; }
+  get critical() { return !this.isPlayer && this.integrity <= this.maxIntegrity * CRIT_AT; }
+
   moveDir() {
     const m = Math.hypot(this.intent.mx, this.intent.mz);
     if (m > 0.1) return { x: this.intent.mx / m, z: this.intent.mz / m };
@@ -191,7 +199,8 @@ export class Droid {
   }
 
   knock(vx, vz, stun = 0) {
-    const resist = this.stats.drive.knockResist || 0;
+    // a sealed droid braces itself: half the push
+    const resist = 1 - (1 - (this.stats.drive.knockResist || 0)) * (this.sealed ? 0.5 : 1);
     this.vel.x += vx * (1 - resist);
     this.vel.z += vz * (1 - resist);
     if (stun > 0) this.stun = Math.max(this.stun, stun * (1 - resist * 0.5));
@@ -208,6 +217,7 @@ export class Droid {
     this.invuln = Math.max(0, this.invuln - dt);
     this.dodgeT = Math.max(0, this.dodgeT - dt);
     this.slamT = Math.max(0, this.slamT - dt);
+    this.guardT = Math.max(0, this.guardT - dt);
     if (this.phaseT > 0) {
       this.phaseT -= dt;
       // don't drop out of phase inside a force field
@@ -278,6 +288,14 @@ export class Droid {
       const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
       if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * 0.06, this.pos.z)) { mdx = 0; this.vel.x = 0; }
       if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * 0.06)) { mdz = 0; this.vel.z = 0; }
+    }
+    // and a sealed droid can't be put over one: it braces at the brink
+    if (this.sealed && this.grounded && !this.hovering && !this.dash) {
+      const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
+      let braced = false;
+      if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * (this.radius * 0.6), this.pos.z)) { mdx = 0; this.vel.x = 0; braced = true; }
+      if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * (this.radius * 0.6))) { mdz = 0; this.vel.z = 0; braced = true; }
+      if (braced) w.onBraced(this);
     }
     const vx0 = this.vel.x, vz0 = this.vel.z;
     const hit = moveBody(w.grid, this, mdx, mdz);

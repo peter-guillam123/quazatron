@@ -24,16 +24,23 @@ beats them in a circuit-board duel and steals their parts.
 - Hack difficulty slope: lesson boards carry 2-3 of the new part and 4-6
   parts in all; ordinary boards follow `partsBudget(cls)` in
   `src/hack/board.js` below class 500 and are untouched from 500 up (their
-  balance relies on the old generator's habits). Dents (a third, two thirds
-  of integrity) cost the droid pulsers and are shown on the board. Wire hints
+  balance relies on the old generator's habits). Open and critical (below
+  `OPEN_AT`, `CRIT_AT`) cost the droid one and two pulsers, shown on the board. Wire hints
   colour each port by where it lands: on in lessons, or via the setting.
 - Combat (October 2026 review): lock-on bracket (`src/world/lockon.js`) picks the
   arm's target, right stick aims; bumper taps to jab, holds to wind up a shove;
   wheels swerve (bolts pass through); knocks into walls slam and stun, into
   droids pile up; stunned droids take double damage; every enemy attack paints
   a floor warning that locks a moment before it lands (`src/render/telegraph.js`);
-  damage numbers (setting) and dent marks on health bars; each combat room has
+  damage numbers (setting) and the open line on health bars; each combat room has
   a caged prize that opens when its droids are dealt with.
+- Sealed and open (November 2026): a hostile droid above `OPEN_AT` (60%) of
+  its integrity is sealed (`Droid.sealed`): grapples bounce, knocks are
+  halved and it braces at edges (no ring-outs). Below it, it's open and fizzes;
+  below `CRIT_AT` (30%) it's critical. Cloak ambush gets in regardless. Raised
+  shields stop jabs and bolts; a full shove, a dash or the arc breaks the guard
+  (`World.breakGuard`, `Droid.guardT`). Recruits keep their integrity and hit
+  by `condition` (0.4 + 0.6 x health when turned).
 - Droid personality: each family has its own voice in `src/lines.js` (VOICES,
   falling back to LINES), overheard droid-to-droid CHATS (some keyed to your
   history), ! and ? emotes, family body language in `DroidModel.manner`, and

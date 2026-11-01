@@ -273,9 +273,11 @@ export class UI {
     const el = $('#radio');
     const r = this.radioQ.shift();
     clearTimeout(this.radioT);
-    if (!r) { el.classList.add('out'); this.radioT = setTimeout(() => { el.hidden = true; this.radioOn = null; }, 400); return; }
+    if (!r) { el.classList.add('out'); this.radioT = setTimeout(() => { el.hidden = true; this.radioOn = null; document.body.classList.remove('radio-on'); }, 400); return; }
     const c = CAST[r.who];
     this.radioOn = r;
+    // the prompt line moves up out of the radio's way
+    document.body.classList.add('radio-on');
     el.style.setProperty('--who', c.colour);
     $('#radio-name').textContent = c.name;
     el.hidden = false;
@@ -303,6 +305,7 @@ export class UI {
     clearTimeout(this.radioT);
     clearInterval(this.radioTypeT);
     $('#radio').hidden = true;
+    document.body.classList.remove('radio-on');
     this.radioOn = null;
   }
 
@@ -486,19 +489,20 @@ export class UI {
       el.hidden = false;
       el.style.left = `${out.x}px`;
       el.style.top = `${out.y}px`;
-      const dent = d.team === 'k' ? 0 : d.dentShown || 0;
-      const txt = d.npc ? d.npc.name : d.family === 'klp1' ? `KLP-1${dent ? ` −${dent}` : ''}` : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}${dent ? ` −${dent}` : ''}`;
+      const txt = d.npc ? d.npc.name : d.family === 'klp1' ? 'KLP-1' : `${d.bounty ? `${d.bounty} ${d.cls}` : d.cls}`;
       el.classList.toggle('rival', d.family === 'klp1' && d.team !== 'k');
       el.classList.toggle('npc', !!d.npc);
       if (d.npc) el.style.color = `#${d.accent.toString(16).padStart(6, '0')}`; else el.style.color = '';
       if (el.firstChild.textContent !== txt) el.firstChild.textContent = txt;
-      el.classList.toggle('dented', dent > 0);
+      const hostile = d.team === 'h';
+      el.classList.toggle('open', hostile && d.open && !d.critical);
+      el.classList.toggle('crit', hostile && d.critical);
       el.classList.toggle('locked', world.lock && world.lock.target === d);
       el.classList.toggle('cmd', d.command && d.team !== 'k');
       el.classList.toggle('bounty', !!d.bounty && d.team !== 'k');
       el.classList.toggle('ally', d.team === 'k');
       const hp = d.integrity / d.maxIntegrity;
-      el.lastChild.style.visibility = hp < 0.999 || (world.lock && world.lock.target === d) ? 'visible' : 'hidden';
+      el.lastChild.style.visibility = hp < 0.999 || hostile || (world.lock && world.lock.target === d) ? 'visible' : 'hidden';
       el.lastChild.firstChild.style.width = `${hp * 100}%`;
       n++;
     }
@@ -686,6 +690,8 @@ export class UI {
       <span class="card-head">${iconSvg('gang', 26)}Turn it</span>
       <span class="line">${esc(F.name)} ${d.cls} turns cyan and follows you. It fights for you and rides the lift down with you.</span>
       <span class="use">${parts.length ? `It keeps its ${esc(parts.join(' and '))}.` : 'It has only its bumper, but it will use it.'}</span>
+      <span class="strength${d.critical ? ' frail' : ''}"><i style="width:${Math.round(100 * d.integrity / d.maxIntegrity)}%"></i></span>
+      <span class="use">${d.critical ? 'Joins badly damaged: frail, and it hits softly.' : d.open ? 'Joins damaged: it hits a little softer.' : 'Joins in full working order.'} ${Math.round(100 * d.integrity / d.maxIntegrity)}% integrity.</span>
       <span class="swap">${note}</span>
     </button>`;
   }

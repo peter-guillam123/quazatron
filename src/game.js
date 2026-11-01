@@ -589,7 +589,7 @@ export class Game {
     this.run.integrity = Math.max(1, p.integrity);
     this.run.mods = { drive: p.mods.drive, arm: p.mods.arm, core: p.mods.core };
     // the gang rides down too
-    this.run.gang = this.world.allies().map((d) => ({ family: d.family, cls: d.cls, command: d.command, bounty: d.bounty, hp: d.integrity / d.maxIntegrity }));
+    this.run.gang = this.world.allies().map((d) => ({ family: d.family, cls: d.cls, command: d.command, bounty: d.bounty, hp: d.integrity / d.maxIntegrity, condition: d.condition }));
   }
 
   disposeWorld() {
@@ -675,12 +675,17 @@ export class Game {
     if (t.kind === 'droid') {
       name = t.family === 'klp1' ? 'KLP-1' : `${FAMILIES[t.family].name} ${t.cls}`;
       const p = this.world.player;
-      const hurt = 1 - t.integrity / t.maxIntegrity;
-      const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
-      const easier = [dent ? `${dent} pulser${dent > 1 ? 's' : ''} down` : '', t.stunned ? 'starts late' : ''].filter(Boolean).join(', ');
+      if (t.sealed && !p.cloaked) {
+        this.ui.setPrompt(`${name} is sealed<span class="sub">wear it down past the line on its bar</span>`, true);
+        return;
+      }
+      const dent = t.critical ? 2 : 1;
+      const easier = [`${dent} pulser${dent > 1 ? 's' : ''} down`, t.stunned ? 'starts late' : ''].filter(Boolean).join(', ');
       if (t.shielding && t.inFront({ x: t.pos.x - p.pos.x, z: t.pos.z - p.pos.z }, t.stats.core.arc)) sub = 'its shield is up';
-      else if (easier) sub = `${t.stunned ? 'stunned' : 'dented'}: ${easier}`;
-      if (p.cloaked) sub = 'ambush from cloak';
+      else sub = `${t.critical ? 'critical' : 'open'}: ${easier} · or shove it out`;
+      if (p.cloaked && t.sealed) sub = 'ambush from cloak: sealed or not';
+      this.ui.setPrompt(`${key}Hack ${name}<span class="sub">${sub}</span>`, sub.includes('shield'));
+      return;
     } else if (t.kind === 'mainframe') {
       name = 'the Mainframe';
       if (!t.canHack()) sub = 'shielded: take down its relays first';
@@ -715,6 +720,17 @@ export class Game {
       return;
     }
     if (t.kind === 'mainframe' && !t.canHack()) { this.toast('The Mainframe is shielded. Take down its relays first.'); return; }
+    if (t.kind === 'droid' && t.sealed && !p.cloaked) {
+      this.audio.play('reflect', { at: t.pos });
+      p.knock((p.pos.x - t.pos.x) * 3, (p.pos.z - t.pos.z) * 3, 0.15);
+      w.fx.burst(t.pos.clone().setY(t.pos.y + t.model.height * 0.6), t.accent, 10, 2.2, 0.3, 0.08, 2);
+      this.word(t.pos.clone().setY(t.pos.y + t.model.height + 0.2), 'SEALED', 'dent');
+      if (Math.random() < 0.6) this.say(t, 'rejected', true);
+      if (!this.hintOnce('sealed', 'Sealed. A droid in full working order won\'t let you in. Wear it down past the line on its health bar: it sparks open, and then you can hack it or shove it out.', 9)) {
+        this.toast('Sealed. Wear it down past the line first.');
+      }
+      return;
+    }
     let ambush = 0;
     if (p.cloaked && p.stats.core) { ambush = p.stats.core.ambush; p.cloaked = false; }
     // a shove being wound up is dropped, not let loose after the hack
@@ -881,7 +897,10 @@ export class Game {
     d.team = 'k';
     d.downT = 0;
     d.vel.x = d.vel.z = 0;
-    d.integrity = Math.max(d.integrity, d.maxIntegrity * 0.6);
+    // it joins in the shape you left it: the harder the fight, the frailer
+    // the recruit, and it hits about as hard as it looks
+    d.integrity = Math.max(1, d.integrity);
+    d.condition = 0.4 + 0.6 * (d.integrity / d.maxIntegrity);
     d.model.body.rotation.x = 0;
     d.setAccent(PLAYER_COLOUR);
     d.brain = new Brain(d, w);
@@ -1322,18 +1341,20 @@ export class Game {
       const stop = src.kind === 'arc' ? 0.035 : src.kind === 'bolt' ? 0.02 : 0;
       if (stop) this.hitStop = Math.max(this.hitStop || 0, stop + (src.crit ? 0.025 : 0));
     }
-    // a dent costs it a pulser in the hack: say so when it happens
-    if (d.kind === 'droid' && d.alive) {
-      const hurt = 1 - d.integrity / d.maxIntegrity;
-      const dent = hurt > 0.66 ? 2 : hurt > 0.33 ? 1 : 0;
-      if (dent > (d.dentShown || 0) && d.integrity > 0) {
-        d.dentShown = dent;
+    // worn down past the line, it sparks open: say so when it happens
+    if (d.kind === 'droid' && d.alive && d.team === 'h') {
+      const level = d.critical ? 2 : d.open ? 1 : 0;
+      if (level > (d.dentShown || 0) && d.integrity > 0) {
+        d.dentShown = level;
         const up = at.clone(); up.y += 0.35;
-        // a second dent straight after the first replaces its word
+        // critical straight after open replaces its word
         if (d.dentPop) this.ui.unpop(d.dentPop);
-        d.dentPop = this.word(up, dent === 2 ? 'DENTED −2' : 'DENTED −1', 'dent');
-        this.audio.play('dent', { at: d.pos });
-        this.hintOnce('dent', 'Dented: it hacks back with a pulser fewer. Dent it twice and it\'s two.', 6);
+        d.dentPop = this.word(up, level === 2 ? 'CRITICAL' : 'OPEN', level === 2 ? 'dent' : 'open');
+        this.audio.play(level === 2 ? 'dent' : 'unlock', { at: d.pos });
+        this.world.fx.burst(up, PLAYER_COLOUR, 20, 2.6, 0.45, 0.1, 2);
+        this.world.fx.ring(d.pos, PLAYER_COLOUR, 1.1, 0.35);
+        if (level === 1) this.hintOnce('open', 'Open! Its seals have gone. Grapple it to hack it, or shove it out: off an edge, or into a wall.', 8);
+        else this.hintOnce('critical', 'Critical: an easy hack now, but if you turn it, it joins in the state you left it.', 7);
       }
     }
   }
@@ -1513,10 +1534,11 @@ export class Game {
 
   hint(html, secs = 6) { if (this.settings.hints) this.ui.hint(html, secs); }
   hintOnce(key, html, secs = 6) {
-    if (!this.settings.hints || this.meta.hints[key]) return;
+    if (!this.settings.hints || this.meta.hints[key]) return false;
     this.meta.hints[key] = true;
     saveMeta(this.meta);
     this.ui.hint(html, secs);
+    return true;
   }
   toast(text) { this.ui.toast(text); }
   announce(text) { this.ui.announce(text); }
