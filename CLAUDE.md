@@ -111,7 +111,13 @@ beats them in a circuit-board duel and steals their parts.
   The induction's lesson rooms are gated (`gates` in `inductionPlan`,
   `World.makeGates`, opened when `roomGuards` hits 0) and its droids leashed
   (`Droid.leash`: bridges are walls to them, and they ignore targets outside
-  their room).
+  their room). A droid's `lesson` ('hack': can't be wrecked or rung out,
+  and comes back if it falls; 'ringout': can't be wrecked) keeps each lesson
+  from being skipped, and `give` makes its hack offer that one part. Floor
+  signs size themselves to their words (`src/render/signs.js`).
+- Share card: `assets/social.jpg` (1200 by 630), a staged full-colour scene
+  (`MemoryPlayer.stage` with `retro: false`) with the title laid over it;
+  Open Graph and Twitter tags on both pages.
 - Extras: the end screen is the Tower Gazette (`src/story/gazette.js`,
   written from the run). KLP-1 is a rival family (`rival: true`, never
   generated): from your third run it may drop into a combat room on one deck

@@ -5,8 +5,12 @@ import * as THREE from 'three';
 import { LEVEL_H } from '../config.js';
 
 const W = 1024, H = 256;
-const WIDE = 5.2;                  // world units across
+const WIDE = 5.2;                  // world units across, for a canvas W wide
 const LOOK = 0.68;                 // how much the camera squashes the floor
+const PAD = 54;                    // canvas pixels left and right of the words
+const MIN_WIDE = 2.6, MAX_WIDE = 6.6;
+const TITLE = (px) => `700 ${px}px "Chakra Petch", sans-serif`;
+const SUB = (px) => `500 ${px}px "IBM Plex Mono", monospace`;
 
 // The keys a sign mentions, for keyboard or pad.
 function keys(device) {
@@ -28,12 +32,19 @@ function runs(text, device) {
   return out;
 }
 
+// How wide a line comes out, key caps included.
+function measure(g, text, device, font, size) {
+  g.font = font;
+  const pad = size * 0.35;
+  return runs(text, device).map((r) => g.measureText(r.t).width + (r.cap ? pad * 2 : 0));
+}
+
 function drawLine(g, text, device, y, font, size, colour) {
   const W = g.canvas.width;
   const rs = runs(text, device);
-  g.font = `${font}`;
+  const widths = measure(g, text, device, font, size);
+  g.font = font;
   const pad = size * 0.35;
-  const widths = rs.map((r) => g.measureText(r.t).width + (r.cap ? pad * 2 : 0));
   let x = (W - widths.reduce((a, b) => a + b, 0)) / 2;
   rs.forEach((r, i) => {
     if (r.cap) {
@@ -51,7 +62,26 @@ function drawLine(g, text, device, y, font, size, colour) {
   });
 }
 
-function paint(canvas, sign, device) {
+// The sizes a sign's words are drawn at: full size if they fit on a sign
+// no wider than MAX_WIDE, smaller if not.
+function sizes(sign, k = 1) {
+  return sign.sub ? { t: Math.round(64 * k), s: Math.round(40 * k) } : { t: Math.round(66 * k), s: 0 };
+}
+
+// How wide a sign needs to be, in world units, and how far its words must
+// shrink to fit, so nothing is ever cut off at the edge.
+function fit(sign, device) {
+  const g = document.createElement('canvas').getContext('2d');
+  const z = sizes(sign);
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  let px = sum(measure(g, sign.text, device, TITLE(z.t), z.t));
+  if (sign.sub) px = Math.max(px, sum(measure(g, sign.sub, device, SUB(z.s), z.s)));
+  const need = ((px + PAD * 2) / W) * WIDE;
+  const wide = Math.min(MAX_WIDE, Math.max(MIN_WIDE, need));
+  return { wide, k: need > MAX_WIDE ? MAX_WIDE / need : 1 };
+}
+
+function paint(canvas, sign, device, k = 1) {
   const g = canvas.getContext('2d');
   const W = canvas.width;
   g.clearRect(0, 0, W, H);
@@ -62,11 +92,12 @@ function paint(canvas, sign, device) {
   g.lineWidth = 5;
   g.stroke();
   g.textBaseline = 'middle';
+  const z = sizes(sign, k);
   if (sign.sub) {
-    drawLine(g, sign.text, device, 92, '700 64px "Chakra Petch", sans-serif', 64, '#ffffff');
-    drawLine(g, sign.sub, device, 178, '500 40px "IBM Plex Mono", monospace', 40, '#a9f6ff');
+    drawLine(g, sign.text, device, 92, TITLE(z.t), z.t, '#ffffff');
+    drawLine(g, sign.sub, device, 178, SUB(z.s), z.s, '#a9f6ff');
   } else {
-    drawLine(g, sign.text, device, H / 2, '700 66px "Chakra Petch", sans-serif', 66, '#ffffff');
+    drawLine(g, sign.text, device, H / 2, TITLE(z.t), z.t, '#ffffff');
   }
 }
 
@@ -74,19 +105,13 @@ export class FloorSign {
   constructor(root, sign, device) {
     this.sign = sign;
     this.canvas = document.createElement('canvas');
-    this.canvas.width = W; this.canvas.height = H;
-    this.tex = new THREE.CanvasTexture(this.canvas);
-    this.tex.colorSpace = THREE.SRGBColorSpace;
-    this.tex.anisotropy = 4;
+    this.canvas.height = H;
     this.mat = new THREE.MeshBasicMaterial({
-      map: this.tex, transparent: true, depthWrite: false, color: new THREE.Color(0.82, 0.82, 0.82),
+      transparent: true, depthWrite: false, color: new THREE.Color(0.82, 0.82, 0.82),
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
-    // a short sign is drawn on a narrower canvas, so the words keep their size
-    this.wide = sign.wide || WIDE;
-    this.canvas.width = Math.round(W * this.wide / WIDE);
-    const deep = (WIDE * H / W) / LOOK;
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(this.wide, deep), this.mat);
+    this.deep = (WIDE * H / W) / LOOK;
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, this.deep), this.mat);
     this.mesh.rotation.x = -Math.PI / 2;
     this.mesh.renderOrder = 1;
     this.group = new THREE.Group();
@@ -96,12 +121,33 @@ export class FloorSign {
     this.group.add(this.mesh);
     root.add(this.group);
     this.setDevice(device);
+    // the fonts may still be on their way: measure again once they're here
+    document.fonts?.ready.then(() => { if (this.group.parent) this.layout(); });
   }
 
   setDevice(device) {
     if (device === this.device) return;
     this.device = device;
-    paint(this.canvas, this.sign, device);
+    this.layout();
+  }
+
+  // Size the sign to its words (the keys differ for keyboard and pad), then
+  // paint it. The words keep their size from sign to sign; a sign only
+  // shrinks them when it would otherwise grow too wide for its room.
+  layout() {
+    const { wide, k } = fit(this.sign, this.device);
+    const cw = Math.round(W * wide / WIDE);
+    if (cw !== this.canvas.width || !this.tex) {
+      this.canvas.width = cw;
+      this.tex?.dispose();
+      this.tex = new THREE.CanvasTexture(this.canvas);
+      this.tex.colorSpace = THREE.SRGBColorSpace;
+      this.tex.anisotropy = 4;
+      this.mat.map = this.tex;
+      this.mat.needsUpdate = true;
+      this.mesh.scale.x = wide;
+    }
+    paint(this.canvas, this.sign, this.device, k);
     this.tex.needsUpdate = true;
   }
 
@@ -109,7 +155,7 @@ export class FloorSign {
     this.group.parent?.remove(this.group);
     this.mesh.geometry.dispose();
     this.mat.dispose();
-    this.tex.dispose();
+    this.tex?.dispose();
   }
 }
 

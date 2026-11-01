@@ -181,6 +181,9 @@ export class Droid {
       amount *= 0.15;
     }
     amount *= this.world.damageScale(this, src);
+    // an induction lesson's droid can't be wrecked: it has to be hacked, or
+    // put over the edge, as the sign says
+    if (this.lesson && this.team !== 'k') amount = Math.min(amount, Math.max(0, this.integrity - 1));
     if (src.by && src.by !== this) this.lastHit = { by: src.by, t: this.world.time };
     this.integrity -= amount;
     this.damageTaken += amount;
@@ -293,8 +296,9 @@ export class Droid {
       if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * 0.06, this.pos.z)) { mdx = 0; this.vel.x = 0; }
       if (mdz && drop(this.pos.x + mdx, this.pos.z + mdz + Math.sign(mdz) * 0.06)) { mdz = 0; this.vel.z = 0; }
     }
-    // and a sealed droid can't be put over one: it braces at the brink
-    if (this.sealed && this.grounded && !this.hovering && !this.dash) {
+    // and a sealed droid can't be put over one: it braces at the brink. Nor
+    // can an induction droid that's there to be hacked.
+    if ((this.sealed && !this.dash || this.lesson === 'hack' && this.team !== 'k') && this.grounded && !this.hovering) {
       const drop = (x, z) => { const g = w.grid.groundAt(x, z); return g === null || g < this.pos.y - 1.1; };
       let braced = false;
       if (mdx && drop(this.pos.x + mdx + Math.sign(mdx) * (this.radius * 0.6), this.pos.z)) { mdx = 0; this.vel.x = 0; braced = true; }

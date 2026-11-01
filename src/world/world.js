@@ -151,8 +151,11 @@ export class World {
       if (run.pressure) { d.maxIntegrity *= 1 + 0.15 * run.pressure; d.integrity = d.maxIntegrity; }
       if (s.bounty) this.bounty = d;
       d.dozy = !!s.dozy;
-      // the induction's droids stay in their own lesson
+      // the induction's droids stay in their own lesson, and can only be
+      // dealt with the way it teaches
       d.leash = this.build.induction ? s.room : null;
+      d.lesson = s.lesson || null;
+      d.give = s.give || null;
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);
@@ -768,6 +771,14 @@ export class World {
   }
 
   onFellIntoVoid(d) {
+    // a droid an induction lesson needs comes back rather than being lost
+    if (d.lesson === 'hack' && d.team !== 'k') {
+      const h = d.brain ? d.brain.home : d.pos;
+      d.pos.set(h.x, h.y, h.z);
+      d.vel.x = d.vel.z = 0; d.vy = 0; d.koBy = null;
+      this.fx.burst(d.pos.clone().setY(d.pos.y + 0.5), d.accent, 22, 2, 0.6, 0.1, 0);
+      return;
+    }
     if (d.isPlayer) {
       this.audio.play('fall');
       // nothing up in the Heap can hurt you
@@ -790,7 +801,7 @@ export class World {
     this.game.archiveSee(d, 'destroyed');
     if (ko) this.game.addScrap(scrapFor(d.cls) * 2, 0, true);
     if (d.bounty) this.game.bountyClaimed(d, 'void');
-    else this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
+    else if (!ko) this.game.toast(`${FAMILIES[d.family].name} ${d.cls} lost to the void`);
     if (d.command) this.grantClearance('void');
   }
 
@@ -804,7 +815,7 @@ export class World {
 
   // A droid has gone over an edge with nothing below it.
   onDoomed(d) {
-    if (d.team === 'k') return;
+    if (d.team === 'k' || d.lesson === 'hack') return;
     const by = this.ringOutBy(d);
     if (by) { d.koBy = by; this.game.ringOut(d, by); }
   }

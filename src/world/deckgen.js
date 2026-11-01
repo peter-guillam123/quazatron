@@ -72,7 +72,7 @@ export function generateDeck(n, rng, opts = {}) {
     };
     rooms.push(info);
     for (const sg of r.signs || []) {
-      signs.push({ x: ox + sg.x, z: oz + sg.z, h: heights[sg.z * w + sg.x], text: sg.text, sub: sg.sub || '', wide: sg.wide, room: index });
+      signs.push({ x: ox + sg.x, z: oz + sg.z, h: heights[sg.z * w + sg.x], text: sg.text, sub: sg.sub || '', room: index });
     }
     if (r.signs) info.signs = r.signs;
     for (let j = 0; j < d; j++) {
@@ -356,7 +356,7 @@ function placeInduction(rooms) {
     (room.droidSpecs || []).forEach((spec, i) => {
       const s = room.spawns[i];
       if (!s) return;
-      out.push({ family: spec.family, cls: spec.cls, dozy: !!spec.dozy, x: s.x, z: s.z, h: s.h, room: room.index, command: s.command });
+      out.push({ family: spec.family, cls: spec.cls, dozy: !!spec.dozy, lesson: spec.lesson || null, give: spec.give || null, x: s.x, z: s.z, h: s.h, room: room.index, command: s.command });
     });
   }
   return out;

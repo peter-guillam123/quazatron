@@ -30,9 +30,9 @@ export const HEAP_ROOM = {
     '    .......    ',
   ],
   signs: [
-    { x: 5, z: 4, text: 'Nan', sub: 'Rebuilds you. Upgrades for data', wide: 4.6 },
-    { x: 3, z: 8, text: 'Droid archive', sub: 'Everything you\'ve met', wide: 3.6 },
-    { x: 8, z: 9, text: 'The chute', sub: 'Climb up into the tower', wide: 3.8 },
+    { x: 5, z: 4, text: 'Nan', sub: 'Rebuilds you. Upgrades for data' },
+    { x: 3, z: 8, text: 'Droid archive', sub: 'Everything you\'ve met' },
+    { x: 8, z: 9, text: 'The chute', sub: 'Climb up into the tower' },
   ],
 };
 
