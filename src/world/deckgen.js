@@ -356,7 +356,7 @@ function placeInduction(rooms) {
     (room.droidSpecs || []).forEach((spec, i) => {
       const s = room.spawns[i];
       if (!s) return;
-      out.push({ family: spec.family, cls: spec.cls, dozy: !!spec.dozy, x: s.x, z: s.z, h: s.h, room: room.index, command: s.command });
+      out.push({ family: spec.family, cls: spec.cls, dozy: !!spec.dozy, lesson: spec.lesson || null, give: spec.give || null, x: s.x, z: s.z, h: s.h, room: room.index, command: s.command });
     });
   }
   return out;

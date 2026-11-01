@@ -936,6 +936,11 @@ export class Game {
           const m = t.mods[s];
           if (m && !MODULES[m.id].starter) offers.push({ id: m.id, grade: m.grade });
         }
+        // an induction lesson hands over the one part the next room needs
+        if (t.give) {
+          const m = t.mods[MODULES[t.give].slot];
+          offers.splice(0, offers.length, { id: t.give, grade: m && m.id === t.give ? m.grade : 1 });
+        }
         this.powerDown(t);
         this.say(t, 'beaten', true);
         if (t.family === 'klp1') { this.meta.klp1Wins = (this.meta.klp1Wins || 0) + 1; this.addData(4, 'KLP-1 hacked'); saveMeta(this.meta); }
@@ -945,7 +950,7 @@ export class Game {
           w.scrap.burst(t.pos, scrapFor(t.cls), { pull: 2 });
           this.toast('Clean hack. Bonus scrap.');
         }
-        this.offerState = { kind: 'salvage', offers, target: t, picks: clean && offers.length >= 2 ? 2 : 1, taken: 0, strip: scrapFor(t.cls) + 2 };
+        this.offerState = { kind: 'salvage', offers, target: t, picks: clean && offers.length >= 2 ? 2 : 1, taken: 0, strip: scrapFor(t.cls) + 2, give: !!t.give };
         this.showSalvage();
         this.state = 'menu';
       } else {
@@ -992,8 +997,11 @@ export class Game {
       else if (first) lede = 'Take a part: it goes in the matching socket, and anything it replaces drops at your feet. Or turn the droid to your side, or strip it for scrap.';
       else lede = 'Take a part, turn it to your side, or strip it for scrap.';
       if (t.family === 'klp1') lede = 'Beaten, for now. Take one of its parts, or strip it for scrap. It won\'t join a gang.';
+      if (o.give) lede = `Take its ${MODULES[o.offers[0].id].name.toLowerCase()}. It goes in the matching socket, and the part it replaces drops at your feet.`;
     }
     const cards = o.offers.map((m) => this.ui.moduleCard(m, p.mods[MODULES[m.id].slot]));
+    // in the induction the part is the lesson: no turning it, no stripping it
+    if (o.give) { this.ui.offer({ title, lede, cards }); return; }
     if (!o.taken) cards.push(t.family === 'klp1' ? this.ui.homeCard(this.meta.klp1Wins || 0, 3) : this.ui.turnCard(t, this.world.allies(), GANG_MAX));
     this.ui.offer({
       title, lede, cards,

@@ -6,6 +6,9 @@
 // `droids` fill the room's d and k spots in order; `dozy` droids wander
 // and ignore you until something hits them. Sign positions are in the
 // room's own tiles; {move}, {grapple} and {arm} become the right keys.
+// A droid's `lesson` keeps it from being dealt with the wrong way: 'hack'
+// can't be wrecked or put over an edge, 'ringout' can't be wrecked. `give`
+// is the one part its hack offers.
 // Gates hold each lesson room shut until it's done, and its droids are
 // leashed to it, so one lesson never spills into the next.
 
@@ -40,7 +43,7 @@ export const INDUCTION_ROOMS = {
       '  .........  ',
       '   .......   ',
     ],
-    droids: [{ family: 'mite', cls: 112, dozy: true }],
+    droids: [{ family: 'mite', cls: 112, dozy: true, lesson: 'hack' }],
     signs: [{ x: 7, z: 8, text: 'Bump it with {arm} till it opens', sub: 'then {grapple} to grapple it' }],
   },
   spark: {
@@ -57,7 +60,7 @@ export const INDUCTION_ROOMS = {
       '  .........  ',
       '   .......   ',
     ],
-    droids: [{ family: 'spark', cls: 126, dozy: true }],
+    droids: [{ family: 'spark', cls: 126, dozy: true, lesson: 'hack', give: 'laser' }],
     signs: [
       { x: 9, z: 6, text: 'Wear it down, then hack it', sub: 'Below the white line on its bar, it opens' },
       { x: 4, z: 9, text: '{drive} to swerve', sub: 'Its shots pass through you' },
@@ -92,7 +95,7 @@ export const INDUCTION_ROOMS = {
       '     .d.     ',
       '             ',
     ],
-    droids: [{ family: 'mite', cls: 104, dozy: true }, { family: 'mite', cls: 118, dozy: true }, { family: 'mite', cls: 109, dozy: true }],
+    droids: [{ family: 'mite', cls: 104, dozy: true, lesson: 'ringout' }, { family: 'mite', cls: 118, dozy: true, lesson: 'ringout' }, { family: 'mite', cls: 109, dozy: true, lesson: 'ringout' }],
     signs: [{ x: 9, z: 5, text: 'Hold {arm}, then let go', sub: 'Open droids go over the edge: double scrap' }],
   },
   terminal: {
