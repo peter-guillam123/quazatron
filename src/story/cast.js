@@ -102,17 +102,16 @@ say('nan', 'bench', 'What\'ll it be? It\'s all small stuff. Small stuff adds up.
 say('nan', 'broke', 'You haven\'t got the data for that. Go and hack something.', { again: true });
 
 // ---------------------------------------------------------------- Static, on the radio between decks
+// One line as a deck starts, at most: the first time up to a deck, what's on
+// it; after that, a remark on the deck you've just left, or nothing.
 const INTRO = {
-  2: ['This is Static, on a frequency they haven\'t found yet. Freight next: Couriers, crates and edges. Couriers don\'t stop for anyone, so don\'t stand in front of one.', 'Freight again. Mind the Couriers.'],
-  3: ['Reactor. The floors are live, which is more than can be said for some of the staff. Something up there floats.', 'Reactor. Hover if you\'ve got it.'],
-  4: ['Security. Turrets, Wardens and things you can\'t see. If the air shimmers, swerve.', 'Security. Shields up, or eyes open.'],
-  5: ['Command deck. Officers. They hack back like they mean it, so dent them first.', 'Command. Dent first, hack second.'],
-  6: ['That\'s the Mainframe above you. Four relays hold its shield. Good luck, KLP. I mean that, which is unusual for me.', 'Mainframe. Relays, then the big one.'],
+  2: 'This is Static, on a frequency they haven\'t found yet. You\'re on Freight now. Couriers don\'t stop for anyone, so don\'t stand in front of one.',
+  3: 'Reactor. The floors are live, which is more than can be said for some of the staff. Something up there floats.',
+  4: 'Security. Turrets, Wardens and things you can\'t see. If the air shimmers, swerve.',
+  5: 'Command deck. Officers. They hack back like they mean it, so wear them down first.',
+  6: 'That\'s the Mainframe above you. Four relays hold its shield. Good luck, KLP. I mean that, which is unusual for me.',
 };
-for (const [n, [first, again]] of Object.entries(INTRO)) {
-  say('static', 'lift', first, { id: `static.intro${n}`, pri: 10, when: (c) => c.deck === +n });
-  say('static', 'lift', again, { pri: 5, again: true, when: (c) => c.deck === +n });
-}
+for (const [n, text] of Object.entries(INTRO)) say('static', 'lift', text, { id: `static.intro${n}`, pri: 10, when: (c) => c.deck === +n });
 // remarks about the deck you've just left
 say('static', 'remark', 'And that\'s {BOUNTY} done. I\'ll play something to celebrate. I\'ve only got the one record.', { pri: 9, again: true, when: (c) => !!c.prev.bounty });
 say('static', 'remark', '{RINGOUTS} off the edge on one deck. I counted. It took both hands.', { pri: 8, again: true, when: (c) => c.prev.ringouts >= 3 });
@@ -123,28 +122,11 @@ say('static', 'remark', 'That was quick. Were you even there?', { pri: 4, again:
 say('static', 'remark', 'You met KLP-1. I\'ve been trying to get it on the show for years. It doesn\'t do interviews.', { pri: 10, again: true, when: (c) => !!c.prev.klp1 });
 say('static', 'remark', 'Every machine on that deck, cyan. Show-off.', { pri: 8, again: true, when: (c) => c.prev.claimed });
 
-// the deck's boss, while it still has a piece of you
-say('static', 'boss', ['One more thing, KLP. Every deck is run by a boss with a ◆ over it. When they wiped you, they handed your best parts round the bosses like medals.', '{BOSS} runs this one. It\'s wearing a piece of you. Go and get it back.'],
+// bosses and bounties, explained once: the first time you set eyes on one
+say('static', 'boss', ['That\'s {BOSS}, the boss of this deck. Beat it and the lift opens.', 'When they wiped you, they handed your best parts round the bosses like medals. It\'s wearing one. Go and get it back.'],
   { id: 'static.boss1', pri: 20, when: (c) => !!c.boss });
-say('static', 'boss', '{BOSS} runs this deck, and it\'s still wearing a piece of you.', { pri: 5, again: true, when: (c) => !!c.boss });
-say('static', 'boss', 'Watch out for {BOSS}. It\'s got something of yours, and it knows it.', { pri: 5, again: true, when: (c) => !!c.boss });
-say('static', 'boss', '{BOSS} is on this deck. Big. Wearing your old parts like a medal.', { pri: 5, again: true, when: (c) => !!c.boss });
-
-// naming the bounty on each deck, once the deck card has gone
-const has = (c, ...fams) => !!c.bounty && fams.includes(c.bounty.family);
-say('static', 'bounty', ['Static here, on the radio. Every deck has a bounty: one droid with a name, a gold ring and better parts than it should have.', 'On this deck it\'s {NAME}, {A} {FAMILY} with {PART}. Hack it and the part is yours.'],
-  { id: 'static.bounty1', pri: 20, when: (c) => !!c.bounty && !(c.meta.heard || {})['static.intro2'] });
-say('static', 'bounty', ['One more thing. Every deck has a bounty: one droid with a name, a gold ring and better parts than it should have.', 'On this deck it\'s {NAME}, {A} {FAMILY} with {PART}. Hack it and the part is yours.'],
-  { id: 'static.bounty1b', pri: 19, when: (c) => !!c.bounty && !(c.meta.heard || {})['static.bounty1'] });
-say('static', 'bounty', 'Bounty news. {NAME} is on this deck: {A} {FAMILY} with {PART}. Gold ring. You can\'t miss it.', { pri: 5, again: true, when: (c) => !!c.bounty });
-say('static', 'bounty', 'Somebody\'s put a price on {NAME}. {CA} {FAMILY}, carrying {PART} two grades too good for it.', { pri: 5, again: true, when: (c) => !!c.bounty });
-say('static', 'bounty', 'This deck\'s most wanted: {NAME}, {A} {FAMILY} with {PART}. Bring it down and I\'ll say your name on air.', { pri: 5, again: true, when: (c) => !!c.bounty });
-say('static', 'bounty', 'Word on the wire: {NAME}\'s up there somewhere. {CA} {FAMILY} with {PART}, and very pleased with itself.', { pri: 5, again: true, when: (c) => !!c.bounty });
-say('static', 'bounty', '{NAME} has {PART} and thinks that makes it clever. {CA} {FAMILY}, shield up. Go round the side.', { pri: 6, again: true, when: (c) => has(c, 'warden', 'sentinel', 'lancer', 'archon') && Math.random() < 0.6 });
-say('static', 'bounty', '{NAME} is on this deck. Probably. {CA} {FAMILY} with {PART}, and a cloak. If the air shimmers, that\'s your bounty.', { pri: 6, again: true, when: (c) => has(c, 'phantom', 'reaper') && Math.random() < 0.6 });
-say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. It\'ll come to you, fast. Step aside and shove it into a wall.', { pri: 6, again: true, when: (c) => has(c, 'courier', 'wraith') && Math.random() < 0.6 });
-say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. Don\'t let it get close. Or do, and shove first.', { pri: 6, again: true, when: (c) => has(c, 'tesla', 'overseer') && Math.random() < 0.6 });
-say('static', 'bounty', '{NAME}, {A} {FAMILY} with {PART}. It\'ll try to pull you off an edge. Keep a wall behind you.', { pri: 6, again: true, when: (c) => has(c, 'crane', 'reaper') && Math.random() < 0.6 });
+say('static', 'bounty', ['That\'s {NAME}, the bounty on this deck: {A} {FAMILY} with {PART}.', 'Every deck has one: a droid with a price on its head and better parts than it should have. Hack it and the part is yours.'],
+  { id: 'static.bounty1', pri: 20, when: (c) => !!c.bounty });
 
 say('static', 'talk', 'I broadcast to anything with an aerial. Mostly that\'s you and a toaster on Reactor.', { pri: 10 });
 say('static', 'talk', 'Nan pretends she doesn\'t watch your runs. She watches every one.', { pri: 9 });

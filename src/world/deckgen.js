@@ -124,6 +124,22 @@ export function generateDeck(n, rng, opts = {}) {
     }
   }
 
+  // ---- gates: a row across the bridge, halfway between the two rooms
+  const gates = (plan.gates || []).map(([a, b]) => {
+    const A = rooms[a], B = rooms[b];
+    const [dx, dz] = DIRS[dirTo(plan.cells[a], plan.cells[b])];
+    const strip = [];
+    let x = Math.round(A.cx), z = Math.round(A.cz);
+    const tx = Math.round(B.cx), tz = Math.round(B.cz);
+    while (x !== tx || z !== tz) {
+      x += dx; z += dz;
+      if (grid.room[grid.idx(x, z)] === -2) strip.push({ x, z });
+    }
+    const mid = strip[Math.floor(strip.length / 2)];
+    const tiles = mid ? [-1, 0, 1].map((s) => ({ x: mid.x + (dz !== 0 ? s : 0), z: mid.z + (dx !== 0 ? s : 0) })).filter((t) => grid.room[grid.idx(t.x, t.z)] === -2) : [];
+    return { room: a, to: b, tiles };
+  });
+
   // ---- start
   const startThing = things.find((t) => t.t === 'S');
   const start = { x: startThing.x + 0.5, z: startThing.z + 0.5, h: startThing.h };
@@ -158,7 +174,7 @@ export function generateDeck(n, rng, opts = {}) {
     }
   }
 
-  return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL, signs, induction, heap };
+  return { n, deck, grid, rooms, things, droids, start, links: plan.links, cell: CELL, signs, induction, heap, gates };
 }
 
 // The open floor tile nearest the middle of a room, with flat floor round it.

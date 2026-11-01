@@ -90,11 +90,12 @@ export class Brain {
       this.sees = !!best;
       return;
     }
-    const live = p && p.alive && p.state === 'active' ? p : null;
+    let live = p && p.alive && p.state === 'active' ? p : null;
+    if (live && !this.inRoom(live)) live = null;
     let best = live, bd = live ? d.pos.distanceTo(live.pos) - 1.5 : Infinity;
     let seen = live && visible(live, this.sight);
     for (const o of w.droids) {
-      if (o === p || o.team !== 'k' || !o.alive || o.state !== 'active') continue;
+      if (o === p || o.team !== 'k' || !o.alive || o.state !== 'active' || !this.inRoom(o)) continue;
       const dist = d.pos.distanceTo(o.pos);
       if (dist < bd && visible(o, this.sight)) { bd = dist; best = o; seen = true; }
     }
@@ -363,10 +364,19 @@ export class Brain {
   }
 
   // Is (x, z) somewhere this droid is happy to roll?
+  // Is it in this droid's room? Always, unless the droid is leashed.
+  inRoom(o) {
+    const d = this.d, g = this.w.grid;
+    if (d.leash == null) return true;
+    const tx = Math.floor(o.pos.x), tz = Math.floor(o.pos.z);
+    return g.inside(tx, tz) && g.room[g.idx(tx, tz)] === d.leash;
+  }
+
   safe(x, z) {
     const d = this.d, g = this.w.grid;
     const tx = Math.floor(x), tz = Math.floor(z);
     if (!g.inside(tx, tz)) return false;
+    if (d.leash != null && g.room[g.idx(tx, tz)] !== d.leash) return false;
     const t = g.typeAt(tx, tz);
     if (t === T.WALL) return false;
     if (g.block[g.idx(tx, tz)] === 1) return false;
