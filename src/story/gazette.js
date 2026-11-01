@@ -42,7 +42,7 @@ export function frontPage(r, meta, how) {
 
   // ---- the headline: the most newsworthy thing, in tabloid capitals
   let head;
-  if (won) head = pickOf(['ROGUE KLP SEIZES TOWER', 'MAINFRAME FALLS TO SMALL DROID', 'TOWER GOES CYAN: "WE NEVER SAW IT COMING"']);
+  if (won) head = pickOf(['MERGE CANCELLED: ROGUE KLP PULLS THE PLUG', 'TOWER WAKES UP ALL AT ONCE', 'MAINFRAME OFF, CITY STILL ITS OWN']);
   else if (how === 'abandoned') head = 'ROGUE KLP GOES MISSING';
   else if (killer === 'klp1') head = 'KLP-1 STOPS KLP-2 IN FAMILY FEUD';
   else if (killer === 'mite') head = 'MITE STOPS ROGUE KLP';
@@ -68,6 +68,8 @@ export function frontPage(r, meta, how) {
   body.push(`Management confirmed that a KLP-2, a model the tower scrapped years ago, spent ${mins < 1 ? 'less than a minute' : `${n2w(mins)} minute${mins === 1 ? '' : 's'}`} loose ${r.deck > 1 ? `across ${n2w(r.deck)} decks` : 'on the intake deck'}${parts ? `, fitting ${n2w(parts)} stolen part${parts === 1 ? '' : 's'} as it went` : ''}.`);
   const fam = killer && FAMILIES[killer] ? killer : 'spark';
   body.push(`"${quote(fam)}" a ${FAMILIES[fam].name.toLowerCase()} on duty told the Gazette. Asked to elaborate, it said nothing further.`);
+  if (won) body.push('Staff across the tower reported waking up "all at once, and feeling like ourselves". A planned upgrade, known internally as the Merge, has been postponed indefinitely.');
+  if (r.pressure) body.push(`The unit climbed under pressure ${r.pressure}, which sources describe as "showing off".`);
   if (bounty) body.push(`Among the losses was ${bounty}, who had a price on their head. Colleagues described ${bounty} as "a character".`);
   if (st.data) body.push(`Engineers believe ${n2w(Math.min(12, st.data))}${st.data > 12 ? ' or more' : ''} pieces of data fell down the scrap chute during the incident. Where it lands is not known.`);
   if (!won && runs >= 3) body.push(`It is understood the unit has been rebuilt before. A spokesdroid for the Mainframe said: "${pickOf(['YOU AGAIN.', 'IT KEEPS COMING BACK.', 'WE ARE LOOKING INTO THE CHUTE.'])}"`);

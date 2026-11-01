@@ -27,7 +27,7 @@ import { makeRng, randomSeed } from './rng.js';
 import { line, CHATS } from './lines.js';
 import { runStats, dataFor, BENCH, rank, nextCost, cheapest, wear } from './progress.js';
 import { pick, hasNew } from './story/cast.js';
-import { MEMORIES } from './story/memories.js';
+import { MEMORIES, ENDING } from './story/memories.js';
 import { MemoryPlayer } from './memory.js';
 import { BOSSES, RELICS, RELIC_ORDER, relicsLeft } from './story/relics.js';
 import { frontPage } from './story/gazette.js';
@@ -225,6 +225,7 @@ export class Game {
     if (m.runs) rec.push(`${m.runs} run${m.runs === 1 ? '' : 's'}`);
     if (m.bestDeck) rec.push(`highest: deck ${Math.min(5, m.bestDeck)}${m.wins ? `, tower claimed ${m.wins} time${m.wins === 1 ? '' : 's'}` : ''}`);
     if (m.data) rec.push(`${m.data} data for Nan`);
+    if (m.pressureMax) rec.push(`pressure ${m.pressureMax} unlocked`);
     // the redesign started an old save again: say so, once
     if (m.freshStart) rec.unshift('KLEPTO has changed: KLP-2 starts broken now, so your run starts again. Your archive and settings are kept.');
     document.getElementById('title-records').textContent = rec.join(' · ');
@@ -427,6 +428,8 @@ export class Game {
   newRun() {
     // the first climb is the hand-built one, with signs on the floor
     if (!this.meta.inductionDone) { this.startRun(null, { induction: true }); return; }
+    // once you've reached the roof, you can climb again under pressure
+    if ((this.meta.pressureMax || 0) > 0 && this.pressurePick == null) { this.choosePressure(); return; }
     const stolen = STEALABLE.filter((id) => this.meta.stolen[id]);
     if (!stolen.length) { this.startRun(null); return; }
     const g = runStats(this.meta).kitGrade;
@@ -437,6 +440,22 @@ export class Game {
       ...stolen.map((id) => this.ui.moduleCard({ id, grade: g }, null, { act: 'kit' })),
     ].join('');
     this.ui.show('kit');
+  }
+
+  choosePressure() {
+    this.state = 'menu';
+    const max = this.meta.pressureMax || 0;
+    const cards = [];
+    for (let p = 0; p <= max; p++) {
+      cards.push(`<button class="card${p ? ' pressure' : ''}" data-act="pressure" data-p="${p}">
+        <span class="slot-tag">${p ? `Pressure ${p}` : 'As it was'}</span>
+        <span class="card-head">${p ? `${'▲'.repeat(p)}` : 'No pressure'}</span>
+        <span class="line">${p ? `Droids are ${15 * p}% tougher and hit ${10 * p}% harder${p >= 2 ? ', and bosses hack back with a pulser more' : ''}.` : 'The tower the way you first climbed it.'}</span>
+        <span class="use">${p ? `Data from the climb: +${25 * p}%.` : ''}</span>
+      </button>`);
+    }
+    this.ui.offer({ title: 'How hard?', lede: 'You\'ve been to the roof. The tower can be climbed again, harder: each notch of pressure makes the droids tougher and pays more data. Reach the roof under one notch to unlock the next.', cards, extra: '' });
+    this.offerState = { kind: 'pressure' };
   }
 
   startRun(kit, opts = {}) {
@@ -452,7 +471,9 @@ export class Game {
       perks: [], lastGaspUsed: false, newStolen: [], scrap: st.scrap, fabPerks: 0, gang: [], welds: 0, cells: 0,
       stats: { hacked: 0, destroyed: 0, voided: 0, ringouts: 0, parts: 0, time: 0, reflects: 0, decks: 0, scrap: 0, data: 0 },
       induction: !!opts.induction, bounties: [],
+      pressure: opts.daily || opts.induction ? 0 : this.pressurePick || 0,
     };
+    this.pressurePick = null;
     // a different bounty name on every deck of the run
     this.run.bountyNames = makeRng(this.run.seed ^ 0x5bd1e995).shuffle(BOUNTY_NAMES.slice());
     // KLP-1 turns up on some runs, once you've been at it a while
@@ -1125,6 +1146,11 @@ export class Game {
     const o = this.offerState;
     if (!o) { this.resume(); return; }
     if (o.kind === 'relic') { if (act === 'relic') this.takeRelic(el.dataset.id); return; }
+    if (o.kind === 'pressure') {
+      if (act === 'pressure') { this.pressurePick = +el.dataset.p; this.offerState = null; this.newRun(); }
+      else if (act === 'back') { this.offerState = null; this.ui.hide(); this.state = 'play'; }
+      return;
+    }
     if (act === 'take') {
       this.equip({ id: el.dataset.id, grade: +el.dataset.grade });
       if (o.kind === 'cache' && o.pickup) this.world.removePickup(o.pickup);
@@ -1395,6 +1421,7 @@ export class Game {
   // Data falls down the chute to Nan whatever happens to KLP-2.
   addData(n, why = '') {
     if (!n || !this.run) return;
+    if (this.run.pressure) n = Math.round(n * (1 + 0.25 * this.run.pressure));
     this.meta.data = (this.meta.data || 0) + n;
     this.meta.dataTotal = (this.meta.dataTotal || 0) + n;
     this.run.stats.data = (this.run.stats.data || 0) + n;
@@ -1782,7 +1809,21 @@ export class Game {
     this.audio.play('hackWin');
     this.ui.announce('The Mainframe is yours. The tower is claimed.', true);
     for (const d of w.droids) if (d.team === 'h' && d.alive && d.state === 'active') this.powerDown(d);
-    setTimeout(() => this.endRun(true, 'won'), 3600);
+    // climbing at pressure unlocks the next notch
+    const r = this.run;
+    if (!r.daily) {
+      const pr = r.pressure || 0;
+      this.meta.pressureMax = Math.max(this.meta.pressureMax || 0, Math.min(5, pr + 1));
+      this.meta.pressureBest = Math.max(this.meta.pressureBest || 0, pr);
+      saveMeta(this.meta);
+    }
+    // the uplink comes down, and KLP-2 goes out onto the roof
+    setTimeout(() => {
+      if (this.world !== w || this.state !== 'won') return;
+      this.state = 'memory';
+      this.ui.showHud(false);
+      this.memories.stage(ENDING, ENDING.head, () => this.endRun(true, 'won'));
+    }, 2600);
   }
 
   async copyShare() {
