@@ -76,6 +76,8 @@ export class Grid {
     const b = this.block[i];
     if (b === 1) return Infinity;
     if (b === 2 && !body.phasing) return Infinity;
+    // a leashed droid (the induction's) stays in its own room
+    if (body.leash != null && this.room[i] === -2) return Infinity;
     const t = this.type[i];
     if (t === T.WALL) return Infinity;
     const s = this.surface(tx, tz, x, z);

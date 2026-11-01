@@ -304,7 +304,8 @@ export class Droid {
     const vx0 = this.vel.x, vz0 = this.vel.z;
     const hit = moveBody(w.grid, this, mdx, mdz);
     // knocked flying into a wall: a slam
-    if ((hit.hitX !== -1 || hit.hitZ !== -1) && !this.dash && !this.lunge && !this.swerve) {
+    const soft = (i) => i >= 0 && this.leash != null && w.grid.room[i] === -2;
+    if ((hit.hitX !== -1 || hit.hitZ !== -1) && !soft(hit.hitX) && !soft(hit.hitZ) && !this.dash && !this.lunge && !this.swerve) {
       const into = Math.max(hit.hitX !== -1 ? Math.abs(vx0) : 0, hit.hitZ !== -1 ? Math.abs(vz0) : 0);
       if (into > 5) w.onSlam(this, into, hit.hitX !== -1 ? -Math.sign(vx0) : 0, hit.hitZ !== -1 ? -Math.sign(vz0) : 0);
     }

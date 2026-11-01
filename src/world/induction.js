@@ -6,6 +6,8 @@
 // `droids` fill the room's d and k spots in order; `dozy` droids wander
 // and ignore you until something hits them. Sign positions are in the
 // room's own tiles; {move}, {grapple} and {arm} become the right keys.
+// Gates hold each lesson room shut until it's done, and its droids are
+// leashed to it, so one lesson never spills into the next.
 
 export const INDUCTION_ROOMS = {
   start: {
@@ -144,10 +146,13 @@ export function inductionPlan() {
     { x: -2, z: -3, role: 'lift', room: R.lift },
   ];
   const links = [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 6]];
+  // Each lesson room is shut by a gate on the way on, which opens once its
+  // droids are dealt with (the terminal room has its own door).
+  const gates = [[1, 2], [2, 4], [4, 5]];
   for (const c of cells) {
     c.links = [];
     c.room = { tags: [c.role], solves: [], ...c.room, rot: 0 };
   }
   for (const [a, b] of links) { cells[a].links.push(cells[b]); cells[b].links.push(cells[a]); }
-  return { cells, links };
+  return { cells, links, gates };
 }

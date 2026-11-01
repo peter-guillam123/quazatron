@@ -77,6 +77,7 @@ export class World {
     this.tele.reduced = game.reducedMotion;
 
     this.makeDevices(build.things);
+    this.makeGates();
     this.signs = (build.signs || []).map((sg) => new FloorSign(this.root, sg, game.input ? game.input.lastDevice : 'keyboard'));
     this.makeDroids(build.droids);
     if (this.bounty) this.makeBountyMarker();
@@ -150,6 +151,8 @@ export class World {
       if (run.pressure) { d.maxIntegrity *= 1 + 0.15 * run.pressure; d.integrity = d.maxIntegrity; }
       if (s.bounty) this.bounty = d;
       d.dozy = !!s.dozy;
+      // the induction's droids stay in their own lesson
+      d.leash = this.build.induction ? s.room : null;
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);
@@ -234,6 +237,34 @@ export class World {
   }
 
   // Droids still standing between you and a room's prize.
+  // The induction's gates: a force field across the bridge out of a lesson
+  // room, which drops once the room's droids are dealt with.
+  makeGates() {
+    this.gates = (this.build.gates || []).map((g) => {
+      for (const t of g.tiles) this.chars.set(`${t.x},${t.z}`, 'G');
+      const fields = g.tiles.map((t) => {
+        const f = new Field(this, { t: 'G', x: t.x, z: t.z, h: 0, room: -2, ch: '' }, false);
+        this.devices.push(f);
+        return f;
+      });
+      return { ...g, fields, open: false };
+    });
+  }
+
+  updateGates() {
+    for (const g of this.gates) {
+      if (g.open || this.roomGuards(g.room) > 0) continue;
+      g.open = true;
+      for (const f of g.fields) f.setActive(true);
+      const mid = g.fields[Math.floor(g.fields.length / 2)];
+      if (mid) {
+        this.fx.burst(mid.pos.clone().setY(mid.pos.y + 0.6), PLAYER_COLOUR, 26, 2.6, 0.8, 0.1, -1);
+        this.fx.ring(mid.pos, PLAYER_COLOUR, 2, 0.6);
+        this.game.gateOpened?.(g, mid);
+      }
+    }
+  }
+
   roomGuards(index) {
     let n = 0;
     for (const d of this.droids) if (d.room === index && d.team === 'h' && d.alive && d.state === 'active') n++;
@@ -244,6 +275,7 @@ export class World {
     this.prizeT -= dt;
     if (this.prizeT > 0) return;
     this.prizeT = 0.3;
+    if (this.gates.length) this.updateGates();
     for (const room of this.build.rooms) {
       const k = room.prizePickup;
       if (!k || !k.locked || !room.visited) continue;

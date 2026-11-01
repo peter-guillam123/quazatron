@@ -1017,6 +1017,7 @@ export class Game {
     d.alive = true;
     d.solid = true;
     d.team = 'k';
+    d.leash = null;
     d.downT = 0;
     d.vel.x = d.vel.z = 0;
     // it joins in the shape you left it: the harder the fight, the frailer
@@ -1116,6 +1117,13 @@ export class Game {
       this.audio.play('repair', { at: p.pos });
       this.announce('Repair kit: patched up');
     }
+  }
+
+  // An induction lesson is done: the gate onwards drops.
+  gateOpened(g, at) {
+    this.audio.play('unlock', { at: at.pos });
+    this.word(at.pos.clone().setY(at.pos.y + 1.4), 'OPEN', 'clear');
+    this.ui.announce('Done. The gate onwards is open.');
   }
 
   // A room's droids are all dealt with: its prize comes out of the cage.
