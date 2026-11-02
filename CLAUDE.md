@@ -126,6 +126,12 @@ beats them in a circuit-board duel and steals their parts.
   and comes back if it falls; 'ringout': can't be wrecked) keeps each lesson
   from being skipped, and `give` makes its hack offer that one part. Floor
   signs size themselves to their words (`src/render/signs.js`).
+- Buttons shown follow the device: `Input.setDevice` switches on a key press,
+  a pad press, or the browser announcing a pad (`gamepadconnected`, which
+  only comes with a button press), and tells listeners ('device');
+  `Game.showKeys` updates the title line, the memory caption, the call-out
+  and the hack's key line. Floor signs, prompts, sockets and the hack's
+  signs read `input.lastDevice` or `input.label` themselves.
 - Hack clock and 1986 drawing (November 2026): the hack's time is a thick
   bar with a notch a second, amber under half, red for the last three with
   a huge 3-2-1 behind the board (`HackView.drawFuse`, `drawClock`,

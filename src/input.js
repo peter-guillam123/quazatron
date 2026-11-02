@@ -54,16 +54,27 @@ export class Input {
       }
       this.keys.add(e.code);
       this.pressedKeys.add(e.code);
-      this.lastDevice = 'keyboard';
+      this.setDevice('keyboard');
       if (this.capture && GAME_KEYS.has(e.code) && !e.metaKey && !e.ctrlKey) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
     window.addEventListener('blur', () => { this.keys.clear(); for (const fn of this.listeners) fn('blur'); });
-    window.addEventListener('gamepadconnected', () => { this.padConnected = true; for (const fn of this.listeners) fn('pad'); });
-    window.addEventListener('gamepaddisconnected', () => { this.padConnected = !!this.pad(); });
+    // A browser only shows a gamepad once one of its buttons is pressed. From
+    // then on every sign and prompt shows the pad's buttons, until a key is
+    // pressed on the keyboard.
+    window.addEventListener('gamepadconnected', () => { this.padConnected = true; this.setDevice('pad'); for (const fn of this.listeners) fn('pad'); });
+    window.addEventListener('gamepaddisconnected', () => { this.padConnected = !!this.pad(); if (!this.padConnected) this.setDevice('keyboard'); });
+    if (this.pad()) { this.padConnected = true; this.lastDevice = 'pad'; }
   }
 
   on(fn) { this.listeners.add(fn); }
+
+  // Which buttons to show: tells everyone listening when it changes.
+  setDevice(d) {
+    if (d === this.lastDevice) return;
+    this.lastDevice = d;
+    for (const fn of this.listeners) fn('device');
+  }
 
   pad() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -87,7 +98,7 @@ export class Input {
       let ax = p.axes[2] || 0, ay = p.axes[3] || 0;
       const am = Math.hypot(ax, ay);
       this.padAim = am < 0.35 ? [0, 0] : [ax / am, ay / am];
-      if (this.padButtons.some((b, i) => b && !this.padPrev[i]) || m > 0.5 || am > 0.5) this.lastDevice = 'pad';
+      if (this.padButtons.some((b, i) => b && !this.padPrev[i]) || m > 0.5 || am > 0.5) this.setDevice('pad');
     } else {
       this.padButtons = [];
       this.padAxes = [0, 0];

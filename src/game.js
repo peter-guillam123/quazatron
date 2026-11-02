@@ -78,7 +78,24 @@ export class Game {
       if (what === 'blur' && this.state === 'play') this.pause();
       if (what === 'blur' && this.state === 'hack' && this.session) this.session.paused = true;
       if (what === 'pad' && !document.getElementById('screen-phone').hidden) this.toTitle();
+      if (what === 'device') this.showKeys();
     });
+    this.showKeys();
+  }
+
+  // Everything that names a button follows what you last used: keyboard or
+  // gamepad. (Floor signs and the hack's signs check for themselves.)
+  showKeys() {
+    const pad = this.input.lastDevice === 'pad';
+    document.body.classList.toggle('pad', pad);
+    const L = (a) => this.input.label(a);
+    const title = document.getElementById('title-keys');
+    if (title) title.textContent = pad ? 'Stick or d-pad and A to choose, B to go back.' : 'Arrow keys and Enter to choose.';
+    const mem = document.querySelector('.mem-keys');
+    if (mem) mem.textContent = pad ? 'A: next · B: skip' : 'Space: next · Esc: skip';
+    const teach = document.getElementById('teach-key');
+    if (teach) teach.textContent = L('grapple');
+    if (this.session) this.session.updateKeys();
   }
 
   // ------------------------------------------------------------------ settings

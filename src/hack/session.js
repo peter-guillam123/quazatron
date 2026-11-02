@@ -96,7 +96,8 @@ export class HackSession {
     this.round = new HackRound(this.board, { timer: s.timer, pulsers: [0, 0] });
     this.startPulsers = [0, 0];
     this.preview = null;
-    let how = this.canSwap ? 'Choose a side with left and right, then press Space.' : 'Press Space to start.';
+    const go = this.game.input.label('grapple');
+    let how = this.canSwap ? `Choose a side with left and right, then press ${go}.` : `Press ${go} to start.`;
     if (this.dented) how = `It's ${this.dented > 1 ? 'critical' : 'open'}: ${this.dented === 1 ? 'one pulser' : `${this.dented} pulsers`} short. ${how}`;
     if (this.late) how = `It's ${this.late}, so it starts late. ${how}`;
     if (this.guide) this.game.announce(`${this.title}. ${this.speak(this.sign)}`);
