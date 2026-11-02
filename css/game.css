@@ -132,6 +132,12 @@ button, .button { font: inherit; }
 .gazette .stats div { display: contents; }
 .gazette .stats dt { font-family: var(--mono); font-size: 11.5px; color: #4a4336; padding: 1px 0; border-bottom: 1px dotted #b8ad95; }
 .gazette .stats dd { margin: 0; font-family: var(--display); font-weight: 700; font-size: 13px; color: #111; text-align: right; padding: 1px 0; border-bottom: 1px dotted #b8ad95; }
+.gazette .gz-photo { margin: 0 0 12px; }
+.gazette .gz-photo img, .gazette .gz-also img { display: block; width: 100%; height: auto; border: 1px solid #1c1a16; background: #e3dccb; }
+.gazette .gz-photo figcaption, .gazette .gz-also figcaption { margin-top: 5px; font-family: var(--mono); font-size: 11.5px; line-height: 1.4; color: #3a352c; }
+.gazette .gz-credit { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #7a705c; white-space: nowrap; }
+.gazette .gz-also { margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid #1c1a16; }
+.gazette .gz-also-h { margin: 0 0 6px; font-family: var(--display); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #1c1a16; }
 .gazette .gz-weather, .gazette .gz-classified { font-size: 13px; color: #3a352c; }
 .gazette .gz-classified { border-top: 1px solid #1c1a16; margin-top: 10px; padding-top: 8px; font-family: var(--mono); font-size: 12px; }
 .gazette .gz-weather b, .gazette .gz-classified b { font-family: var(--display); letter-spacing: 0.1em; text-transform: uppercase; font-size: 11px; margin-right: 6px; }

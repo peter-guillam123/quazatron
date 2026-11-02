@@ -31,6 +31,7 @@ import { MEMORIES, ENDING } from './story/memories.js';
 import { MemoryPlayer } from './memory.js';
 import { BOSSES, RELICS, RELIC_ORDER, relicsLeft } from './story/relics.js';
 import { frontPage } from './story/gazette.js';
+import { Photographer, halftone } from './render/photo.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
@@ -42,6 +43,7 @@ export class Game {
     this.meta = loadMeta();
     this.settings = this.meta.settings;
     this.renderer = new Renderer(document.getElementById('view'));
+    this.photo = new Photographer(this.renderer);
     this.env = new Environment(this.renderer.scene);
     this.fx = new Fx(this.renderer.scene);
     this.input = new Input();
@@ -163,6 +165,7 @@ export class Game {
         for (const d of w.droids) d.syncModel(dt * 0.15);
       } else if (this.state === 'dying' || this.state === 'won') {
         w.update(dt * 0.3);
+        if (this.deathShot) this.takeDeathShot(dt * 0.3);
       } else if (this.state === 'ascending') {
         this.updateAscend(dt);
       } else if (this.state === 'memory') {
@@ -215,6 +218,8 @@ export class Game {
 
     this.fx.update(dt, r.camera);
     r.render(dt);
+    // the Gazette's pictures are taken while this frame is still on the canvas
+    this.photo.develop();
     this.ui.tickPortraits(performance.now() / 1000);
   }
 
@@ -506,6 +511,7 @@ export class Game {
     saveMeta(this.meta);
     if (r.deckStats) r.deckStats.klp1 = true;
     this.ui.banner('KLP-1', first ? 'The first of you' : `Meeting ${this.meta.klp1Met}`, 'rival');
+    this.pressPhoto(70, () => [d.pos, p.pos], `KLP-1 drops in on ${w.deck.name}.`, 900);
     this.audio.play('spawn', { at: d.pos });
     w.fx.ring(d.pos, 0xff6a5a, 2.2, 0.7);
     setTimeout(() => { if (d.alive) this.speak(d, first ? 'SO NAN BUILT ANOTHER ONE.' : line('spot', 'klp1'), true); }, 900);
@@ -1053,6 +1059,7 @@ export class Game {
     this.audio.play('turn', { at: d.pos });
     this.run.stats.turned = (this.run.stats.turned || 0) + 1;
     this.toast(`${FAMILIES[d.family].name} ${d.cls} joins your gang.`);
+    this.pressPhoto(30, () => [d.pos, w.player.pos], `A ${FAMILIES[d.family].name} ${d.cls} joins KLP-2's gang.`, 400);
     setTimeout(() => this.say(d, 'turned', true), 600);
     this.hintOnce('gang', 'Your gang follows you and rides the lift with you. Three at most.', 6);
   }
@@ -1315,6 +1322,7 @@ export class Game {
     if (this.run.deckStats) this.run.deckStats.ringouts++;
     const n = scrapFor(d.cls) * 2;
     const word = ['', '', 'Double', 'Triple', 'Quadruple'][this.koStreak] || `${this.koStreak} in a row:`;
+    this.pressPhoto(60 + (d.bounty ? 10 : 0) + (d.boss ? 30 : 0), () => [d.pos, by && by.pos], `Ring-out: ${this.droidName(d)} goes over the edge on ${this.world.deck.name}.`);
     const title = this.koStreak > 1 ? `${word} ring out` : 'Ring out';
     const who = by.isPlayer ? '' : by.family ? ` · ${FAMILIES[by.family].name} did it` : ' · your turret did it';
     this.ui.banner(title, `+${n} scrap${who}`);
@@ -1354,6 +1362,7 @@ export class Game {
     if (d.bountyDone) return;
     d.bountyDone = true;
     const w = this.world, p = w.player;
+    this.pressPhoto(80, () => [d.pos, p.pos], `Bounty claimed: ${d.bounty}, a ${FAMILIES[d.family].name} ${d.cls}, on ${w.deck.name}.`, 120);
     const n = 10 + 3 * Math.min(5, this.run.deck);
     this.addScrap(n, 0, true);
     this.run.stats.bounties = (this.run.stats.bounties || 0) + 1;
@@ -1714,6 +1723,7 @@ export class Game {
   // you get to choose which piece to take back, once any salvage is done.
   bossBeaten(d, how) {
     const n = this.world.deck.n, boss = d.boss;
+    this.pressPhoto(100, () => [d.pos, this.world.player.pos], `${boss.name} goes down on ${this.world.deck.name}.`, 120);
     this.meta.bossWins = this.meta.bossWins || {};
     this.meta.bossWins[n] = (this.meta.bossWins[n] || 0) + 1;
     saveMeta(this.meta);
@@ -1777,6 +1787,7 @@ export class Game {
 
   deckClaimed() {
     const w = this.world, p = w.player;
+    this.pressPhoto(50, () => [p.pos], `Every machine on ${w.deck.name} turns cyan.`, 400);
     this.addData(dataFor('claim'));
     p.integrity = Math.min(p.maxIntegrity, p.integrity + p.maxIntegrity * 0.3);
     this.ui.banner('Deck claimed', 'Every machine here is yours · a firmware chip at your feet', 'gold');
@@ -1896,10 +1907,87 @@ export class Game {
     p.state = 'dead';
     this.state = 'dying';
     w.explode(p.pos.clone().setY(p.pos.y + 0.4), PLAYER_COLOUR, 1.6);
-    p.model.group.visible = false;
+    // the Gazette's photographer catches the moment, then KLP-2 is gone
+    this.deathShot = { t: 0.08, by: by && by.pos ? by : null, cap: this.deathCaption(src) };
     this.ui.setPrompt(null);
     this.ui.announce('KLP-2 destroyed.', true);
     setTimeout(() => this.endRun(false, 'destroyed'), 2200);
+  }
+
+  // Print the issue's pictures onto the front page, as halftones.
+  async fillPhotos(issue) {
+    const token = (this.photoToken = (this.photoToken || 0) + 1);
+    const put = async (fig, img, capEl, url, cap, opts) => {
+      fig.hidden = !url;
+      if (!url) return;
+      capEl.textContent = cap || '';
+      img.alt = cap ? `Photograph: ${cap}` : 'Photograph';
+      img.removeAttribute('src');
+      const printed = await halftone(url, opts);
+      if (token === this.photoToken) img.src = printed || url;
+    };
+    const $ = (id) => document.getElementById(id);
+    await Promise.all([
+      put($('gz-photo'), $('gz-photo-img'), $('gz-photo-cap'), issue && issue.photo, issue && issue.cap, {}),
+      put($('gz-also'), $('gz-also-img'), $('gz-also-cap'), issue && issue.also, issue && issue.alsoCap, { cell: 4.6 }),
+    ]);
+  }
+
+  takeDeathShot(dt) {
+    const s = this.deathShot, w = this.world, p = w.player, r = this.run;
+    s.t -= dt;
+    if (s.t > 0) return;
+    this.deathShot = null;
+    // fallen into the void: frame the edge it went over
+    const at = p.pos.y < p.lastSafe.y - 2 ? p.lastSafe.clone() : p.pos.clone();
+    at.y += 0.4;
+    const pts = [at];
+    if (s.by && s.by.alive !== false && s.by.pos.distanceTo(at) < 10) pts.push(s.by.pos.clone().setY(s.by.pos.y + 0.5));
+    this.deathInFlight = true;
+    this.photo.take(pts, {}, (url) => {
+      this.deathInFlight = false;
+      p.model.group.visible = false;
+      const shot = url ? { url, cap: s.cap } : null;
+      if (r && shot) r.photo = shot;
+      if (this.afterDeathShot) { const f = this.afterDeathShot; this.afterDeathShot = null; f(shot); }
+    });
+  }
+
+  // The caption under the picture of the end, written from what did it.
+  deathCaption(src) {
+    const deck = this.world.deck.name, by = src.by;
+    if (by && by.boss && by.team === 'h') return `${by.boss.name} wrecks KLP-2 on ${deck}.`;
+    if (by && by.family === 'klp1') return `KLP-1 wrecks KLP-2 on ${deck}.`;
+    if (by && by.family && FAMILIES[by.family]) return `${by.bounty ? `${by.bounty}, a ${FAMILIES[by.family].name} ${by.cls},` : `A ${FAMILIES[by.family].name} ${by.cls}`} wrecks KLP-2 on ${deck}.`;
+    if (src.kind === 'void') return `KLP-2 goes over the edge on ${deck}.`;
+    if (src.kind === 'feedback') return `A hack goes wrong for KLP-2 on ${deck}.`;
+    if (src.kind === 'hazard') return `KLP-2 caught on a live floor on ${deck}.`;
+    if (by && by.kind === 'turret') return `A turret gets KLP-2 on ${deck}.`;
+    return `KLP-2's last moment on ${deck}.`;
+  }
+
+  // The run's biggest moment, for "Also in this issue": a picture is taken
+  // when something bigger happens than anything so far. `points` is a
+  // function, so the picture frames where things are when it's taken.
+  pressPhoto(score, points, cap, delay = 250) {
+    const r = this.run;
+    if (!r || r.bestPending || (r.best && r.best.score >= score)) return;
+    r.bestPending = true;
+    setTimeout(() => {
+      if (this.run !== r || !this.world) { r.bestPending = false; return; }
+      const pts = points().filter(Boolean).map((v) => v.clone().setY(v.y + 0.4));
+      this.photo.take(pts, { w: 360, h: 240 }, (url) => {
+        r.bestPending = false;
+        if (url && (!r.best || r.best.score < score)) r.best = { url, cap, score };
+      });
+    }, delay);
+  }
+
+  droidName(d) {
+    if (d.boss && d.team === 'h') return d.boss.name;
+    if (d.family === 'klp1') return 'KLP-1';
+    const F = FAMILIES[d.family];
+    return d.bounty ? `${d.bounty}, a ${F.name} ${d.cls},` : `a ${F.name} ${d.cls}`;
   }
 
   victory() {
@@ -2005,6 +2093,28 @@ export class Game {
     document.getElementById('gz-date').textContent = prettyDate(today());
     document.getElementById('gz-weather').textContent = page.weather;
     document.getElementById('gz-classified').textContent = page.classified;
+    // the photographs
+    const deckName = this.world ? this.world.deck.name : '';
+    const issue = {
+      at: Date.now(), date: prettyDate(today()), edition: r.daily ? 'Today\'s tower edition' : page.edition,
+      head: page.head, stand: page.stand, lead: page.body[0] || '', won, deck: r.deck, deckName,
+      photo: null, cap: null, also: r.best ? r.best.url : null, alsoCap: r.best ? r.best.cap : null,
+    };
+    this.fillPhotos(null);
+    const file = (shot) => {
+      if (shot) { issue.photo = shot.url; issue.cap = shot.cap; }
+      this.fillPhotos(issue);
+    };
+    if (r.photo) file(r.photo);
+    else if (this.deathShot || this.deathInFlight) {
+      // the picture of the end is still being taken: wait for it
+      this.afterDeathShot = file;
+      if (this.deathShot) { this.deathShot.t = 0; this.takeDeathShot(0); }
+    } else if (this.world && this.world.player) {
+      // no picture of the end yet (you left, or the roof went unseen): take one now
+      const p = this.world.player;
+      this.photo.take([p.pos.clone().setY(p.pos.y + 0.4)], {}, (url) => file(url && { url, cap: won ? 'The Mainframe, claimed.' : `KLP-2, last seen on ${deckName}.` }));
+    } else file(null);
     const st = r.stats;
     document.getElementById('end-stats').innerHTML = [
       ['Highest deck', r.deck === 6 ? 'Mainframe' : r.deck], ['Droids hacked', st.hacked], ['Destroyed', st.destroyed + st.voided],

@@ -161,6 +161,8 @@ export const ENDING = {
   title: 'The roof', head: 'The top of the tower',
   deckSpec: { n: 7, name: 'The roof', ink: 0x2ef2ff, paper: 0x2a1f3c, fog: 0x34264a },
   retro: false,
+  // the Gazette's photographer is up there too, for the special edition
+  photo: 2, photoCaption: 'KLP-2 on the roof. The city is still its own.',
   map: [
     '   .......   ',
     '  .........  ',
