@@ -55,7 +55,7 @@ export class Brain {
   provoke() {
     this.hitT = 2.5;
     if (this.state === 'patrol') { this.state = 'chase'; this.seenT = 1; }
-    if (this.temper === 'timid') this.fleeT = 2.5;
+    if (this.temper === 'timid' && !this.d.lesson) this.fleeT = 2.5;
     if (this.d.cloaked) this.d.cloaked = false;
   }
 
@@ -226,7 +226,11 @@ export class Brain {
         return;
       }
     }
-    if (temper === 'timid' || this.fleeT > 0) {
+    if (temper === 'timid' && d.lesson === 'hack') {
+      // an induction Mite is there to be rammed and hacked: it cowers, it
+      // doesn't run off
+      mx = 0; mz = 0;
+    } else if (temper === 'timid' || this.fleeT > 0) {
       mx = -ux; mz = -uz;
       if (!this.fleeing && !this.ally) { this.fleeing = true; w.game.onFlee?.(d); }
     } else if (arm === 'laser') {

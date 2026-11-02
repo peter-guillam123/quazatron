@@ -554,6 +554,19 @@ body.reduced .art *, body.reduced .thumb-wait, body.reduced .entry, body.reduced
   .panel { padding: 20px 16px; }
 }
 
+/* the first droid you break open: everything stops, and this says hack it */
+.teach { position: fixed; inset: 0; z-index: 7; pointer-events: none; background: radial-gradient(circle at var(--x, 50%) calc(var(--y, 40%) + 70px), rgba(3, 4, 8, 0) 70px, rgba(3, 4, 8, 0.62) 240px); }
+.teach-sign { position: absolute; left: var(--x, 50%); top: var(--y, 40%); transform: translate(-50%, calc(-100% - 34px)); padding: 16px 30px 18px; text-align: center; white-space: nowrap; background: rgba(4, 8, 14, 0.86); border: 2px solid rgba(46, 242, 255, 0.9); border-radius: 18px; box-shadow: 0 0 40px rgba(46, 242, 255, 0.28); }
+.teach-top { font-family: var(--mono); font-size: 19px; color: #a9f6ff; letter-spacing: 0.04em; }
+.teach-main { font-family: var(--display); font-weight: 700; font-size: 44px; line-height: 1.15; color: #fff; text-shadow: 0 0 18px rgba(46, 242, 255, 0.55); margin-top: 4px; }
+.teach-main kbd { display: inline-block; vertical-align: 6px; margin-left: 10px; padding: 2px 16px 4px; font-family: var(--display); font-size: 34px; font-weight: 700; color: #021014; background: var(--you); border-radius: 10px; text-shadow: none; box-shadow: 0 0 22px rgba(46, 242, 255, 0.6); }
+.teach-arrow { position: absolute; left: var(--x, 50%); top: var(--y, 40%); width: 0; height: 0; transform: translate(-50%, -30px); border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 20px solid var(--you); filter: drop-shadow(0 0 8px rgba(46, 242, 255, 0.8)); animation: teach-bob 0.9s ease-in-out infinite; }
+.teach.in .teach-sign { animation: teach-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.teach.in .teach-main kbd { animation: teach-key 1.1s ease-in-out 0.4s infinite; }
+@keyframes teach-in { from { opacity: 0; transform: translate(-50%, calc(-100% - 10px)) scale(0.85); } }
+@keyframes teach-bob { 50% { transform: translate(-50%, -22px); } }
+@keyframes teach-key { 50% { box-shadow: 0 0 36px rgba(46, 242, 255, 0.95); transform: scale(1.06); } }
+body.reduced .teach-arrow, body.reduced .teach.in .teach-sign, body.reduced .teach.in .teach-main kbd { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   .deck-card { animation: none; opacity: 1; }

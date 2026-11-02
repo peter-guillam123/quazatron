@@ -192,6 +192,24 @@ export class UI {
     this.announce(this.el.hint.textContent);
   }
 
+  // The big call-out over the first droid you break open.
+  showTeach(key) {
+    const el = $('#teach');
+    $('#teach-key').textContent = key;
+    el.hidden = false;
+    el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+  }
+
+  placeTeach(at, renderer) {
+    const out = { x: 0, y: 0, visible: false };
+    renderer.project(at, out);
+    const el = $('#teach');
+    el.style.setProperty('--x', `${out.x}px`);
+    el.style.setProperty('--y', `${out.y}px`);
+  }
+
+  hideTeach() { $('#teach').hidden = true; }
+
   holdHints(secs) { this.hintHold = Math.max(this.hintHold, secs); }
 
   clearHint() { this.el.hint.classList.remove('on'); this.hintT = 0; this.hintQ.length = 0; this.hintHold = 0; }
