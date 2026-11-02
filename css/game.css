@@ -541,6 +541,7 @@ body.reduced .art *, body.reduced .thumb-wait, body.reduced .entry, body.reduced
   .hud-deck { left: auto; right: 16px; transform: none; top: 200px; min-width: 0; text-align: right; }
   .claim-row { justify-content: flex-end; }
   .hint { top: auto; bottom: 96px; }
+  .loop { left: 16px; transform: none; top: 196px; }
   .radio { bottom: 168px; }
   body.radio-on .prompt { bottom: 262px; }
 }
@@ -554,6 +555,18 @@ body.reduced .art *, body.reduced .thumb-wait, body.reduced .entry, body.reduced
   .panel { padding: 20px 16px; }
 }
 
+/* the induction's strip: the whole loop, the step you're on lit */
+.loop { position: absolute; left: 50%; top: 112px; transform: translateX(-50%); display: flex; gap: 4px; margin: 0; padding: 5px; list-style: none; background: rgba(8, 10, 16, 0.88); border: 1px solid var(--line); border-radius: 12px; font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+.loop li { display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 9px; border-radius: 8px; color: #6b7385; transition: color 0.3s, background 0.3s; }
+.loop li b { display: inline-grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 11px; letter-spacing: 0; }
+.loop li.done { color: var(--you); }
+.loop li.done b { font-size: 0; background: rgba(46, 242, 255, 0.15); }
+.loop li.done b::after { content: '✓'; font-size: 12px; }
+.loop li.now { color: #021014; background: var(--you); box-shadow: 0 0 18px rgba(46, 242, 255, 0.45); animation: loop-now 1.3s ease-in-out infinite; }
+.loop li.now b { border-color: #021014; }
+.loop.all-done { border-color: rgba(46, 242, 255, 0.6); }
+@keyframes loop-now { 50% { box-shadow: 0 0 30px rgba(46, 242, 255, 0.8); } }
+body.reduced .loop li.now { animation: none; }
 /* the first droid you break open: everything stops, and this says hack it */
 .teach { position: fixed; inset: 0; z-index: 7; pointer-events: none; background: radial-gradient(circle at var(--x, 50%) calc(var(--y, 40%) + 70px), rgba(3, 4, 8, 0) 70px, rgba(3, 4, 8, 0.62) 240px); }
 .teach-sign { position: absolute; left: var(--x, 50%); top: var(--y, 40%); transform: translate(-50%, calc(-100% - 34px)); padding: 16px 30px 18px; text-align: center; white-space: nowrap; background: rgba(4, 8, 14, 0.86); border: 2px solid rgba(46, 242, 255, 0.9); border-radius: 18px; box-shadow: 0 0 40px rgba(46, 242, 255, 0.28); }

@@ -138,6 +138,7 @@ export class Game {
     if (this.ui.screen) this.ui.pollPad(this.input);
 
     if (this.state === 'title' || (this.titleScene && !this.world)) this.updateTitleScene(dt);
+    this.updateLoop(dt);
 
     if (this.world) {
       const w = this.world;
@@ -1128,6 +1129,23 @@ export class Game {
       this.audio.play('repair', { at: p.pos });
       this.announce('Repair kit: patched up');
     }
+  }
+
+  // In the induction, the strip across the top follows the droid the lesson
+  // is about: the Mite, then the Spark. It shows the whole loop, lights the
+  // step you're on, and goes once that droid is dealt with.
+  updateLoop(dt) {
+    const w = this.world;
+    if (!w || !this.inInduction) { this.ui.setLoop(null); return; }
+    if (this.loopDoneT > 0) { this.loopDoneT -= dt; if (this.loopDoneT > 0) return; }
+    const d = w.droids.find((o) => o.lesson === 'hack' && !o.loopDone && w.build.rooms[o.room] && w.build.rooms[o.room].visited);
+    if (!d) { this.ui.setLoop(null); return; }
+    const o = this.offerState;
+    let step;
+    if (o && o.kind === 'salvage' && o.target === d) step = 'take';
+    else if (d.team === 'k' || d.state !== 'active' || !d.alive) { step = 'done'; d.loopDone = true; this.loopDoneT = 2.5; }
+    else step = d.sealed ? 'ram' : 'hack';
+    this.ui.setLoop({ step, take: d.give ? `Take its ${MODULES[d.give].name.toLowerCase()}` : 'Turn it or strip it' });
   }
 
   // The first time you break a droid open, everything slows to a stop and a

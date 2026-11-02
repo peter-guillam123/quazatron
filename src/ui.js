@@ -192,6 +192,26 @@ export class UI {
     this.announce(this.el.hint.textContent);
   }
 
+  // The induction's strip across the top: ram it open, hack it, take your
+  // pick, with the step you're on lit and the ones behind you ticked.
+  setLoop(st) {
+    const el = $('#loop');
+    const key = st ? `${st.step}|${st.take}` : '';
+    if (key === this.loopKey) return;
+    this.loopKey = key;
+    el.hidden = !st;
+    if (!st) return;
+    $('#loop-take').textContent = st.take;
+    const order = ['ram', 'hack', 'take'];
+    const at = st.step === 'done' ? 3 : order.indexOf(st.step);
+    el.querySelectorAll('li').forEach((li, i) => {
+      li.classList.toggle('done', i < at);
+      li.classList.toggle('now', i === at);
+      li.setAttribute('aria-current', i === at ? 'step' : 'false');
+    });
+    el.classList.toggle('all-done', st.step === 'done');
+  }
+
   // The big call-out over the first droid you break open.
   showTeach(key) {
     const el = $('#teach');
