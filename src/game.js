@@ -891,9 +891,13 @@ export class Game {
   startHack(target, opts = {}) {
     const spec = this.world.hackSpecFor(target);
     // until you've won a board of each kind, hacks are lessons
-    const i = this.meta.lesson || 0;
+    let i = this.meta.lesson || 0;
+    // the induction's teaching droids always teach their lesson, so a
+    // returning player replaying it sees what a new one sees
+    const forced = this.inInduction && target.hackLesson != null;
+    if (forced) i = target.hackLesson;
     const lesson = LESSONS[i] || null;
-    this.session = new HackSession(this, target, spec, { ...opts, lesson, lessonIndex: i });
+    this.session = new HackSession(this, target, spec, { ...opts, lesson, lessonIndex: i, forced });
     this.state = 'hack';
     this.audio.setHack(true);
     this.renderer.zoomTarget = 0.72;
@@ -911,7 +915,8 @@ export class Game {
     this.meta.hacks = (this.meta.hacks || 0) + 1;
     if (session.lesson) {
       this.meta.lessonSeen = session.opts.lessonIndex;
-      if (won) this.meta.lesson = session.opts.lessonIndex + 1;
+      // never back: a replayed lesson doesn't undo the ones after it
+      if (won) this.meta.lesson = Math.max(this.meta.lesson || 0, session.opts.lessonIndex + 1);
     }
     if (session.sawHidden) this.meta.seenHidden = true;
     saveMeta(this.meta);
@@ -1575,7 +1580,9 @@ export class Game {
         this.world.fx.burst(up, PLAYER_COLOUR, 20, 2.6, 0.45, 0.1, 2);
         this.world.fx.ring(d.pos, PLAYER_COLOUR, 1.1, 0.35);
         // the first droid you ever break open stops the game: this is the moment to hack
-        if (level === 1 && mine && !(this.meta.taught || {}).open && this.state === 'play') this.teachOpen(d);
+        // (and in the induction, the Mite that teaches it does so every time)
+        const teach = !(this.meta.taught || {}).open || (this.inInduction && d.hackLesson === 0 && !d.taughtShown);
+        if (level === 1 && mine && teach && this.state === 'play') { d.taughtShown = true; this.teachOpen(d); }
         else if (level === 1) this.hintOnce('open', `Open. <b>${this.input.label('grapple')}</b> to hack it, or shove it off an edge.`, 6);
         else this.hintOnce('critical', 'Critical: an easy hack, but if you turn it, it joins this battered.', 6);
       }

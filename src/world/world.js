@@ -156,6 +156,7 @@ export class World {
       d.leash = this.build.induction ? s.room : null;
       d.lesson = s.lesson || null;
       d.give = s.give || null;
+      d.hackLesson = s.hackLesson ?? null;
       d.brain = new Brain(d, this);
       this.root.add(d.model.group);
       this.droids.push(d);

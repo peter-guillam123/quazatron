@@ -24,7 +24,10 @@ beats them in a circuit-board duel and steals their parts.
   opponent until a cell changes hands; a new lesson opens on a big sign
   (`HackSession.sign`, drawn by `HackView.drawSign`). In the induction a strip
   shows ram it open, hack it, take it (`Game.updateLoop`, `UI.setLoop`), the
-  Mite cowers instead of fleeing, and a lost hack does no harm.
+  Mite cowers instead of fleeing, and a lost hack does no harm. The
+  induction's Mite and Spark always teach hack lessons 0 and 1 (`hackLesson`,
+  `opts.forced`), and the Mite always freezes, so a replay teaches everything
+  again; `meta.lesson` only ever goes up.
 - Fun layer (October 2026 round): scrap and fabricators, ring-outs, clean
   hacks (win by 4+: two parts), turning droids into a gang of up to three,
   speech bubbles, a named bounty per generated deck, today's tower (seeded
