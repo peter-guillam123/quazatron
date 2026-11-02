@@ -126,6 +126,15 @@ beats them in a circuit-board duel and steals their parts.
   and comes back if it falls; 'ringout': can't be wrecked) keeps each lesson
   from being skipped, and `give` makes its hack offer that one part. Floor
   signs size themselves to their words (`src/render/signs.js`).
+- Hack clock and 1986 drawing (November 2026): the hack's time is a thick
+  bar with a notch a second, amber under half, red for the last three with
+  a huge 3-2-1 behind the board (`HackView.drawFuse`, `drawClock`,
+  `drawCountdown`); the music speeds up and steps up in key from halfway
+  (`Audio.setHackRush`). `src/render/spectrum.js` draws line art: outlines
+  from folds and jumps in 1/depth (a depth texture, not textures or
+  brightness), droids filled solid from a mask pass (`DROID_ROOTS`,
+  `DROID_LAYER`, see-through parts left out), only the brightest lights
+  filled, no dither. Memories in that style hold the camera still.
 - Gazette photos (November 2026): `src/render/photo.js` takes pictures
   straight after a frame is drawn (`Photographer.take`, `develop` in the
   frame loop), framed on given points, grey and small, and prints them as a
