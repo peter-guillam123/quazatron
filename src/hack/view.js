@@ -109,11 +109,15 @@ export class HackView {
     this.drawTally(s, L, colour);
     // the timer: a fuse burning in from both ends
     const tf = s.phase === 'choose' ? 1 : Math.max(0, 1 - R.time / R.timer);
-    this.drawFuse(L, tf);
-    if (s.phase === 'play') this.drawClock(L, R.timer - R.time, tf);
+    const left = s.phase === 'play' ? R.timer - R.time : R.timer;
+    this.drawFuse(L, tf, left, R.timer);
+    if (s.phase === 'play') this.drawClock(L, left, tf);
 
     // the line along the top, once its big sign has been read
     if (s.callout && !s.sign) this.drawCallout(s, L);
+
+    // the last three seconds, counted out big behind the board
+    if (s.phase === 'play' && !s.guide && left > 0 && left <= 3) this.drawCountdown(L, left);
 
     // ---- the selected wire's path, worked out fresh each frame as locks light
     const ghost = s.phase === 'play' && s.cursor != null ? pathOf(B.sides[s.playerSide], s.cursor) : null;
@@ -287,7 +291,7 @@ export class HackView {
     const portX = s.playerSide === 0 ? L.x + 34 : 2 * L.cx - (L.x + 34);
     if (sg.focus === 'cursor' && s.cursor != null) this.spotlight(portX, rowY(s.cursor), 16);
     if (sg.focus === 'cell' && s.guideCell != null) this.spotlight(L.cx, rowY(s.guideCell), Math.min(L.rowH * 0.6, 36));
-    if (sg.focus === 'clock') this.spotlight(L.cx, L.y + 74, 24);
+    if (sg.focus === 'clock') this.spotlight(L.cx, L.y + 76, 26);
     if (fit < 1) { ctx.translate(cx, cy); ctx.scale(fit, fit); ctx.translate(-cx, -cy); }
     const bx = cx - bw / 2, by = cy - bh / 2;
     // the panel
@@ -419,46 +423,94 @@ export class HackView {
     ctx.restore();
   }
 
-  drawFuse(L, tf) {
+  // The clock's colour: calm, then amber past halfway, then red for the
+  // last three seconds.
+  timeColour(left, tf) {
+    if (left <= 3) return '#ff4d4d';
+    if (tf < 0.5) return '#ffb547';
+    return '#e8edf5';
+  }
+
+  // The time left, as a thick bar burning in from both ends towards the
+  // middle, with a notch for every second. It pulses red at the end.
+  drawFuse(L, tf, left, total) {
     const ctx = this.ctx;
-    const x = L.x + 22, w = L.W - 44, y = L.y + 54;
+    const x = L.x + 22, w = L.W - 44, y = L.y + 53, h = 8;
+    const col = this.timeColour(left, tf);
+    const urgent = left <= 3 && tf > 0;
     ctx.save();
-    ctx.fillStyle = '#1a1f2a';
-    ctx.fillRect(x, y, w, 2);
-    const hot = tf < 0.25;
-    const len = w * tf, x0 = L.cx - len / 2, x1 = L.cx + len / 2;
-    ctx.fillStyle = hot ? '#ff5a5a' : '#c9b48a';
-    ctx.fillRect(x0, y, len, 2);
+    ctx.fillStyle = '#161b25';
+    roundRect(ctx, x, y, w, h, 4); ctx.fill();
+    const len = w * tf, x0 = L.cx - len / 2;
+    if (len > 0) {
+      const beat = urgent && !this.reduced ? 0.55 + 0.45 * Math.abs(Math.sin(this.t * Math.PI * 2)) : 1;
+      ctx.globalAlpha = beat;
+      ctx.shadowColor = col; ctx.shadowBlur = urgent ? 18 : 8;
+      ctx.fillStyle = col;
+      roundRect(ctx, x0, y, len, h, 4); ctx.fill();
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+    // a notch for each second, so you can count what's left
+    ctx.fillStyle = 'rgba(5,7,12,0.55)';
+    for (let i = 1; i < total; i++) {
+      const d = (w / 2) * (i / total);
+      ctx.fillRect(L.cx - d - 0.75, y, 1.5, h);
+      ctx.fillRect(L.cx + d - 0.75, y, 1.5, h);
+    }
     // a spark at each burning end
     if (tf > 0 && tf < 1) {
-      for (const ex of [x0, x1]) {
+      for (const ex of [x0, x0 + len]) {
         const f = this.reduced ? 1 : 0.7 + Math.random() * 0.6;
-        ctx.shadowColor = hot ? '#ff7a5a' : '#ffd890'; ctx.shadowBlur = 10 * f;
+        ctx.shadowColor = col; ctx.shadowBlur = 12 * f;
         ctx.fillStyle = '#fff3d0';
-        ctx.beginPath(); ctx.arc(ex, y + 1, 2.4 * f, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(ex, y + h / 2, 3.4 * f, 0, Math.PI * 2); ctx.fill();
       }
     }
     ctx.restore();
   }
 
-  // Seconds left, big, between the two pulse counts.
+  // The seconds left, in a ring under the bar.
   drawClock(L, left, tf) {
     const ctx = this.ctx;
-    const x = L.cx, y = L.y + 74, r = 15;
-    const hot = tf < 0.25;
+    const x = L.cx, y = L.y + 76, r = 16;
+    const col = this.timeColour(left, tf);
     ctx.save();
-    ctx.fillStyle = 'rgba(5,7,12,0.9)';
+    ctx.fillStyle = 'rgba(5,7,12,0.92)';
     ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#2a3140'; ctx.lineWidth = 3;
+    ctx.strokeStyle = '#2a3140'; ctx.lineWidth = 3.5;
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = hot ? '#ff5a5a' : '#e8edf5';
+    ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = left <= 3 ? 14 : 0;
     ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * tf); ctx.stroke();
-    ctx.fillStyle = hot ? '#ff8a7a' : '#e8edf5';
-    ctx.font = '700 14px "Chakra Petch", sans-serif';
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = col;
+    ctx.font = '700 18px "Chakra Petch", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(Math.max(0, Math.ceil(left))), x, y + 0.5);
+    ctx.fillText(String(Math.max(0, Math.ceil(left))), x, y + 1);
     ctx.restore();
   }
+
+  // 3, 2, 1: huge and red, drawn behind the wires and cells so they stay readable.
+  drawCountdown(L, left) {
+    const ctx = this.ctx;
+    const n = Math.ceil(left), f = n - left;          // f: 0 to 1 through each second
+    const pop = this.reduced ? 1 : 1.18 - 0.18 * Math.min(1, f * 4);
+    const alpha = this.reduced ? 0.55 : 0.75 - 0.35 * f;
+    const cy = L.boardY + L.boardH / 2;
+    ctx.save();
+    ctx.translate(L.cx, cy);
+    ctx.scale(pop, pop);
+    const size = Math.min(L.boardH * 1.05, 420);
+    ctx.font = `700 ${size}px "Chakra Petch", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ff4d4d'; ctx.shadowBlur = 40;
+    ctx.fillStyle = `rgba(255,60,60,${alpha * 0.5})`;
+    ctx.fillText(String(n), 0, size * 0.04);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(255,110,110,${alpha})`;
+    ctx.strokeText(String(n), 0, size * 0.04);
+    ctx.restore();
+  }
+
 
   // KLP-2 on its side of the board, the opponent on theirs, each with a face
   // that shows how it's going. Outside the panel when the window is wide

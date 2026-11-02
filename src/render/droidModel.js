@@ -1,5 +1,6 @@
 // Droids are assembled from the same parts they carry. What you see on a
 // droid (treads, a laser barrel, a tesla coil) is what you can steal from it.
+import { DROID_ROOTS } from './spectrum.js';
 import * as THREE from 'three';
 import { makeNumberTexture } from './textures.js';
 
@@ -29,6 +30,8 @@ export class DroidModel {
     this.charge = 0;
     this.spin = 0;
     this.build();
+    // the 1986 mode fills droids in solid: it needs to know where they are
+    DROID_ROOTS.add(this.group);
   }
 
   build() {
@@ -504,6 +507,7 @@ export class DroidModel {
   kick(k = 1) { this.kickT = 0.09; this.kickK = k; }
 
   dispose() {
+    DROID_ROOTS.delete(this.group);
     for (const k in this.mats) this.mats[k].dispose();
     if (this.displayMat) { this.displayMat.map.dispose(); this.displayMat.dispose(); }
     if (this.bubble) this.bubble.material.dispose();

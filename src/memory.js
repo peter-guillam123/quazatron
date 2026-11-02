@@ -198,11 +198,15 @@ export class MemoryPlayer {
       }
     }
     // a slow turn round the scene
-    const a = Math.PI * 0.25 + (this.reduced ? 0 : s.t * 0.04);
-    const dist = this.reduced ? 15 : 17 - Math.min(3, s.t * 0.25);
-    r.camera.position.set(s.centre.x + Math.sin(a) * dist, 10.5, s.centre.z + Math.cos(a) * dist);
+    // old footage holds still (a moving camera makes 192 lines crawl); the
+    // full-colour ending turns slowly round the roof
+    const still = this.reduced || s.mem.retro !== false;
+    const a = Math.PI * 0.25 + (still ? 0 : s.t * 0.04);
+    const dist = still ? 18 : 17 - Math.min(3, s.t * 0.25);
+    r.camera.position.set(s.centre.x + Math.sin(a) * dist, still ? 12.5 : 10.5, s.centre.z + Math.cos(a) * dist);
     // aim a little short of the middle, so the scene sits above the caption
-    r.camera.lookAt(s.centre.x + Math.sin(a) * 3, 0, s.centre.z + Math.cos(a) * 3);
+    const short = still ? 2 : 3;
+    r.camera.lookAt(s.centre.x + Math.sin(a) * short, 0, s.centre.z + Math.cos(a) * short);
     g.env.update(dt, s.centre);
     const klp = s.actors.find((x) => x.a.kind === 'klp2' || x.a.kind === 'klp2now');
     if (klp) { g.env.playerLight.position.set(klp.x, 2.6, klp.z); g.env.playerLight.intensity = 3; }

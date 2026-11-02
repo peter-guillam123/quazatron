@@ -256,6 +256,8 @@ export class HackSession {
       }
       const left = R.timer - R.time;
       if (left < 3.5 && Math.ceil(left) !== this.lastTick) { this.lastTick = Math.ceil(left); audio.play('tick'); }
+      // the music hurries from halfway, flat out at the end
+      audio.setHackRush(held ? 0 : (0.5 - left / R.timer) / 0.5);
       if (R.over) this.endRound();
       return;
     }
@@ -284,6 +286,7 @@ export class HackSession {
 
   endRound() {
     const R = this.round;
+    this.game.audio.setHackRush(0);
     const ps = this.playerSide;
     const you = R.result[ps], them = R.result[1 - ps];
     this.phase = 'result';
