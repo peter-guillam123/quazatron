@@ -132,6 +132,16 @@ export class MemoryPlayer {
     if (s.line >= s.mem.lines.length) { this.finish(); return; }
     const l = s.mem.lines[s.line];
     s.lineT = 0;
+    // a picture for the newspaper, a moment into this line
+    if (s.mem.photo === s.line && this.game.run) {
+      const run = this.game.run;
+      setTimeout(() => {
+        if (this.m !== s) return;
+        const klp = s.actors.find((x) => x.a.kind === 'klp2now' || x.a.kind === 'klp2');
+        const at = klp ? new THREE.Vector3(klp.x, s.ground(klp.x, klp.z) + 0.5, klp.z) : s.centre;
+        this.game.photo.take([at, s.centre], {}, (url) => { if (url) run.photo = { url, cap: s.mem.photoCaption }; });
+      }, 1400);
+    }
     s.lineDur = 2.6 + l.text.length * 0.055;
     $('#mem-who').textContent = l.who || '';
     $('#mem-who').hidden = !l.who;

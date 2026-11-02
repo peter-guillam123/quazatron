@@ -126,6 +126,16 @@ beats them in a circuit-board duel and steals their parts.
   and comes back if it falls; 'ringout': can't be wrecked) keeps each lesson
   from being skipped, and `give` makes its hack offer that one part. Floor
   signs size themselves to their words (`src/render/signs.js`).
+- Gazette photos (November 2026): `src/render/photo.js` takes pictures
+  straight after a frame is drawn (`Photographer.take`, `develop` in the
+  frame loop), framed on given points, grey and small, and prints them as a
+  halftone (`halftone`). The main picture is the death (`Game.deathShot`,
+  `takeDeathShot`, KLP-2 hidden after it), the roof (`ENDING.photo`), or the
+  last moment when you leave; "Also in this issue" is the run's biggest
+  moment (`Game.pressPhoto`, scored: boss 100, bounty 80, KLP-1 70, ring-out
+  60, claim 50, recruit 30). The last ten issues are kept apart from the
+  save in `klepto.v2.issues` (`src/issues.js`) and shown in the archive's
+  Back issues.
 - Share card: `assets/social.jpg` (1200 by 630), a staged full-colour scene
   (`MemoryPlayer.stage` with `retro: false`) with the title laid over it;
   Open Graph and Twitter tags on both pages.
