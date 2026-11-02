@@ -17,6 +17,14 @@ beats them in a circuit-board duel and steals their parts.
 - Onboarding: a first run starts with the induction, a fixed deck 1 in
   `src/world/induction.js` (skippable, replayable from the title). The hack
   teaches one part per won board (`src/hack/lessons.js`, `meta.lesson`).
+  Teaching the loop (November 2026): the first droid you ever break open
+  freezes the game with a big "Now hack it" call-out (`Game.teachOpen`, state
+  `teach`, `meta.taught.open`); the first hack is a walk-through
+  (`HackSession.guide`, `meta.taught.hack`) that holds the clock and the
+  opponent until a cell changes hands; a new lesson opens on a big sign
+  (`HackSession.sign`, drawn by `HackView.drawSign`). In the induction a strip
+  shows ram it open, hack it, take it (`Game.updateLoop`, `UI.setLoop`), the
+  Mite cowers instead of fleeing, and a lost hack does no harm.
 - Fun layer (October 2026 round): scrap and fabricators, ring-outs, clean
   hacks (win by 4+: two parts), turning droids into a gang of up to three,
   speech bubbles, a named bounty per generated deck, today's tower (seeded
