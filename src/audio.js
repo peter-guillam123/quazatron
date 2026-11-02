@@ -499,13 +499,16 @@ export class Audio {
   }
 
   setIntensity(k) { this.targetIntensity = Math.max(0, Math.min(1, k)); }
-  setHack(on) { this.hackMode = on; }
+  setHack(on) { this.hackMode = on; if (!on) this.hackRush = 0; }
+  // 0 to 1 as a hack's clock runs down: the music speeds up and rises
+  setHackRush(k) { this.hackRush = Math.max(0, Math.min(1, k)); }
 
   schedule() {
     if (!this.ctx || !this.musicBus) return;
     this.intensity += (this.targetIntensity - this.intensity) * 0.05;
     const sc = this.score;
-    const stepDur = 60 / sc.bpm / 4 / (this.hackMode ? 0.75 : 1);
+    const rush = this.hackMode ? this.hackRush || 0 : 0;
+    const stepDur = 60 / sc.bpm / 4 / (this.hackMode ? 0.75 : 1) / (1 + 0.5 * rush);
     while (this.nextTime < this.ctx.currentTime + 0.15) {
       this.note(this.step, this.nextTime, stepDur);
       this.nextTime += stepDur;
@@ -518,7 +521,9 @@ export class Audio {
     const bar = Math.floor(step / 16);
     const s = step % 16;
     const [off, kind] = sc.prog[Math.floor(bar / 2) % sc.prog.length];
-    const root = sc.root + off;
+    // as a hack's clock runs out, the key steps up, a bar at a time
+    if (s === 0) this.lift = this.hackMode ? Math.round((this.hackRush || 0) * 3) : 0;
+    const root = sc.root + off + (this.lift || 0);
     const third = kind === 'm' ? 3 : 4;
     const chord = [0, third, 7, 12];
     const bus = this.musicBus;
