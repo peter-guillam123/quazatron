@@ -75,11 +75,12 @@ export class HackSession {
     this.canSwap = !L || L.side;
     this.guide = null; this.sign = null;
     const taught = this.game.meta.taught || {};
-    if (L && L.id === 'wires' && !taught.hack && this.roundIndex === 0) {
+    const forced = !!this.opts.forced;
+    if (L && L.id === 'wires' && (!taught.hack || forced) && this.roundIndex === 0) {
       // the first hack ever: walk it through, and drop the line along the top
       this.callout = null;
       this.setGuide('wires');
-    } else if (this.callout && this.fresh) {
+    } else if (this.callout && (this.fresh || forced)) {
       this.sign = { title: this.callout.title, sub: this.callout.line, keys: this.canSwap ? '{grapple} Got it' : '{grapple} Start', at: 'centre' };
     }
     // no clock while you read something new
