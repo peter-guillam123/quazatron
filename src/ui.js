@@ -192,6 +192,44 @@ export class UI {
     this.announce(this.el.hint.textContent);
   }
 
+  // The induction's strip across the top: ram it open, hack it, take your
+  // pick, with the step you're on lit and the ones behind you ticked.
+  setLoop(st) {
+    const el = $('#loop');
+    const key = st ? `${st.step}|${st.take}` : '';
+    if (key === this.loopKey) return;
+    this.loopKey = key;
+    el.hidden = !st;
+    if (!st) return;
+    $('#loop-take').textContent = st.take;
+    const order = ['ram', 'hack', 'take'];
+    const at = st.step === 'done' ? 3 : order.indexOf(st.step);
+    el.querySelectorAll('li').forEach((li, i) => {
+      li.classList.toggle('done', i < at);
+      li.classList.toggle('now', i === at);
+      li.setAttribute('aria-current', i === at ? 'step' : 'false');
+    });
+    el.classList.toggle('all-done', st.step === 'done');
+  }
+
+  // The big call-out over the first droid you break open.
+  showTeach(key) {
+    const el = $('#teach');
+    $('#teach-key').textContent = key;
+    el.hidden = false;
+    el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+  }
+
+  placeTeach(at, renderer) {
+    const out = { x: 0, y: 0, visible: false };
+    renderer.project(at, out);
+    const el = $('#teach');
+    el.style.setProperty('--x', `${out.x}px`);
+    el.style.setProperty('--y', `${out.y}px`);
+  }
+
+  hideTeach() { $('#teach').hidden = true; }
+
   holdHints(secs) { this.hintHold = Math.max(this.hintHold, secs); }
 
   clearHint() { this.el.hint.classList.remove('on'); this.hintT = 0; this.hintQ.length = 0; this.hintHold = 0; }

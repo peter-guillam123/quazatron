@@ -23,7 +23,7 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(1500);
   await step('title', async () => {
     // memories are checked on their own; here they'd only slow the ride up
-    await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.lesson = 99; window.klepto.meta.inductionDone = true; window.klepto.meta.memories = { 2: true, 3: true, 4: true, 5: true, 6: true }; });
+    await page.evaluate(() => { window.klepto.settings.hints = false; window.klepto.meta.lesson = 99; window.klepto.meta.taught = { open: true, hack: true }; window.klepto.meta.inductionDone = true; window.klepto.meta.memories = { 2: true, 3: true, 4: true, 5: true, 6: true }; });
   });
   // A new player's New run boots KLP-2 up in the rubbish, then the Heap,
   // where Nan finds it

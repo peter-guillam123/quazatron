@@ -5,7 +5,8 @@
 // Room maps use the same characters as rooms.js and are never rotated.
 // `droids` fill the room's d and k spots in order; `dozy` droids wander
 // and ignore you until something hits them. Sign positions are in the
-// room's own tiles; {move}, {grapple} and {arm} become the right keys.
+// room's own tiles; {move}, {grapple} and {arm} become the right keys. A
+// sign's `open` words replace its own once the room's lesson droid is open.
 // A droid's `lesson` keeps it from being dealt with the wrong way: 'hack'
 // can't be wrecked or put over an edge, 'ringout' can't be wrecked. `give`
 // is the one part its hack offers.
@@ -44,7 +45,7 @@ export const INDUCTION_ROOMS = {
       '   .......   ',
     ],
     droids: [{ family: 'mite', cls: 112, dozy: true, lesson: 'hack' }],
-    signs: [{ x: 7, z: 8, text: 'Bump it with {arm} till it opens', sub: 'then {grapple} to grapple it' }],
+    signs: [{ x: 7, z: 8, text: 'Ram it with {arm}', sub: 'till its seal breaks', open: { text: '{grapple} to hack it', sub: 'Its seal is broken' } }],
   },
   spark: {
     id: 'ind-spark', exits: [0, 1, 3], map: [
@@ -62,7 +63,7 @@ export const INDUCTION_ROOMS = {
     ],
     droids: [{ family: 'spark', cls: 126, dozy: true, lesson: 'hack', give: 'laser' }],
     signs: [
-      { x: 9, z: 6, text: 'Wear it down, then hack it', sub: 'Below the white line on its bar, it opens' },
+      { x: 9, z: 6, text: 'Ram it open, then hack it', sub: 'It opens below the white line on its bar', open: { text: '{grapple} to hack it', sub: 'Then take its laser' } },
       { x: 4, z: 9, text: '{drive} to swerve', sub: 'Its shots pass through you' },
       { x: 6, z: 1, text: 'Take its laser', sub: 'for the target to the north' },
     ],

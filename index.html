@@ -60,6 +60,11 @@
       <span class="stat-label">Gang</span><div class="hud-gang" id="hud-gang" role="img"></div>
     </div>
   </section>
+  <ol class="loop" id="loop" hidden aria-label="How it works">
+    <li data-step="ram"><b>1</b>Ram it open</li>
+    <li data-step="hack"><b>2</b>Hack it</li>
+    <li data-step="take"><b>3</b><span id="loop-take">Take a part</span></li>
+  </ol>
   <section class="hud-deck hud-panel" aria-label="This deck">
     <div class="hud-deck-name" id="hud-deck"></div>
     <div class="claim-row"><div class="claim" id="hud-claim"><span></span></div><span class="claim-pc" id="hud-claim-pc"></span></div>
@@ -68,6 +73,13 @@
   <div class="hud-map hud-panel"><canvas id="minimap" width="168" height="168" aria-hidden="true"></canvas></div>
   <div class="sockets" id="hud-sockets"></div>
   <div class="prompt" id="hud-prompt" aria-hidden="true"></div>
+  <div class="teach" id="teach" hidden aria-hidden="true">
+    <div class="teach-sign">
+      <div class="teach-top">It's open.</div>
+      <div class="teach-main">Now hack it <kbd id="teach-key">Space</kbd></div>
+    </div>
+    <div class="teach-arrow"></div>
+  </div>
   <div class="hint" id="hud-hint" aria-hidden="true"></div>
   <div class="toasts" id="toasts" aria-hidden="true"></div>
   <div class="banner" id="banner" hidden aria-hidden="true"><div class="banner-h"></div><div class="banner-sub"></div></div>

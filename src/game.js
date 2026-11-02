@@ -118,7 +118,7 @@ export class Game {
     const dt = Math.max(0, Math.min(1 / 20, (now - this.last) / 1000)) * (this.timeScale || 1);
     this.last = now;
     this.input.poll();
-    this.input.capture = this.state === 'play' || this.state === 'hack';
+    this.input.capture = this.state === 'play' || this.state === 'hack' || this.state === 'teach';
     // floor signs show the keys for whatever you last pressed
     if (this.world && this.world.signs.length && this.input.lastDevice !== this.signDevice) {
       this.signDevice = this.input.lastDevice;
@@ -138,6 +138,7 @@ export class Game {
     if (this.ui.screen) this.ui.pollPad(this.input);
 
     if (this.state === 'title' || (this.titleScene && !this.world)) this.updateTitleScene(dt);
+    this.updateLoop(dt);
 
     if (this.world) {
       const w = this.world;
@@ -152,6 +153,8 @@ export class Game {
         this.controlPlayer(wdt);
         w.update(wdt);
         this.run.stats.time += dt;
+      } else if (this.state === 'teach') {
+        this.updateTeach(dt);
       } else if (this.state === 'grapple') {
         this.updateGrapple(dt);
       } else if (this.state === 'hack') {
@@ -960,10 +963,10 @@ export class Game {
         if (t.kind === 'turret') this.toast('The turret works for you now.');
       }
     } else {
-      // your old firewall takes the burn
-      const dmg = this.hasRelic('firewall') ? 0 : 6 + (session.spec.cls || 100) / 60;
+      // your old firewall takes the burn; in the induction nothing does
+      const dmg = this.hasRelic('firewall') || this.inInduction ? 0 : 6 + (session.spec.cls || 100) / 60;
       if (dmg) p.damage(dmg, { force: true, kind: 'feedback' });
-      else this.toast('Your old firewall took the burn.');
+      else if (!this.inInduction) this.toast('Your old firewall took the burn.');
       this.renderer.flash('#ff3030', 0.3);
       this.renderer.addShake(0.4);
       if (t.kind === 'droid') {
@@ -972,7 +975,8 @@ export class Game {
         t.graceT = 2.5;
         if (t.brain) t.brain.provoke();
         t.model.cheer();
-        this.toast('Rejected. Feedback surge.');
+        if (this.inInduction) this.announce('Rejected. No harm done: hack it again.');
+        else this.toast('Rejected. Feedback surge.');
         setTimeout(() => this.say(t, 'rejected', true), 250);
       } else {
         t.onHackLose();
@@ -1124,6 +1128,68 @@ export class Game {
       w.fx.burst(p.pos.clone().setY(p.pos.y + 0.5), PLAYER_COLOUR, 20, 2, 0.8, 0.12, -1);
       this.audio.play('repair', { at: p.pos });
       this.announce('Repair kit: patched up');
+    }
+  }
+
+  // In the induction, the strip across the top follows the droid the lesson
+  // is about: the Mite, then the Spark. It shows the whole loop, lights the
+  // step you're on, and goes once that droid is dealt with.
+  updateLoop(dt) {
+    const w = this.world;
+    if (!w || !this.inInduction) { this.ui.setLoop(null); return; }
+    if (this.loopDoneT > 0) { this.loopDoneT -= dt; if (this.loopDoneT > 0) return; }
+    const d = w.droids.find((o) => o.lesson === 'hack' && !o.loopDone && w.build.rooms[o.room] && w.build.rooms[o.room].visited);
+    if (!d) { this.ui.setLoop(null); return; }
+    const o = this.offerState;
+    let step;
+    if (o && o.kind === 'salvage' && o.target === d) step = 'take';
+    else if (d.team === 'k' || d.state !== 'active' || !d.alive) { step = 'done'; d.loopDone = true; this.loopDoneT = 2.5; }
+    else step = d.sealed ? 'ram' : 'hack';
+    this.ui.setLoop({ step, take: d.give ? `Take its ${MODULES[d.give].name.toLowerCase()}` : 'Turn it or strip it' });
+  }
+
+  // The first time you break a droid open, everything slows to a stop and a
+  // big sign says what to do now. Nothing moves until you hack it.
+  teachOpen(d) {
+    this.meta.taught = this.meta.taught || {};
+    this.meta.taught.open = true;
+    this.meta.hints.open = true;
+    saveMeta(this.meta);
+    this.state = 'teach';
+    this.teach = { d, t: 0, ring: 0 };
+    this.hitStop = 0;
+    const p = this.world.player;
+    if (p.mod.arm) p.mod.arm.charging = false;
+    p.charge = 0;
+    this.ui.setPrompt(null);
+    this.world.updateSigns();
+    this.ui.showTeach(this.input.label('grapple'));
+    this.audio.play('unlock', { at: d.pos });
+    this.ui.announce(`It's open. Now hack it: press ${this.input.label('grapple')}.`);
+  }
+
+  updateTeach(dt) {
+    const w = this.world, T = this.teach, d = T.d;
+    T.t += dt;
+    // a quick slow-down to a stop, or straight to a stop with reduced motion
+    const k = this.reducedMotion ? 1 : Math.min(1, T.t / 0.45);
+    if (k < 1) w.update(dt * (1 - k) * 0.6);
+    else for (const o of w.droids) o.syncModel(dt * 0.15);
+    d.vel.x = d.vel.z = 0;
+    // the droid glows while it waits
+    T.ring -= dt;
+    if (T.ring <= 0 && !this.reducedMotion) { T.ring = 0.7; w.fx.ring(d.pos, PLAYER_COLOUR, 1.3, 0.6); }
+    const at = d.pos.clone(); at.y += d.model.height + 0.5;
+    this.ui.placeTeach(at, this.renderer);
+    this.ui.updateLabels(w, this.renderer);
+    const go = this.input.hit('grapple') || this.input.hit('confirm') || this.input.padHit?.('confirm');
+    // it can't be lost while it waits, but just in case
+    if (!d.alive || d.state !== 'active') { this.ui.hideTeach(); this.state = 'play'; return; }
+    if (go && T.t > 0.3) {
+      this.ui.hideTeach();
+      this.state = 'play';
+      this.input.clear();
+      this.tryGrapple(d);
     }
   }
 
@@ -1508,7 +1574,9 @@ export class Game {
         this.audio.play(level === 2 ? 'dent' : 'unlock', { at: d.pos });
         this.world.fx.burst(up, PLAYER_COLOUR, 20, 2.6, 0.45, 0.1, 2);
         this.world.fx.ring(d.pos, PLAYER_COLOUR, 1.1, 0.35);
-        if (level === 1) this.hintOnce('open', `Open. <b>${this.input.label('grapple')}</b> to hack it, or shove it off an edge.`, 6);
+        // the first droid you ever break open stops the game: this is the moment to hack
+        if (level === 1 && mine && !(this.meta.taught || {}).open && this.state === 'play') this.teachOpen(d);
+        else if (level === 1) this.hintOnce('open', `Open. <b>${this.input.label('grapple')}</b> to hack it, or shove it off an edge.`, 6);
         else this.hintOnce('critical', 'Critical: an easy hack, but if you turn it, it joins this battered.', 6);
       }
     }
@@ -1748,6 +1816,7 @@ export class Game {
 
   // Tips. None in the induction, where the floor signs do the teaching: a
   // tip held back there can still come up later in the tower.
+  get inInduction() { return !!(this.run && this.run.induction && this.run.deck === 1); }
   get quietTips() { return !this.settings.hints || !!(this.run && this.run.induction && this.run.deck === 1); }
   hint(html, secs = 6) { if (!this.quietTips) this.ui.hint(html, secs); }
   hintOnce(key, html, secs = 6) {

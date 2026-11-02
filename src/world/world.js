@@ -268,6 +268,15 @@ export class World {
     }
   }
 
+  // The induction's signs say "hack it" once their droid is open.
+  updateSigns() {
+    for (const sg of this.signs) {
+      if (!sg.sign.open) continue;
+      const d = this.droids.find((o) => o.room === sg.sign.room && o.lesson === 'hack');
+      sg.setOpen(!!d && d.alive && d.state === 'active' && d.team === 'h' && !d.sealed);
+    }
+  }
+
   roomGuards(index) {
     let n = 0;
     for (const d of this.droids) if (d.room === index && d.team === 'h' && d.alive && d.state === 'active') n++;
@@ -279,6 +288,7 @@ export class World {
     if (this.prizeT > 0) return;
     this.prizeT = 0.3;
     if (this.gates.length) this.updateGates();
+    this.updateSigns();
     for (const room of this.build.rooms) {
       const k = room.prizePickup;
       if (!k || !k.locked || !room.visited) continue;

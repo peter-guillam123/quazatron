@@ -131,6 +131,16 @@ export class FloorSign {
     this.layout();
   }
 
+  // Swap to the sign's other words (`open`), or back to its own.
+  setOpen(on) {
+    if (!this.sign.open || on === !!this.isOpen) return;
+    this.isOpen = on;
+    this.base = this.base || { text: this.sign.text, sub: this.sign.sub };
+    const w = on ? this.sign.open : this.base;
+    this.sign.text = w.text; this.sign.sub = w.sub || '';
+    this.layout();
+  }
+
   // Size the sign to its words (the keys differ for keyboard and pad), then
   // paint it. The words keep their size from sign to sign; a sign only
   // shrinks them when it would otherwise grow too wide for its room.

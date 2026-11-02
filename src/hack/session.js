@@ -1,5 +1,10 @@
 // Runs a hack from first board to last: the lesson line, side choice,
 // play, the result banner, and extra rounds for the Mainframe.
+//
+// The very first hack is a walk-through (`guide`): big signs, one step at a
+// time, with the clock and the opponent waiting until you've fired once. A
+// new lesson after that opens on a big sign of its own (`sign`), read before
+// the board, then kept as the line along the top.
 import { generateBoard, HackRound, pathOf, partsOn, DURATION, TRAVEL } from './board.js';
 import { HackAI } from './ai.js';
 import { HIDDEN_LESSON } from './lessons.js';
@@ -68,6 +73,15 @@ export class HackSession {
     this.fresh = !!this.callout && (!L || this.game.meta.lessonSeen !== this.opts.lessonIndex);
     this.phase = 'choose';
     this.canSwap = !L || L.side;
+    this.guide = null; this.sign = null;
+    const taught = this.game.meta.taught || {};
+    if (L && L.id === 'wires' && !taught.hack && this.roundIndex === 0) {
+      // the first hack ever: walk it through, and drop the line along the top
+      this.callout = null;
+      this.setGuide('wires');
+    } else if (this.callout && this.fresh) {
+      this.sign = { title: this.callout.title, sub: this.callout.line, keys: this.canSwap ? '{grapple} Got it' : '{grapple} Start', at: 'centre' };
+    }
     // no clock while you read something new
     if (!this.canSwap || (L && L.focus === 'break')) this.chooseT = Infinity;
     else if (this.fresh) this.chooseT = 10;
@@ -84,8 +98,32 @@ export class HackSession {
     let how = this.canSwap ? 'Choose a side with left and right, then press Space.' : 'Press Space to start.';
     if (this.dented) how = `It's ${this.dented > 1 ? 'critical' : 'open'}: ${this.dented === 1 ? 'one pulser' : `${this.dented} pulsers`} short. ${how}`;
     if (this.late) how = `It's ${this.late}, so it starts late. ${how}`;
-    if (this.callout) this.game.announce(`${this.title}. ${this.callout.title}. ${this.callout.line} ${how}`);
+    if (this.guide) this.game.announce(`${this.title}. ${this.speak(this.sign)}`);
+    else if (this.callout) this.game.announce(`${this.title}. ${this.callout.title}. ${this.callout.line} ${how}`);
     else this.game.announce(this.roundIndex === 0 ? `${this.title}. ${how}` : `Round ${this.roundIndex + 1}. ${how}`);
+  }
+
+  // The first hack's walk-through, a step at a time.
+  setGuide(step) {
+    this.guide = step;
+    this.guideT = 0;
+    const S = {
+      wires: { title: 'These are your wires', sub: 'Each one runs to a cell in the middle', keys: '{grapple} Next', at: 'right', focus: 'wires' },
+      pick: { title: 'Pick a wire {up} {down}', sub: 'Try one that runs to their colour', at: 'right', focus: 'cursor' },
+      fire: { title: 'Fire it {grapple}', sub: 'A pulse runs down it to the cell', at: 'right', focus: 'cursor' },
+      yours: { title: 'That cell is yours', sub: 'Until they take it back', at: 'right', focus: 'cell' },
+      go: { title: 'Now take more before the clock runs out', sub: 'Whoever has more cells at zero wins', at: 'top', focus: 'clock' },
+    };
+    this.sign = S[step] || null;
+    if (this.sign && step !== 'wires') this.game.announce(this.speak(this.sign));
+  }
+
+  // A sign's words for a screen reader, with the keys named.
+  speak(sg) {
+    const pad = this.game.input.lastDevice === 'pad';
+    const k = { grapple: pad ? 'A' : 'Space', up: 'up', down: 'down', left: 'left', right: 'right' };
+    const say = (t) => t.replace(/\{(\w+)\}/g, (m, w) => k[w] || w);
+    return `${say(sg.title)}. ${sg.sub ? `${say(sg.sub)}. ` : ''}${sg.keys ? say(sg.keys) : ''}`.trim();
   }
 
   begin() {
@@ -117,6 +155,12 @@ export class HackSession {
     const skill = Math.min(hackSkill(s.cls), L ? L.skill : 1);
     this.ai = new HackAI(this.round, es, skill, { delay });
     this.phase = 'play';
+    // the walk-through points the cursor at one of their cells to start with
+    if (this.guide) {
+      const theirs = this.board.cells.findIndex((c) => c.owner === es);
+      if (theirs >= 0) this.cursor = theirs;
+      this.setGuide('pick');
+    }
     this.updatePreview();
     g.audio.play('hackStart');
     this.lead = 0;
@@ -153,6 +197,15 @@ export class HackSession {
     }
     this.introT += dt;
     if (this.phase === 'choose') {
+      // a new lesson's big sign is read first; the clock waits for it
+      if (this.sign && !this.guide) {
+        if (input.hit('grapple') || input.hit('arm') || input.hit('confirm')) {
+          audio.play('uiSelect');
+          this.sign = null;
+          if (!this.canSwap) this.begin();
+        }
+        return;
+      }
       if (this.canSwap && input.hit('left') && this.playerSide !== 0) { this.playerSide = 0; audio.play('uiMove'); }
       if (this.canSwap && input.hit('right') && this.playerSide !== 1) { this.playerSide = 1; audio.play('uiMove'); }
       this.chooseT -= dt;
@@ -161,10 +214,11 @@ export class HackSession {
     }
     if (this.phase === 'play') {
       const R = this.round;
-      if (input.hit('up')) { this.cursor = (this.cursor + R.rows - 1) % R.rows; this.updatePreview(); audio.play('uiMove'); }
-      if (input.hit('down')) { this.cursor = (this.cursor + 1) % R.rows; this.updatePreview(); audio.play('uiMove'); }
+      if (input.hit('up')) { this.cursor = (this.cursor + R.rows - 1) % R.rows; this.updatePreview(); audio.play('uiMove'); if (this.guide === 'pick') this.setGuide('fire'); }
+      if (input.hit('down')) { this.cursor = (this.cursor + 1) % R.rows; this.updatePreview(); audio.play('uiMove'); if (this.guide === 'pick') this.setGuide('fire'); }
       if (input.hit('grapple') || input.hit('arm')) {
         if (R.fire(this.playerSide, this.cursor)) {
+          if (this.guide === 'pick' || this.guide === 'fire') { this.guide = 'wait'; this.guideT = 0; this.guideRow = this.cursor; }
           audio.play('pulse', { pitch: 1 + (R.rows - this.cursor) * 0.03 });
           const left = R.pulsers[this.playerSide];
           if (left === 0 && !this.toldEmpty) {
@@ -179,7 +233,11 @@ export class HackSession {
           this.game.announce('No pulses left.');
         } else audio.play('empty');
       }
-      this.ai.update(dt);
+      // the walk-through holds the clock and the opponent until you've seen
+      // your first cell change hands
+      const held = this.guide && this.guide !== 'go';
+      if (this.guide) this.stepGuide(dt);
+      if (held) R.timer += dt; else this.ai.update(dt);
       R.update(dt);
       for (const e of R.drainEvents()) {
         if (e.type === 'fire' && e.side !== this.playerSide) audio.play('pulse', { pitch: 0.7 });
@@ -206,6 +264,23 @@ export class HackSession {
     }
   }
 
+  stepGuide(dt) {
+    this.guideT += dt;
+    const R = this.round, ps = this.playerSide;
+    if (this.guide === 'wait' && this.guideT > R.travel[ps] + 0.15) {
+      const cells = pathOf(this.board.sides[ps], this.guideRow).cells;
+      this.guideCell = cells.length ? cells[0] : this.guideRow;
+      if (this.board.cells[this.guideCell] && this.board.cells[this.guideCell].owner === ps) this.setGuide('yours');
+      else if (this.guideT > 2) this.setGuide('go');
+    } else if (this.guide === 'yours' && this.guideT > 2.4) {
+      this.setGuide('go');
+    } else if (this.guide === 'go' && this.guideT > 3) {
+      this.guide = null; this.sign = null;
+      this.game.meta.taught = this.game.meta.taught || {};
+      this.game.meta.taught.hack = true;
+    }
+  }
+
   endRound() {
     const R = this.round;
     const ps = this.playerSide;
@@ -219,7 +294,7 @@ export class HackSession {
     const finalRound = this.roundWon !== -1 && (this.roundsTotal === 1 || this.wins[0] * 2 > this.roundsTotal || this.wins[1] * 2 > this.roundsTotal);
     if (this.roundWon === -1) { this.resultTitle = 'Deadlock'; this.resultLine = `${you} each. Rewiring for another go.`; }
     else if (this.roundWon === 1) { this.resultTitle = finalRound ? 'Access granted' : 'Round to you'; this.resultLine = `${you} cells to ${them}`; }
-    else { this.resultTitle = finalRound ? 'Rejected' : 'Round to them'; this.resultLine = `${you} cells to ${them}`; }
+    else { this.resultTitle = finalRound ? 'Rejected' : 'Round to them'; this.resultLine = `${you} cells to ${them}${finalRound && this.game.inInduction ? ' · no harm done: hack it again' : ''}`; }
     this.finalRound = finalRound;
     this.game.audio.play(this.roundWon === 1 ? 'hackWin' : this.roundWon === 0 ? 'hackLose' : 'deadlock');
     this.game.announce(`${this.resultTitle}. ${this.resultLine}.`);
