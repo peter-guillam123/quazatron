@@ -112,7 +112,8 @@ export class HackView {
     this.drawFuse(L, tf);
     if (s.phase === 'play') this.drawClock(L, R.timer - R.time, tf);
 
-    if (s.callout) this.drawCallout(s, L);
+    // the line along the top, once its big sign has been read
+    if (s.callout && !s.sign) this.drawCallout(s, L);
 
     // ---- the selected wire's path, worked out fresh each frame as locks light
     const ghost = s.phase === 'play' && s.cursor != null ? pathOf(B.sides[s.playerSide], s.cursor) : null;
@@ -242,8 +243,99 @@ export class HackView {
 
     // ---- phase overlays
     if (s.phase === 'choose') this.drawChoose(s, L, colour);
+    if (s.sign && s.phase !== 'result') this.drawSign(s, L);
     if (s.phase === 'result') this.drawResult(s, L);
     if (s.paused) this.drawPaused(s, L);
+  }
+
+  // A big sign, in the style of the floor signs: a new lesson before the
+  // board, or a step of the first hack's walk-through. Keys in braces become
+  // key caps. `at` says where: 'centre' over a dimmed board, 'right' over
+  // their wires (pointing at yours), 'top' between the header and the board.
+  drawSign(s, L) {
+    const ctx = this.ctx, sg = s.sign;
+    const pad = s.game.input.lastDevice === 'pad';
+    const K = { grapple: pad ? 'A' : 'Space', up: '↑', down: '↓', left: '←', right: '→' };
+    const runs = (t) => t.split(/(\{\w+\})/).filter(Boolean).map((p) => {
+      const m = p.match(/^\{(\w+)\}$/);
+      return m ? { t: K[m[1]] || m[1], cap: true } : { t: p, cap: false };
+    });
+    const lines = [{ rs: runs(sg.title), font: '700 30px "Chakra Petch", sans-serif', kfont: '700 22px "Chakra Petch", sans-serif', h: 42, col: '#ffffff', glow: true }];
+    if (sg.sub) lines.push({ rs: runs(sg.sub), font: '500 16px "IBM Plex Mono", monospace', kfont: '700 14px "Chakra Petch", sans-serif', h: 26, col: '#a9f6ff' });
+    if (sg.keys) lines.push({ rs: runs(sg.keys), font: '600 17px "IBM Plex Mono", monospace', kfont: '700 20px "Chakra Petch", sans-serif', h: 46, col: '#e8edf5' });
+    const widthOf = (ln) => ln.rs.reduce((w, r) => { ctx.font = r.cap ? ln.kfont : ln.font; return w + ctx.measureText(r.t).width + (r.cap ? 26 : 0); }, 0);
+    let bw = Math.max(320, ...lines.map(widthOf)) + 60;
+    const bh = lines.reduce((h, ln) => h + ln.h, 0) + 26;
+    // on the right it keeps clear of the cells in the middle, shrinking if it must
+    const left = L.cx + L.cw / 2 + 28, room = sg.at === 'right' ? L.x + L.W - 22 - left : L.W - 60;
+    const fit = Math.min(1, room / bw);
+    let cx = L.cx, cy;
+    if (sg.at === 'right') { cx = left + Math.min(room, bw * fit) / 2 + Math.max(0, room - bw * fit) / 2; cy = L.boardY + L.boardH / 2; }
+    else if (sg.at === 'top') cy = Math.max(L.y + 96 + bh / 2, (L.y + 94 + L.boardY) / 2);
+    else {
+      cy = L.boardY + L.boardH / 2;
+      // the board waits, dimmed, behind a new lesson's sign
+      ctx.save();
+      ctx.fillStyle = 'rgba(5,7,12,0.62)';
+      roundRect(ctx, L.x + 8, L.boardY - 14, L.W - 16, L.boardH + 28, 12); ctx.fill();
+      ctx.restore();
+    }
+    const k = this.reduced ? 1 : 0.75 + Math.sin(this.t * 3) * 0.25;
+    ctx.save();
+    // what the sign is about, picked out on the board
+    const rowY = (r) => L.boardY + r * L.rowH + L.rowH / 2;
+    const portX = s.playerSide === 0 ? L.x + 34 : 2 * L.cx - (L.x + 34);
+    if (sg.focus === 'cursor' && s.cursor != null) this.spotlight(portX, rowY(s.cursor), 16);
+    if (sg.focus === 'cell' && s.guideCell != null) this.spotlight(L.cx, rowY(s.guideCell), Math.min(L.rowH * 0.6, 36));
+    if (sg.focus === 'clock') this.spotlight(L.cx, L.y + 74, 24);
+    if (fit < 1) { ctx.translate(cx, cy); ctx.scale(fit, fit); ctx.translate(-cx, -cy); }
+    const bx = cx - bw / 2, by = cy - bh / 2;
+    // the panel
+    ctx.fillStyle = 'rgba(4,8,14,0.93)';
+    roundRect(ctx, bx, by, bw, bh, 16); ctx.fill();
+    ctx.strokeStyle = `rgba(46,242,255,${0.65 + 0.3 * k})`; ctx.lineWidth = 2;
+    ctx.shadowColor = '#2ef2ff'; ctx.shadowBlur = 22 * k;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // a pointer: left towards your wires, or up to the clock
+    ctx.fillStyle = '#2ef2ff';
+    if (sg.at === 'right') {
+      const ax = bx - 4 - (this.reduced ? 0 : Math.sin(this.t * 5) * 4);
+      ctx.beginPath(); ctx.moveTo(ax, cy - 12); ctx.lineTo(ax - 16, cy); ctx.lineTo(ax, cy + 12); ctx.closePath(); ctx.fill();
+    } else if (sg.at === 'top' && sg.focus === 'clock') {
+      ctx.beginPath(); ctx.moveTo(cx - 11, by - 3); ctx.lineTo(cx, by - 16); ctx.lineTo(cx + 11, by - 3); ctx.closePath(); ctx.fill();
+    }
+    // the words, and the keys as caps
+    let y = by + 13;
+    ctx.textBaseline = 'middle';
+    for (const ln of lines) {
+      const ws = ln.rs.map((r) => { ctx.font = r.cap ? ln.kfont : ln.font; return ctx.measureText(r.t).width + (r.cap ? 26 : 0); });
+      let x = cx - ws.reduce((a, b) => a + b, 0) / 2;
+      const my = y + ln.h / 2;
+      ln.rs.forEach((r, i) => {
+        if (r.cap) {
+          ctx.font = ln.kfont;
+          const ch = ln.h * 0.72;
+          ctx.fillStyle = '#2ef2ff';
+          ctx.shadowColor = '#2ef2ff'; ctx.shadowBlur = ln === lines[0] || ln.h > 40 ? 12 * k : 0;
+          roundRect(ctx, x + 2, my - ch / 2, ws[i] - 4, ch, 7); ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#021014';
+          ctx.textAlign = 'center';
+          ctx.fillText(r.t, x + ws[i] / 2, my + 1);
+        } else {
+          ctx.font = ln.font;
+          ctx.fillStyle = ln.col;
+          ctx.textAlign = 'left';
+          if (ln.glow) { ctx.shadowColor = '#2ef2ff'; ctx.shadowBlur = 14; }
+          ctx.fillText(r.t, x, my + 1);
+          ctx.shadowBlur = 0;
+        }
+        x += ws[i];
+      });
+      y += ln.h;
+    }
+    ctx.restore();
   }
 
   // The board itself: dark substrate, faint etched traces and vias, drawn

@@ -962,10 +962,10 @@ export class Game {
         if (t.kind === 'turret') this.toast('The turret works for you now.');
       }
     } else {
-      // your old firewall takes the burn
-      const dmg = this.hasRelic('firewall') ? 0 : 6 + (session.spec.cls || 100) / 60;
+      // your old firewall takes the burn; in the induction nothing does
+      const dmg = this.hasRelic('firewall') || this.inInduction ? 0 : 6 + (session.spec.cls || 100) / 60;
       if (dmg) p.damage(dmg, { force: true, kind: 'feedback' });
-      else this.toast('Your old firewall took the burn.');
+      else if (!this.inInduction) this.toast('Your old firewall took the burn.');
       this.renderer.flash('#ff3030', 0.3);
       this.renderer.addShake(0.4);
       if (t.kind === 'droid') {
@@ -974,7 +974,8 @@ export class Game {
         t.graceT = 2.5;
         if (t.brain) t.brain.provoke();
         t.model.cheer();
-        this.toast('Rejected. Feedback surge.');
+        if (this.inInduction) this.announce('Rejected. No harm done: hack it again.');
+        else this.toast('Rejected. Feedback surge.');
         setTimeout(() => this.say(t, 'rejected', true), 250);
       } else {
         t.onHackLose();
