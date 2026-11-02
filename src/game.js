@@ -32,6 +32,7 @@ import { MemoryPlayer } from './memory.js';
 import { BOSSES, RELICS, RELIC_ORDER, relicsLeft } from './story/relics.js';
 import { frontPage } from './story/gazette.js';
 import { Photographer, halftone } from './render/photo.js';
+import { saveIssue } from './issues.js';
 import { today, prettyDate, dailySeed, shareText, shareSummary } from './daily.js';
 
 const CYAN = new THREE.Color(PLAYER_COLOUR);
@@ -2093,7 +2094,7 @@ export class Game {
     document.getElementById('gz-date').textContent = prettyDate(today());
     document.getElementById('gz-weather').textContent = page.weather;
     document.getElementById('gz-classified').textContent = page.classified;
-    // the photographs
+    // the photographs, then the issue filed for the archive's back issues
     const deckName = this.world ? this.world.deck.name : '';
     const issue = {
       at: Date.now(), date: prettyDate(today()), edition: r.daily ? 'Today\'s tower edition' : page.edition,
@@ -2104,6 +2105,7 @@ export class Game {
     const file = (shot) => {
       if (shot) { issue.photo = shot.url; issue.cap = shot.cap; }
       this.fillPhotos(issue);
+      saveIssue(issue);
     };
     if (r.photo) file(r.photo);
     else if (this.deathShot || this.deathInFlight) {

@@ -13,6 +13,8 @@ import { GUIDE, DROIDS, PEOPLE, BIOS, COMPLETE, tier, quotes, specs, decksFor, h
 import { dataFor } from './progress.js';
 import { MEMORIES } from './story/memories.js';
 import { DECKS } from './config.js';
+import { loadIssues } from './issues.js';
+import { halftone } from './render/photo.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
@@ -43,11 +45,14 @@ export class Archive {
     this.ui.show('archive', { push: !!this.ui.screen, focus: '[aria-selected="true"]' });
     this.pending = DROIDS.filter((k) => !thumbs.has(this.thumbKey(k)));
     const start = [...DROIDS, ...PEOPLE, ...Object.keys(MEMORIES).map((n) => `mem-${n}`)].find((k) => this.isNew(k)) || this.last || DROIDS[0];
-    this.book.fill([
+    this.issues = loadIssues();
+    const groups = [
       { title: 'Droids', items: DROIDS.map((k) => this.droidTab(k)) },
       { title: 'People', items: PEOPLE.map((k) => this.personTab(k)) },
       { title: 'Memories', items: Object.keys(MEMORIES).map((n) => this.memoryTab(+n)) },
-    ], (k) => this.page(k), start);
+    ];
+    if (this.issues.length) groups.push({ title: 'Back issues', items: this.issues.map((iss, i) => this.issueTab(iss, i)) });
+    this.book.fill(groups, (k) => this.page(k), start);
     this.loop();
   }
 
@@ -57,6 +62,7 @@ export class Archive {
   // than when you last looked, the page is marked new.
   stamp(k) {
     const m = this.meta;
+    if (k.startsWith('issue-')) return 0;
     if (k.startsWith('mem-')) return (m.memories || {})[k.slice(4)] ? 1 : 0;
     if (FAMILIES[k] && !FAMILIES[k].rival) return tier(m, k);
     if (!met(m, k)) return 0;
@@ -116,6 +122,30 @@ export class Archive {
     };
   }
 
+  // Back issues of the Tower Gazette: how your last ten runs ended.
+  issueTab(iss, i) {
+    return {
+      key: `issue-${i}`, label: iss.head, sub: `${iss.date} · ${iss.won ? 'the roof' : iss.deckName || `deck ${iss.deck}`}`,
+      thumb: iss.photo ? `<img src="${iss.photo}" alt="" width="48" height="48" class="issue-thumb">` : '<span class="ch-no">G</span>',
+      aria: `Back issue, ${iss.date}: ${iss.head}.`,
+    };
+  }
+
+  issuePage(i) {
+    const iss = this.issues[i];
+    if (!iss) return '';
+    const fig = (url, cap, cls, credit) => (url ? `<figure class="${cls}"><img data-halftone="${cls}" alt="${esc(cap ? `Photograph: ${cap}` : 'Photograph')}"><figcaption aria-hidden="true">${esc(cap || '')}${credit ? ' <span class="gz-credit">Photograph: Static</span>' : ''}</figcaption></figure>` : '');
+    return `<div class="clipping">
+      <p class="clip-ears"><span>${esc(iss.edition || '')}</span><span>${esc(iss.date)}</span></p>
+      <p class="clip-title">The Tower Gazette</p>
+      <h3 class="clip-head">${esc(iss.head)}</h3>
+      <p class="clip-stand">${esc(iss.stand)}</p>
+      ${fig(iss.photo, iss.cap, 'clip-photo', true)}
+      ${iss.lead ? `<p class="clip-lead">${esc(iss.lead)}</p>` : ''}
+      ${iss.also ? `<p class="clip-also-h">Also in this issue</p>${fig(iss.also, iss.alsoCap, 'clip-also', false)}` : ''}
+    </div>`;
+  }
+
   // A memory you've got back, written out as it played.
   memoryPage(n) {
     const mem = MEMORIES[n], ok = !!(this.meta.memories || {})[n], i = Object.keys(MEMORIES).indexOf(String(n)) + 1;
@@ -134,6 +164,7 @@ export class Archive {
 
   page(k) {
     if (k.startsWith('mem-')) return this.memoryPage(+k.slice(4));
+    if (k.startsWith('issue-')) return this.issuePage(+k.slice(6));
     return FAMILIES[k] && !FAMILIES[k].rival ? this.droidPage(k) : this.personPage(k);
   }
 
@@ -251,6 +282,16 @@ export class Archive {
 
   onTurn(k, page) {
     this.last = k;
+    // a back issue's photographs, printed as they were on the day
+    if (k.startsWith('issue-')) {
+      const iss = this.issues[+k.slice(6)];
+      for (const img of page.querySelectorAll('img[data-halftone]')) {
+        const main = img.dataset.halftone === 'clip-photo';
+        const url = main ? iss.photo : iss.also;
+        halftone(url, main ? {} : { cell: 4.6 }).then((src) => { if (this.book.current === k) img.src = src || url; });
+      }
+      return;
+    }
     const s = this.stamp(k);
     if (s > (this.meta.read[k] || 0)) {
       this.meta.read[k] = s;
